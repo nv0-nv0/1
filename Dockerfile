@@ -1,7 +1,8 @@
-FROM python:3.13-slim
+FROM python:3.12-slim
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
+    PYTHONPATH=/app/runtime_vendor \
     PORT=8000 \
     NV0_DATA_DIR=/app/data \
     NV0_ENABLE_DOCS=0

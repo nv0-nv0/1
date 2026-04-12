@@ -64,7 +64,7 @@ def home_page(data: dict) -> str:
             <h1>{escape(brand['hero_title'])}</h1>
             <p class="lead">{escape(brand['hero_description'])}</p>
             <div class="actions">
-              <a class="button" href="./board/index.html">자동발행게시판 보기</a>
+              <a class="button" href="./board/index.html">AI 블로그 허브 보기</a>
               <a class="button secondary" href="./admin/index.html">관리자 열기</a>
               <a class="button ghost" href="./legal/privacy/index.html">개인정보처리방침</a>
             </div>
@@ -94,8 +94,8 @@ def home_page(data: dict) -> str:
 
 def board_page(data: dict) -> str:
     brand = data['brand']
-    return doc(brand, f"자동발행게시판 | {brand['name']}", 'CTA 포스팅 자동발행 게시판', 'board', dedent(f'''
-    <main><section class="section"><div class="container page-hero"><div class="card strong"><div class="crumbs"><a href="../index.html">HOME</a><span class="sep">/</span><span>자동발행게시판</span></div><span class="kicker">CTA board</span><h1>CTA 포스팅 자동발행 전용 게시판</h1><p class="lead">제품 소개나 결제 페이지 대신, 검색 유입을 바로 CTA 포스팅으로 연결하는 글만 주기적으로 발행합니다. 각 글은 바로 문의할 수 있는 CTA 버튼으로 끝납니다.</p><div class="actions"><a class="button" href="../index.html">홈으로</a><a class="button secondary" href="../admin/index.html">관리자 열기</a><a class="button ghost" href="mailto:{escape(brand['contact_email'])}">운영 문의</a></div></div><div class="card accent"><span class="tag" style="background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.12);color:#fff">운영 범위</span><h3 style="font-size:1.72rem;margin:16px 0 10px">자동발행 · 재시드 · 즉시 발행 · 백업 복구</h3><p>공개 운영은 게시판 중심으로만 유지하고, 다른 제품 흐름은 사이트에서 직접 노출하지 않습니다.</p></div></div></section><section class="section compact"><div class="container"><div class="board-grid" id="public-board-grid"></div><div id="public-post-detail"></div></div></section></main>
+    return doc(brand, f"AI 자동발행 블로그 허브 | {brand['name']}", 'AI 자동발행 블로그 허브', 'board', dedent(f'''
+    <main><section class="section"><div class="container page-hero"><div class="card strong"><div class="crumbs"><a href="../index.html">HOME</a><span class="sep">/</span><span>AI 자동발행 블로그 허브</span></div><span class="kicker">AI blog board</span><h1>AI 자동발행 블로그 허브</h1><p class="lead">제품 소개와 전환 페이지로 자연스럽게 이어지는 AI 자동발행 블로그 글을 주기적으로 발행합니다. 각 글은 제품 상세, 데모, 문의 CTA와 함께 끝납니다.</p><div class="actions"><a class="button" href="../index.html">홈으로</a><a class="button secondary" href="../admin/index.html">관리자 열기</a><a class="button ghost" href="mailto:{escape(brand['contact_email'])}">운영 문의</a></div></div><div class="card accent"><span class="tag" style="background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.12);color:#fff">운영 범위</span><h3 style="font-size:1.72rem;margin:16px 0 10px">자동발행 · 재시드 · 즉시 발행 · 백업 복구</h3><p>공개 운영은 블로그 허브 중심으로 유지하고, 필요한 경우에만 관리자에서 발행과 복구를 제어합니다.</p></div></div></section><section class="section compact"><div class="container"><div class="board-grid" id="public-board-grid"></div><div id="public-post-detail"></div></div></section></main>
     '''), depth=1, page_key='board', page_path='/board/index.html')
 
 
@@ -109,7 +109,7 @@ def admin_page(data: dict) -> str:
 def privacy_page(data: dict) -> str:
     brand = data['brand']
     return doc(brand, f"개인정보처리방침 | {brand['name']}", '개인정보 처리방침', 'legal', dedent(f'''
-    <main><section class="section"><div class="container page-hero"><div class="card strong"><div class="crumbs"><a href="../../index.html">HOME</a><span class="sep">/</span><span>개인정보처리방침</span></div><h1>개인정보처리방침</h1><p class="lead">현재 사이트는 CTA 포스팅 자동발행 게시판 운영에 필요한 최소 정보만 처리합니다. 관리자 토큰, 게시판 발행 로그, 백업 파일은 운영 목적으로만 사용합니다.</p><div class="kv"><div class="row"><strong>문의 이메일</strong><span>{escape(brand.get('contact_email', ''))}</span></div><div class="row"><strong>주요 처리 목적</strong><span>게시판 운영, 관리자 작업, 백업 복구, 보안 점검</span></div><div class="row"><strong>기본 보관 원칙</strong><span>운영 목적 달성 후 지체 없이 파기, 법령상 보존 의무 시 별도 분리 보관</span></div></div></div></div></section></main>
+    <main><section class="section"><div class="container page-hero"><div class="card strong"><div class="crumbs"><a href="../../index.html">HOME</a><span class="sep">/</span><span>개인정보처리방침</span></div><h1>개인정보처리방침</h1><p class="lead">현재 사이트는 AI 자동발행 블로그 허브 운영에 필요한 최소 정보만 처리합니다. 관리자 토큰, 게시판 발행 로그, 백업 파일은 운영 목적으로만 사용합니다.</p><div class="kv"><div class="row"><strong>문의 이메일</strong><span>{escape(brand.get('contact_email', ''))}</span></div><div class="row"><strong>주요 처리 목적</strong><span>게시판 운영, 관리자 작업, 백업 복구, 보안 점검</span></div><div class="row"><strong>기본 보관 원칙</strong><span>운영 목적 달성 후 지체 없이 파기, 법령상 보존 의무 시 별도 분리 보관</span></div></div></div></div></section></main>
     '''), depth=2, page_key='privacy', page_path='/legal/privacy/index.html')
 
 

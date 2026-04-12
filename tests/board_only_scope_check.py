@@ -10,7 +10,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 ALLOWED_TOP_LEVEL_DIRS = {'assets', 'admin', 'board', 'legal', '.well-known'}
-ALLOWED_ROOT_FILES = {'index.html', 'robots.txt', 'sitemap.xml'}
+ALLOWED_ROOT_FILES = {'index.html', 'robots.txt', 'sitemap.xml', 'favicon.ico'}
 ALLOWED_HTML = {
     'index.html',
     'board/index.html',

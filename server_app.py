@@ -19,6 +19,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 from urllib.parse import urlparse
+from html import escape
 from uuid import uuid4
 
 from fastapi import Depends, FastAPI, Header, HTTPException, Request, Response
@@ -54,7 +55,18 @@ NV0_TOSS_WEBHOOK_SECRET = os.getenv("NV0_TOSS_WEBHOOK_SECRET", "")
 TOSS_CONFIRM_URL = os.getenv("NV0_TOSS_CONFIRM_URL", "https://api.tosspayments.com/v1/payments/confirm")
 SUCCESS_PATH = "/payments/toss/success/"
 FAIL_PATH = "/payments/toss/fail/"
-LOCAL_HOSTS = {"127.0.0.1", "localhost", "0.0.0.0"}
+LOCAL_HOSTS = {"127.0.0.1", "localhost", "0.0.0.0", "::1"}
+
+
+def parse_internal_hosts() -> set[str]:
+    explicit = os.getenv("NV0_INTERNAL_HOSTS", "").strip()
+    hosts = {item.strip().lower() for item in explicit.split(',') if item.strip()}
+    hosts.update(LOCAL_HOSTS)
+    return hosts
+
+
+INTERNAL_HOSTS = parse_internal_hosts()
+HEALTH_ENDPOINTS = {"/health", "/healthz", "/live", "/livez", "/ready", "/readyz", "/api/health", "/api/admin/health"}
 
 
 def parse_allowed_hosts() -> list[str]:
@@ -63,17 +75,18 @@ def parse_allowed_hosts() -> list[str]:
     base_host = urlparse(NV0_BASE_URL).hostname
     if base_host:
         candidates.append(base_host.lower())
+    candidates.extend(sorted(INTERNAL_HOSTS))
     if explicit:
         candidates.extend(item.strip().lower() for item in explicit.split(",") if item.strip())
     elif (base_host or "").lower() in LOCAL_HOSTS:
-        candidates.extend(sorted(LOCAL_HOSTS))
+        candidates.extend(sorted(INTERNAL_HOSTS))
     seen: set[str] = set()
     ordered: list[str] = []
     for item in candidates:
         if item and item not in seen:
             seen.add(item)
             ordered.append(item)
-    return ordered or ["127.0.0.1", "localhost"]
+    return ordered or ["127.0.0.1", "localhost", "::1"]
 
 
 ALLOWED_HOSTS = parse_allowed_hosts()
@@ -85,13 +98,16 @@ BACKUP_DIR = Path(os.getenv("NV0_BACKUP_DIR", str(APP_DATA_DIR / "backups")))
 BACKUP_DIR.mkdir(parents=True, exist_ok=True)
 HSTS_ENABLED = os.getenv("NV0_HSTS_ENABLED", "1").lower() in {"1", "true", "yes", "on"}
 PUBLIC_HEALTH_VERBOSE = os.getenv("NV0_PUBLIC_HEALTH_VERBOSE", "0").lower() in {"1", "true", "yes", "on"}
-ENFORCE_CANONICAL_HOST = os.getenv("NV0_ENFORCE_CANONICAL_HOST", "0").lower() in {"1", "true", "yes", "on"}
-CANONICAL_HOST = (os.getenv("NV0_CANONICAL_HOST", urlparse(NV0_BASE_URL).hostname or "") or "").strip().lower()
+_CANONICAL_HOST_ENV = os.getenv("NV0_CANONICAL_HOST", "").strip().lower()
+_BASE_URL_HOST = (urlparse(NV0_BASE_URL).hostname or "").strip().lower()
+CANONICAL_HOST = _CANONICAL_HOST_ENV or _BASE_URL_HOST
+_CANONICAL_DEFAULT = "1" if CANONICAL_HOST and CANONICAL_HOST not in LOCAL_HOSTS else "0"
+ENFORCE_CANONICAL_HOST = os.getenv("NV0_ENFORCE_CANONICAL_HOST", _CANONICAL_DEFAULT).lower() in {"1", "true", "yes", "on"}
 CANONICAL_SCHEME = (os.getenv("NV0_CANONICAL_SCHEME", urlparse(NV0_BASE_URL).scheme or ("https" if HSTS_ENABLED else "http")) or "").strip().lower()
 PUBLIC_RATE_LIMIT_PER_MIN = max(10, int(os.getenv("NV0_PUBLIC_RATE_LIMIT_PER_MIN", "30") or "30"))
 ADMIN_RATE_LIMIT_PER_MIN = max(10, int(os.getenv("NV0_ADMIN_RATE_LIMIT_PER_MIN", "60") or "60"))
 PORTAL_RATE_LIMIT_PER_MIN = max(10, int(os.getenv("NV0_PORTAL_RATE_LIMIT_PER_MIN", "40") or "40"))
-MAX_BODY_BYTES = max(65536, int(os.getenv("NV0_MAX_BODY_BYTES", "262144") or "262144"))
+MAX_BODY_BYTES = max(262144, int(os.getenv("NV0_MAX_BODY_BYTES", "1048576") or "1048576"))
 BOARD_ONLY_MODE = os.getenv("NV0_BOARD_ONLY_MODE", "0").lower() in {"1", "true", "yes", "on"}
 BOARD_ONLY_ALLOWED_PUBLIC_PATHS = ("/", "/index.html", "/board", "/admin", "/legal/privacy", "/assets/", "/robots.txt", "/sitemap.xml", "/.well-known/", "/favicon.ico")
 BOARD_ONLY_DISABLED_API_PREFIXES = (
@@ -146,7 +162,7 @@ def board_only_html_response(path: str) -> HTMLResponse:
         "<!doctype html><html lang='ko'><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>"
         "<title>410 Gone</title><style>body{font-family:system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#0f172a;color:#e2e8f0;margin:0}"
         "main{max-width:760px;margin:8vh auto;padding:24px}.card{background:#111827;border:1px solid #334155;border-radius:20px;padding:24px}a{color:#93c5fd}</style></head>"
-        f"<body><main><div class='card'><h1>이 경로는 운영하지 않습니다</h1><p>현재 NV0는 CTA 포스팅 자동발행 게시판만 운영합니다.</p><p>요청 경로: <code>{path}</code></p><p><a href='/board/'>게시판으로 이동</a> · <a href='/admin/'>관리자 열기</a></p></div></main></body></html>"
+        f"<body><main><div class='card'><h1>이 경로는 운영하지 않습니다</h1><p>현재 NV0는 AI 자동발행 블로그 허브 중심으로 운영합니다.</p><p>요청 경로: <code>{path}</code></p><p><a href='/board/'>게시판으로 이동</a> · <a href='/admin/'>관리자 열기</a></p></div></main></body></html>"
     ))
 
 
@@ -248,7 +264,7 @@ def canonical_redirect_target(request: Request) -> str | None:
     forwarded_host = clean(request.headers.get('x-forwarded-host')).split(',')[0].strip()
     host_source = forwarded_host or clean(request.headers.get('host'))
     host_header = host_source.split(':')[0].lower()
-    if not host_header or host_header in LOCAL_HOSTS or host_header == CANONICAL_HOST:
+    if not host_header or host_header in INTERNAL_HOSTS or host_header == CANONICAL_HOST:
         return None
     target_path = request.url.path or '/'
     if request.url.query:
@@ -371,6 +387,8 @@ def get_db() -> sqlite3.Connection:
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA journal_mode=WAL")
     conn.execute("PRAGMA synchronous=NORMAL")
+    conn.execute("PRAGMA busy_timeout=5000")
+    conn.execute("PRAGMA temp_store=MEMORY")
     return conn
 
 
@@ -532,46 +550,163 @@ def build_result_pack(product_key: str, plan_name: str, company: str) -> dict[st
     }
 
 
+def article_slug(text: str) -> str:
+    cleaned = re.sub(r"[^a-z0-9가-힣]+", "-", clean(text).lower())
+    cleaned = re.sub(r"-+", "-", cleaned).strip("-")
+    return cleaned or uuid4().hex[:8]
+
+
+def compact_keywords(*values: str, limit: int = 6) -> list[str]:
+    seen: set[str] = set()
+    keywords: list[str] = []
+    stop = {"그리고", "하지만", "이렇게", "바로", "가장", "먼저", "위한", "있는", "하기", "으로", "에서", "에게", "입니다", "하기", "지금"}
+    for value in values:
+        for raw in re.split(r"[\s,/|·]+", clean(value)):
+            token = raw.strip("-·:,.!?()[]{}\"'")
+            if len(token) < 2 or token in stop:
+                continue
+            lowered = token.lower()
+            if lowered in seen:
+                continue
+            seen.add(lowered)
+            keywords.append(token)
+            if len(keywords) >= limit:
+                return keywords
+    return keywords
+
+
+def smooth_phrases(items: list[str], sep: str = " · ") -> str:
+    cleaned = [re.sub(r"[\s.]+$", "", clean(item)) for item in items if clean(item)]
+    return sep.join(cleaned[:3])
+
+
+def build_article_sections(target: dict[str, Any], *, title: str, summary: str, cta_label: str, company: str = "", plan: str = "", order_code: str = "", topic_summary: str = "") -> list[dict[str, str]]:
+    outputs = target.get("outputs") or []
+    values = target.get("value_points") or []
+    fit_for = target.get("fit_for") or []
+    workflow = target.get("workflow") or []
+    outputs_text = smooth_phrases(outputs) or "결과 자료"
+    value_text = smooth_phrases(values, sep=" / ") or target.get("summary", "")
+    fit_text = smooth_phrases(fit_for) or "실무 팀"
+    workflow_text = smooth_phrases(workflow, sep=" → ") or "요청 정리 → 자동 초안 → 결과 확인"
+    proof = f"조회 코드 {order_code}로 결과와 공개 글을 함께 확인할 수 있습니다." if order_code else "무료 샘플과 데모 코드부터 확인한 뒤 시작 여부를 결정하실 수 있습니다."
+    audience = company or "운영팀"
+    plan_line = f"{plan} 플랜 기준으로 " if plan else ""
+    focus = clean(title or topic_summary or target.get("summary", ""))
+    return [
+        {
+            "heading": "이런 팀이라면 먼저 읽어보세요",
+            "body": f"{summary} 특히 {audience}처럼 적은 인원으로 반복 업무를 줄이고 싶은 팀에 잘 맞습니다. 이 글에서는 {focus}을 중심으로 어떤 지점부터 손보면 좋은지 차분하게 정리합니다.",
+        },
+        {
+            "heading": "왜 기존 방식이 자꾸 막히는지",
+            "body": f"문제는 업무량보다 매번 설명이 달라지고 기준이 흩어져 있다는 점입니다. 같은 요청도 사람마다 표현이 달라지면 검토, 보완, 전달이 길어지고 결국 다음 행동이 느려집니다. {target.get('problem', target.get('summary', ''))}",
+        },
+        {
+            "heading": f"{target.get('name')}이 실제로 줄여주는 일",
+            "body": f"{plan_line}{target.get('name')}은 {value_text} 같은 핵심 작업을 더 짧은 흐름으로 정리합니다. 결과적으로 {outputs_text}를 한 번에 준비하고, 제품 설명·문의·구매·결과 확인까지 같은 흐름으로 이어 주기 때문에 중간 설명 비용이 줄어듭니다.",
+        },
+        {
+            "heading": "도입 전에 확인하면 좋은 기준",
+            "body": f"누가 요청을 넣는지, 어떤 기준으로 검토하는지, 결과물을 어디서 확인하는지 세 가지만 먼저 정해도 시작이 훨씬 쉬워집니다. NV0 안에서는 {workflow_text} 흐름으로 이 기준을 한 줄로 맞춰 둘 수 있습니다.",
+        },
+        {
+            "heading": "이렇게 시작하면 가장 부담이 적습니다",
+            "body": f"처음부터 큰 전환을 하기보다 가장 자주 반복되는 한 가지 업무를 골라 무료 샘플과 데모 코드부터 확인해 보세요. {fit_text}처럼 빠르게 비교가 필요한 팀이라면 작은 테스트만으로도 도입 판단이 빨라집니다. {proof}",
+        },
+        {
+            "heading": "다음 행동 안내",
+            "body": f"이 글이 지금 상황과 맞는다면 {cta_label} 버튼으로 제품 상세를 먼저 확인해 보세요. 가격, 샘플, 주문, 결제, 결과 확인까지 같은 흐름으로 이어지기 때문에 따로 헤매지 않고 바로 검토를 이어갈 수 있습니다.",
+        },
+    ]
+
+
+def render_article_html(target: dict[str, Any], *, summary: str, sections: list[dict[str, str]], keywords: list[str], cta_label: str) -> str:
+    chips = ''.join(f'<li>{escape(item)}</li>' for item in keywords)
+    section_html = ''.join(
+        f"<section><h4>{escape(item['heading'])}</h4><p>{escape(item['body'])}</p></section>"
+        for item in sections
+    )
+    outputs = ''.join(f'<li>{escape(item)}</li>' for item in (target.get('outputs') or [])[:4])
+    return (
+        f"<div class='article-shell'><p class='article-lead'>{escape(summary)}</p>"
+        f"<ul class='article-keywords'>{chips}</ul>"
+        f"<div class='article-sections'>{section_html}</div>"
+        f"<aside class='article-cta-box'><strong>{escape(target.get('name', 'NV0'))}으로 바로 이어서 검토할 수 있습니다</strong>"
+        f"<p>결과물 예시: {escape(', '.join((target.get('outputs') or [])[:3]) or '결과 자료')}</p>"
+        f"<ul class='clean article-output-list'>{outputs}</ul>"
+        f"<p>마음이 정리되면 {escape(cta_label)}로 바로 이어가 보세요.</p></aside></div>"
+    )
+
+
+def build_publication_payload(*, product_key: str, title: str, summary: str, source: str, code: str, created_at: str | None = None, cta_label: str | None = None, cta_href: str | None = None, order: dict[str, Any] | None = None, topic_summary: str = "", publication_id: str | None = None) -> dict[str, Any]:
+    target = PRODUCTS[product_key]
+    automation = target.get("board_automation") or {}
+    created = created_at or now_iso()
+    cta = cta_label or automation.get("cta_label") or "자세히 보고 시작하기"
+    href = cta_href or automation.get("cta_href") or f"/products/{product_key}/index.html#order"
+    company = clean((order or {}).get("company"))
+    plan = clean((order or {}).get("plan"))
+    order_code = clean((order or {}).get("code"))
+    sections = build_article_sections(target, title=title, summary=summary, cta_label=cta, company=company, plan=plan, order_code=order_code, topic_summary=topic_summary)
+    keywords = compact_keywords(target.get("name", ""), target.get("tag", ""), title, summary, *(target.get("board_topics") or []))
+    body = '\n\n'.join(f"{item['heading']}\n{item['body']}" for item in sections)
+    article_html = render_article_html(target, summary=summary, sections=sections, keywords=keywords, cta_label=cta)
+    return {
+        "id": publication_id or uid("pub"),
+        "product": product_key,
+        "productName": target.get("name"),
+        "title": title,
+        "summary": summary,
+        "body": body,
+        "bodyHtml": article_html,
+        "sections": sections,
+        "keywords": keywords,
+        "readMinutes": max(3, min(8, len(body) // 260 + 1)),
+        "slug": article_slug(f"{target.get('name','nv0')}-{title}"),
+        "format": "ai-hybrid-blog",
+        "status": "published",
+        "code": code,
+        "createdAt": created,
+        "updatedAt": created,
+        "source": source,
+        "ctaLabel": cta,
+        "ctaHref": href,
+        "topicSummary": topic_summary or summary,
+        **({"orderId": order.get("id")} if order and order.get("id") else {}),
+    }
+
+
 def create_publications_for_order(order: dict[str, Any], forced_ids: list[str] | None = None) -> list[dict[str, Any]]:
     target = PRODUCTS[order["product"]]
     topics = (target.get("board_topics") or [])[:2]
+    if not topics:
+        topics = [
+            f"{target['name']} 도입 전에 먼저 확인하면 좋은 기준",
+            f"{target['name']}으로 지금 줄일 수 있는 반복 작업",
+        ]
     forced_ids = forced_ids or []
     publications = []
     for idx, title in enumerate(topics):
         pub_id = forced_ids[idx] if idx < len(forced_ids) and forced_ids[idx] else uid("pub")
         if idx == 0:
-            pub_title = f"{target['name']} {order.get('company') or order.get('email') or '고객'} 맞춤 안내"
-            summary = f"{order.get('company') or order.get('email') or '고객'} 상황에 맞춰 {target['name']} {order['plan']} 플랜 결과 요약과 공개 글이 준비되었습니다."
-            body = (
-                f"{target['name']} / {order['plan']} / {order.get('company') or order.get('email') or '고객'}\n\n"
-                f"이 제품이 특히 도움이 되는 상황\n- {target.get('problem', '')}\n\n"
-                f"받아보실 자료\n" + "\n".join(f"- {item}" for item in target.get("outputs", [])) +
-                f"\n\n결과 확인 코드\n- {order['code']}"
-            )
+            pub_title = f"{target['name']} {order.get('company') or order.get('email') or '고객'} 맞춤 제안"
+            summary = f"{order.get('company') or order.get('email') or '고객'} 상황에 맞춰 {target['name']} {order['plan']} 플랜으로 바로 줄일 수 있는 일과 결과 자료를 블로그 형식으로 정리했습니다."
         else:
             pub_title = title
-            summary = f"{target.get('summary', '')} 조회 코드 {order['code']} 기준으로 함께 확인할 수 있는 안내 글입니다."
-            body = (
-                f"{title}\n\n조회 코드 {order['code']} 기준으로 함께 확인할 수 있는 안내 글입니다.\n\n이 제품으로 기대할 수 있는 점\n" +
-                "\n".join(f"- {item}" for item in target.get("value_points", []))
-            )
-        automation = target.get("board_automation") or {}
-        pub = {
-            "id": pub_id,
-            "product": order["product"],
-            "productName": target["name"],
-            "title": pub_title,
-            "summary": summary,
-            "body": body,
-            "code": order["code"],
-            "orderId": order["id"],
-            "status": "published",
-            "createdAt": now_iso(),
-            "updatedAt": now_iso(),
-            "source": "order-automation",
-            "ctaLabel": automation.get("cta_label") or "지금 구매하기",
-            "ctaHref": automation.get("cta_href") or f"/products/{order['product']}/index.html#order",
-        }
+            summary = f"{target.get('summary', '')} 조회 코드 {order['code']} 기준으로 함께 확인할 수 있는 AI 자동발행 안내 글입니다."
+        pub = build_publication_payload(
+            product_key=order["product"],
+            title=pub_title,
+            summary=summary,
+            source="order-automation",
+            code=order["code"],
+            cta_label=(target.get("board_automation") or {}).get("cta_label") or "지금 시작하기",
+            cta_href=(target.get("board_automation") or {}).get("cta_href") or f"/products/{order['product']}/index.html#order",
+            order=order,
+            topic_summary=title,
+            publication_id=pub_id,
+        )
         upsert_record("publications", pub)
         publications.append(pub)
     return publications
@@ -585,21 +720,18 @@ def ensure_seed_publications() -> None:
         created = now.replace(microsecond=0).isoformat()
         target = PRODUCTS[item["product"]]
         automation = target.get("board_automation") or {}
-        pub = {
-            "id": f"pubseed-{idx + 1}",
-            "product": item["product"],
-            "productName": product_name(item["product"]),
-            "title": item["title"],
-            "summary": item["summary"],
-            "body": f"{item['summary']}\n\n{product_name(item['product'])}를 처음 보는 분도 부담 없이 이해할 수 있도록 핵심만 먼저 정리한 안내 글입니다.",
-            "code": f"SEED-{idx + 1}",
-            "status": "published",
-            "createdAt": created,
-            "updatedAt": created,
-            "source": "seed",
-            "ctaLabel": automation.get("cta_label") or "제품 상세 보기",
-            "ctaHref": automation.get("cta_href") or f"/products/{item['product']}/index.html#order",
-        }
+        pub = build_publication_payload(
+            product_key=item["product"],
+            title=item["title"],
+            summary=item["summary"],
+            source="seed",
+            code=f"SEED-{idx + 1}",
+            created_at=created,
+            cta_label=automation.get("cta_label") or "자세히 보고 시작하기",
+            cta_href=automation.get("cta_href") or f"/products/{item['product']}/index.html#order",
+            topic_summary=item["summary"],
+            publication_id=f"pubseed-{idx + 1}",
+        )
         upsert_record("publications", pub)
 
 
@@ -630,21 +762,18 @@ def ensure_scheduled_publications() -> None:
             topic_index = int(state.get("topicIndex") or 0) % len(topics)
             topic = topics[topic_index]
             created = now_iso()
-            pub = {
-                "id": uid("pubsch"),
-                "product": key,
-                "productName": target.get("name"),
-                "title": topic.get("title") or f"{target.get('name')} 참고 글",
-                "summary": topic.get("summary") or target.get("summary", ""),
-                "body": f"{topic.get('title') or target.get('name')}\n\n{topic.get('summary') or target.get('summary', '')}\n\n관심이 생겼다면 {topic.get('ctaText') or automation.get('cta_label') or '지금 구매하기'}로 자연스럽게 이어가 보세요.",
-                "code": f"AUTO-{product_prefix(key)}-{topic_index + 1:03d}",
-                "status": "published",
-                "createdAt": created,
-                "updatedAt": created,
-                "source": "scheduled",
-                "ctaLabel": topic.get("ctaText") or automation.get("cta_label") or "지금 구매하기",
-                "ctaHref": automation.get("cta_href") or f"/products/{key}/index.html#order",
-            }
+            pub = build_publication_payload(
+                product_key=key,
+                title=topic.get("title") or f"{target.get('name')} 참고 글",
+                summary=topic.get("summary") or target.get("summary", ""),
+                source="scheduled",
+                code=f"AUTO-{product_prefix(key)}-{topic_index + 1:03d}",
+                created_at=created,
+                cta_label=topic.get("ctaText") or automation.get("cta_label") or "자세히 보고 시작하기",
+                cta_href=automation.get("cta_href") or f"/products/{key}/index.html#order",
+                topic_summary=topic.get("summary") or target.get("summary", ""),
+                publication_id=uid("pubsch"),
+            )
             upsert_record("publications", pub)
             state["lastPublishedAt"] = created
             state["topicIndex"] = (topic_index + 1) % len(topics)
@@ -695,6 +824,8 @@ def create_demo_entry(payload: dict[str, Any]) -> dict[str, Any]:
             "email": email,
             "team": clip_text(payload.get("team"), 120),
             "need": clip_text(payload.get("need"), 500),
+            "keywords": clip_text(payload.get("keywords"), 240),
+            "plan": clip_text(payload.get("plan"), 80),
             "createdAt": now_iso(),
             "updatedAt": now_iso(),
         }
@@ -706,6 +837,7 @@ def create_contact_entry(payload: dict[str, Any]) -> dict[str, Any]:
     product = clean(payload.get("product"))
     validate_product(product)
     company = clip_text(payload.get("company"), 160)
+    name = clip_text(payload.get("name"), 120)
     email = normalize_email(payload.get("email"))
     issue = clip_text(payload.get("issue"), 500)
     if not company or not issue or not validate_email(email):
@@ -719,6 +851,7 @@ def create_contact_entry(payload: dict[str, Any]) -> dict[str, Any]:
             "product": product,
             "productName": product_name(product),
             "company": company,
+            "name": name,
             "email": email,
             "issue": issue,
             "createdAt": now_iso(),
@@ -733,6 +866,8 @@ def create_lookup_entry(payload: dict[str, Any]) -> dict[str, Any]:
     code = normalize_code(payload.get("code"))
     if not validate_email(email):
         raise HTTPException(status_code=400, detail="결과 확인용 이메일 형식이 올바르지 않습니다.")
+    if not code:
+        raise HTTPException(status_code=400, detail="조회 코드를 입력해 주세요.")
     if payload.get("id"):
         entry = deepcopy(payload)
         entry.setdefault("createdAt", now_iso())
@@ -834,6 +969,52 @@ def require_admin(
         token = clean(authorization.split(" ", 1)[1])
     if not token or not secrets.compare_digest(token, NV0_ADMIN_TOKEN):
         raise HTTPException(status_code=401, detail="관리자 토큰이 필요합니다.")
+
+
+def _health_dependency_snapshot(*, verbose: bool = False) -> dict[str, Any]:
+    checks = {
+        'distReady': DIST.joinpath('index.html').exists(),
+        'dbExists': DB_PATH.exists(),
+        'dbParentWritable': os.access(DB_PATH.parent, os.W_OK),
+        'backupDirWritable': os.access(BACKUP_DIR, os.W_OK),
+    }
+    if verbose:
+        checks['allowedHostsReady'] = bool(ALLOWED_HOSTS)
+        checks['internalHosts'] = sorted(INTERNAL_HOSTS)
+    return checks
+
+
+def readiness_payload(*, verbose: bool = False) -> dict[str, Any]:
+    checks = _health_dependency_snapshot(verbose=verbose)
+    db_ok = False
+    db_error = ''
+    try:
+        with get_db() as conn:
+            conn.execute('SELECT 1').fetchone()
+        db_ok = True
+    except Exception as exc:
+        db_error = str(exc)
+    checks['dbQuery'] = db_ok
+    ok = all(bool(value) for key, value in checks.items() if isinstance(value, bool))
+    payload = {
+        'ok': ok,
+        'service': 'nv0',
+        'status': 'ready' if ok else 'degraded',
+        'serviceMode': 'board_only' if BOARD_ONLY_MODE else 'full',
+        'checks': checks,
+    }
+    if db_error:
+        payload['error'] = db_error
+    return payload
+
+
+def liveness_payload() -> dict[str, Any]:
+    return {
+        'ok': True,
+        'service': 'nv0',
+        'status': 'alive',
+        'serviceMode': 'board_only' if BOARD_ONLY_MODE else 'full',
+    }
 
 
 def public_health_payload(*, verbose: bool = False) -> dict[str, Any]:
@@ -1057,21 +1238,18 @@ def create_board_publication(product_key: str, *, source: str = 'manual', force_
     topic_index = force_topic_index if force_topic_index is not None else int(state.get('topicIndex') or 0) % len(topics)
     topic = topics[topic_index]
     created = now_iso()
-    pub = {
-        'id': uid('pubman' if source == 'manual' else 'pubsch'),
-        'product': product_key,
-        'productName': target.get('name'),
-        'title': topic.get('title') or f"{target.get('name')} CTA 글",
-        'summary': topic.get('summary') or target.get('summary', ''),
-        'body': f"{topic.get('title') or target.get('name')}\n\n{topic.get('summary') or target.get('summary', '')}\n\n이 글의 목적은 읽은 뒤 바로 CTA 행동으로 이어지게 만드는 것입니다. 필요한 경우 아래 문의 버튼으로 바로 연결해 주세요.",
-        'code': f"{source.upper()}-{product_prefix(product_key)}-{topic_index + 1:03d}",
-        'status': 'published',
-        'createdAt': created,
-        'updatedAt': created,
-        'source': source,
-        'ctaLabel': topic.get('ctaText') or automation.get('cta_label') or '문의하기',
-        'ctaHref': automation.get('cta_href') or f"mailto:{SITE_DATA.get('brand',{}).get('contact_email','ct@nv0.kr')}?subject={target.get('name','NV0')}%20CTA%20문의",
-    }
+    pub = build_publication_payload(
+        product_key=product_key,
+        title=topic.get('title') or f"{target.get('name')} CTA 글",
+        summary=topic.get('summary') or target.get('summary', ''),
+        source=source,
+        code=f"{source.upper()}-{product_prefix(product_key)}-{topic_index + 1:03d}",
+        created_at=created,
+        cta_label=topic.get('ctaText') or automation.get('cta_label') or '문의하기',
+        cta_href=automation.get('cta_href') or f"mailto:{SITE_DATA.get('brand',{}).get('contact_email','ct@nv0.kr')}?subject={target.get('name','NV0')}%20CTA%20문의",
+        topic_summary=topic.get('summary') or target.get('summary', ''),
+        publication_id=uid('pubman' if source == 'manual' else 'pubsch'),
+    )
     upsert_record('publications', pub)
     state['lastPublishedAt'] = created
     state['topicIndex'] = (topic_index + 1) % len(topics)
@@ -1117,7 +1295,7 @@ def create_app() -> FastAPI:
         if body_limit_response is not None:
             return body_limit_response
         if BOARD_ONLY_MODE and board_only_disabled_api(request.url.path):
-            return board_only_json_response('이 기능은 비활성화되었습니다. 현재는 CTA 자동발행 게시판만 운영합니다.')
+            return board_only_json_response('이 기능은 비활성화되었습니다. 현재는 AI 자동발행 블로그 허브만 운영합니다.')
         if BOARD_ONLY_MODE and request.method == 'GET' and not request.url.path.startswith('/api/') and not board_only_path_allowed(request.url.path):
             return board_only_html_response(request.url.path)
         response = await call_next(request)
@@ -1127,10 +1305,14 @@ def create_app() -> FastAPI:
         response.headers.setdefault("Permissions-Policy", "geolocation=(), microphone=(), camera=()")
         response.headers.setdefault("Cross-Origin-Opener-Policy", "same-origin")
         response.headers.setdefault("Cross-Origin-Resource-Policy", "same-origin")
-        if request.url.path.startswith(("/api/admin/", "/api/docs", "/api/openapi.json", "/api/redoc")):
+        sensitive_html_prefixes = ("/admin/", "/portal/", "/checkout/", "/payments/toss/")
+        asset_suffixes = (".css", ".js", ".svg", ".ico", ".png", ".jpg", ".jpeg", ".webp", ".woff", ".woff2")
+        if request.url.path.startswith(("/api/admin/", "/api/docs", "/api/openapi.json", "/api/redoc")) or request.url.path.startswith(sensitive_html_prefixes):
             response.headers.setdefault("X-Robots-Tag", "noindex, nofollow")
-        if request.url.path.startswith("/api/"):
+        if request.url.path.startswith("/api/") or request.url.path.startswith(sensitive_html_prefixes):
             response.headers.setdefault("Cache-Control", "no-store")
+        elif request.url.path.startswith("/assets/") or request.url.path.endswith(asset_suffixes):
+            response.headers.setdefault("Cache-Control", "public, max-age=31536000, immutable")
         elif request.url.path.endswith(".html") or request.url.path == "/":
             response.headers.setdefault("Cache-Control", "no-cache")
         csp = "default-src 'self' https: data: blob:; script-src 'self' 'unsafe-inline' https:; style-src 'self' 'unsafe-inline' https:; img-src 'self' https: data: blob:; connect-src 'self' https:; font-src 'self' https: data:; frame-ancestors 'self'; base-uri 'self'; form-action 'self' https://api.tosspayments.com https://js.tosspayments.com; object-src 'none'"
@@ -1156,6 +1338,24 @@ def create_app() -> FastAPI:
                 raise RuntimeError("운영 full 모드에서는 Toss client/secret 키가 모두 필요합니다.")
         init_db()
         ensure_scheduled_publications()
+
+    @app.get("/health", include_in_schema=False)
+    @app.get("/healthz", include_in_schema=False)
+    def root_health() -> dict[str, Any]:
+        return public_health_payload(verbose=PUBLIC_HEALTH_VERBOSE)
+
+    @app.get("/live", include_in_schema=False)
+    @app.get("/livez", include_in_schema=False)
+    def live() -> dict[str, Any]:
+        return liveness_payload()
+
+    @app.get("/ready", include_in_schema=False)
+    @app.get("/readyz", include_in_schema=False)
+    def ready(response: Response) -> dict[str, Any]:
+        payload = readiness_payload(verbose=PUBLIC_HEALTH_VERBOSE)
+        if not payload.get('ok'):
+            response.status_code = 503
+        return payload
 
     @app.get("/api/health")
     def health() -> dict[str, Any]:

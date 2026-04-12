@@ -24,7 +24,7 @@ def main():
         'NV0_ALLOWED_ORIGINS:',
         'CMD-SHELL',
         "os.getenv('PORT','8000')",
-        '/api/health',
+        '/readyz',
         'nv0_company_data:/app/data',
         'nv0_company_backups:/app/backups',
         'nv0-company-backup',
@@ -39,6 +39,7 @@ def main():
     assert_contains(env_example, [
         'NV0_ALLOWED_ORIGINS=',
         'NV0_ALLOWED_HOSTS=',
+        'NV0_INTERNAL_HOSTS=',
         'NV0_TOSS_CLIENT_KEY=',
         'NV0_TOSS_SECRET_KEY=',
         'NV0_TOSS_WEBHOOK_SECRET=',

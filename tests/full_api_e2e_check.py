@@ -36,6 +36,23 @@ def http_text(path: str) -> str:
         return res.read().decode('utf-8')
 
 
+def http_error_json(method: str, path: str, payload: dict | None = None, headers: dict | None = None):
+    data = None if payload is None else json.dumps(payload).encode('utf-8')
+    req = Request(BASE + path, data=data, method=method)
+    if payload is not None:
+        req.add_header('Content-Type', 'application/json')
+    for key, value in (headers or {}).items():
+        req.add_header(key, value)
+    try:
+        with urlopen(req, timeout=10) as res:
+            body = res.read().decode('utf-8')
+            return res.status, json.loads(body) if body else None, dict(res.headers)
+    except HTTPError as err:
+        body = err.read().decode('utf-8')
+        parsed = json.loads(body) if body else None
+        return err.code, parsed, dict(err.headers)
+
+
 def wait_until_ready(timeout: float = 20.0):
     start = time.time()
     while time.time() - start < timeout:
@@ -112,12 +129,25 @@ def main():
         assert len(order['publicationIds']) >= 1
         assert order['resultPack'] and order['resultPack']['outputs']
 
+        _, board_feed, _ = http_json('GET', '/api/public/board/feed')
+        first_pub = board_feed['items'][0]
+        assert first_pub['format'] == 'ai-hybrid-blog'
+        assert first_pub['bodyHtml']
+        assert first_pub['sections'] and len(first_pub['sections']) >= 4
+        assert first_pub['keywords']
+
         _, lookup, _ = http_json('POST', '/api/public/portal/lookup', {
             'email': order['email'],
             'code': order['code'],
         })
         assert lookup['order']['id'] == order['id']
         assert len(lookup['publications']) >= 1
+        status, bad_lookup, _ = http_error_json('POST', '/api/public/portal/lookup', {
+            'email': order['email'],
+            'code': '',
+        })
+        assert status == 400
+        assert '조회 코드' in bad_lookup['detail']
 
         _, demo, _ = http_json('POST', '/api/public/demo-requests', {
             'product': 'veridion',
@@ -126,16 +156,22 @@ def main():
             'email': 'kim@example.com',
             'team': '3인',
             'need': '랜딩 구조 미리 보기',
+            'keywords': '랜딩, CTA, 신뢰',
+            'plan': 'Growth',
         })
         assert demo['demo']['code'].startswith('DEMO-VER-')
+        assert demo['demo']['keywords'] == '랜딩, CTA, 신뢰'
+        assert demo['demo']['plan'] == 'Growth'
 
         _, contact, _ = http_json('POST', '/api/public/contact-requests', {
             'product': 'grantops',
             'company': 'Acme Labs',
+            'name': 'Kim User',
             'email': 'kim@example.com',
             'issue': '납품 범위 문의',
         })
         assert contact['contact']['code'].startswith('CONTACT-GRT-')
+        assert contact['contact']['name'] == 'Kim User'
 
         _, seeded, _ = http_json('POST', '/api/admin/actions/seed-demo', {}, headers=admin_headers)
         seeded_order = seeded['order']

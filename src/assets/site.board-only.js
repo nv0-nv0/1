@@ -155,7 +155,7 @@
 
   function renderFooter(){
     const footer = document.getElementById('site-footer'); if (!footer) return;
-    footer.innerHTML = `<div class="container footer-grid"><div><div class="brand"><span class="brand-mark">N0</span><span class="brand-copy"><strong>${config.brand?.name || 'NV0'}</strong><span>CTA 포스팅 자동발행 게시판</span></span></div><small style="margin-top:14px">게시판 자동발행, 재시드, 즉시 발행, 백업 복구만 운영합니다.</small></div><div><strong>바로 보기</strong><small><a href="${base}board/index.html">게시판</a><br><a href="${base}admin/index.html">관리자</a><br><a href="${base}legal/privacy/index.html">개인정보처리방침</a></small></div><div><strong>문의</strong><small><a href="mailto:${config.brand?.contact_email || 'ct@nv0.kr'}">${config.brand?.contact_email || 'ct@nv0.kr'}</a><br>운영 범위: CTA 자동발행 게시판 전용</small></div></div>`;
+    footer.innerHTML = `<div class="container footer-grid"><div><div class="brand"><span class="brand-mark">N0</span><span class="brand-copy"><strong>${config.brand?.name || 'NV0'}</strong><span>AI 자동발행 블로그 허브</span></span></div><small style="margin-top:14px">게시판 자동발행, 재시드, 즉시 발행, 백업 복구만 운영합니다.</small></div><div><strong>바로 보기</strong><small><a href="${base}board/index.html">게시판</a><br><a href="${base}admin/index.html">관리자</a><br><a href="${base}legal/privacy/index.html">개인정보처리방침</a></small></div><div><strong>문의</strong><small><a href="mailto:${config.brand?.contact_email || 'ct@nv0.kr'}">${config.brand?.contact_email || 'ct@nv0.kr'}</a><br>운영 범위: AI 자동발행 블로그 허브 전용</small></div></div>`;
   }
 
   function renderProductGrid(){

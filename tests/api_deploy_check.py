@@ -108,7 +108,7 @@ def main():
             except HTTPError as exc:
                 assert exc.code == 410
                 body = exc.read().decode('utf-8')
-                assert 'CTA 포스팅 자동발행 게시판만 운영합니다' in body
+                assert 'AI 자동발행 블로그 허브' in body
 
         _, state_before, _ = http_json('GET', '/api/admin/state', headers=admin_headers)
         before_count = len(state_before['state']['publications'])

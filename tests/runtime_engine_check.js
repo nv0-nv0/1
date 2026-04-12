@@ -55,13 +55,22 @@ if (!app) throw new Error('NV0App not exposed');
 app.ensureSeedData();
 const pubs = app.read('nv0-engine-publications');
 if (pubs.length < 8) throw new Error('seed publications missing');
-const demo = app.createDemo({ product:'veridion', company:'Acme', name:'Kim', email:'kim@example.com', team:'3인', need:'랜딩 샘플' });
+const demo = app.createDemo({ product:'veridion', company:'Acme', name:'Kim', email:'kim@example.com', team:'3인', need:'랜딩 샘플', keywords:'랜딩, CTA', plan:'Growth' });
 if (!/^DEMO-VER-/.test(demo.code)) throw new Error('demo create failed');
+if (demo.plan !== 'Growth' || demo.keywords !== '랜딩, CTA') throw new Error('demo metadata mismatch');
+const contact = app.createContact({ product:'grantops', company:'Acme', name:'Kim', email:'kim@example.com', issue:'납품 범위 문의' });
+if (!/^CONTACT-GRT-/.test(contact.code) || contact.name !== 'Kim') throw new Error('contact create failed');
+let contactRejected = false;
+try { app.createContact({ product:'grantops', company:'Acme', name:'Kim', email:'kim@example.com', issue:'' }); } catch (error) { contactRejected = true; }
+if (!contactRejected) throw new Error('contact issue validation missing');
 const order = app.createOrder({ product:'veridion', plan:'Growth', billing:'one-time', paymentMethod:'invoice', company:'Acme', name:'Kim', email:'kim@example.com', note:'바로 시작' });
 if (!order.code.includes('VER')) throw new Error('order code build failed');
 if (!order.publicationIds || order.publicationIds.length < 1) throw new Error('order publications missing');
 const lookup = app.createLookup({ email:'kim@example.com', code:order.code });
 if (lookup.code !== order.code) throw new Error('lookup create failed');
+let lookupRejected = false;
+try { app.createLookup({ email:'kim@example.com', code:'' }); } catch (error) { lookupRejected = true; }
+if (!lookupRejected) throw new Error('lookup code validation missing');
 app.setAdminToken('runtime-token');
 if (app.getAdminToken() !== 'runtime-token') throw new Error('admin token storage failed');
 const productBoard = app.productBoardHref('veridion', order.publicationIds[0]);

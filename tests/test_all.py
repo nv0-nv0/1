@@ -100,6 +100,14 @@ def main():
             str(ROOT / 'tests' / 'packaging_runtime_check.py'),
             str(ROOT / 'tests' / 'board_only_scope_check.py'),
             str(ROOT / 'tests' / 'robustness_check.py'),
+            str(ROOT / 'tests' / 'delivery_package_completeness_check.py'),
+            str(ROOT / 'tests' / 'release_smoke_check.py'),
+            str(ROOT / 'tests' / 'operational_quality_check.py'),
+            str(ROOT / 'tests' / 'product_surface_e2e_check.py'),
+            str(ROOT / 'tests' / 'post_deploy_verify_local_check.py'),
+            str(ROOT / 'tests' / 'canonical_default_enforcement_check.py'),
+            str(ROOT / 'tests' / 'healthcheck_surface_check.py'),
+            str(ROOT / 'scripts' / 'post_deploy_verify.py'),
         ], timeout=120)
         run_step('preflight_env', ['bash', '-lc', f'set -a && . "{ROOT / ".env.example"}" && set +a && python3 "{ROOT / "scripts" / "preflight_env.py"}"'], timeout=120)
         run_step('build', ['python3', str(ROOT / 'build.py')], timeout=180)
@@ -110,7 +118,7 @@ def main():
         time.sleep(0.4)
         try:
             print('RUNNING:http_check', flush=True)
-            for path in ['/', '/products/', '/products/veridion/', '/checkout/', '/portal/', '/board/', '/admin/', '/legal/privacy/']:
+            for path in ['/', '/products/', '/products/veridion/', '/checkout/', '/portal/', '/board/', '/admin/', '/legal/privacy/', '/legal/terms/', '/robots.txt', '/sitemap.xml', '/404.html']:
                 check_http(path)
             print('OK:http_check', flush=True)
         finally:
@@ -123,7 +131,14 @@ def main():
         run_step('config_integrity_check', ['python3', str(ROOT / 'tests' / 'config_integrity_check.py')], timeout=120)
         run_step('board_only_scope_check', ['python3', str(ROOT / 'tests' / 'board_only_scope_check.py')], timeout=120)
         run_step('robustness_check', ['python3', str(ROOT / 'tests' / 'robustness_check.py')], timeout=240)
+        run_step('release_smoke_check', ['python3', str(ROOT / 'tests' / 'release_smoke_check.py')], timeout=240)
+        run_step('delivery_package_completeness_check', ['python3', str(ROOT / 'tests' / 'delivery_package_completeness_check.py')], timeout=240)
+        run_step('operational_quality_check', ['python3', str(ROOT / 'tests' / 'operational_quality_check.py')], timeout=300)
+        run_step('product_surface_e2e_check', ['python3', str(ROOT / 'tests' / 'product_surface_e2e_check.py')], timeout=300)
         run_step('packaging_runtime_check', ['python3', str(ROOT / 'tests' / 'packaging_runtime_check.py')], timeout=240)
+        run_step('post_deploy_verify_local_check', ['python3', str(ROOT / 'tests' / 'post_deploy_verify_local_check.py')], timeout=300)
+        run_step('canonical_default_enforcement_check', ['python3', str(ROOT / 'tests' / 'canonical_default_enforcement_check.py')], timeout=180)
+        run_step('healthcheck_surface_check', ['python3', str(ROOT / 'tests' / 'healthcheck_surface_check.py')], timeout=180)
         print('ALL_TESTS_OK', flush=True)
     finally:
         cleanup_runtime_artifacts()
