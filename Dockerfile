@@ -7,6 +7,13 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     NV0_DATA_DIR=/app/data \
     NV0_ENABLE_DOCS=0
 
+# 기존 소스 복사 전후에 아래 내용 추가
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# 소스 복사
+COPY . .
+
 WORKDIR /app
 
 COPY requirements.txt ./
