@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0f172a">
+  <meta name="format-detection" content="telephone=no,address=no,email=no,date=no">
+  <meta name="color-scheme" content="light">
+  <title>DraftForge | NV0</title>
+  <meta name="description" content="글을 쓰는 시간보다 더 오래 걸리는 검토와 승인, 채널별 최종본 정리를 단순하게 묶어 팀이 놓치지 않게 도와드립니다.">
+  <link rel="canonical" href="https://nv0.kr/products/draftforge/">
+  <link rel="stylesheet" href="../../assets/site.css">
+  <script src="../../assets/site-data.js"></script>
+  <script defer src="../../assets/site.js"></script>
+</head>
+<body class="theme-draftforge" data-page="product" data-product="draftforge">
+<header class="site-header" id="site-header"></header>
+
+<main>
+  <section class="section">
+    <div class="container page-hero">
+      <div class="card strong">
+        <div class="crumbs"><a href="../../index.html">HOME</a><span class="sep">/</span><a href="../../products/index.html">제품</a><span class="sep">/</span><span>DraftForge</span></div>
+        <span class="tag theme-chip">콘텐츠 검토·최종본 정리</span>
+        <h1 data-fill="product-name"></h1>
+        <p class="lead" data-fill="product-headline"></p>
+        <div class="actions" id="product-actions"></div>
+        <div class="inline-tabs">
+          <a href="#board">자동발행게시판</a>
+          <a href="#intro">제품 소개</a>
+          <a href="#demo">데모</a>
+          <a href="#order">주문</a>
+          <a href="#payment">결제</a>
+          <a href="#delivery">결과 확인</a>
+        </div>
+      </div>
+      <div class="card theme-panel">
+        <span class="tag" style="background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.12);color:#fff">이런 분께 잘 맞습니다</span>
+        <h3 style="font-size:1.75rem;margin:16px 0 10px">초안은 빨리 나오지만 최종 승인과 채널별 최종본 정리가 자꾸 늦어지는 팀</h3>
+        <p data-fill="product-summary"></p>
+        <div class="notice notice-light"><strong>가격 기준</strong><br><span data-fill="product-pricing"></span></div>
+      </div>
+    </div>
+  </section>
+  <section class="section compact" id="board"><div class="container"><div class="section-head"><div><h2>DraftForge 자동발행게시판</h2></div><p>제품을 자세히 보기 전에 먼저 읽어보면 좋은 글을 모아두었습니다. 연관 주제의 블로그형 글과 바로 이어지는 체험·구매 CTA를 별도로 편하게 확인할 수 있습니다.</p></div><div class="board-grid" id="product-board-grid"></div><div id="product-post-detail"></div></div></section>
+  <section class="section compact" id="intro"><div class="container module-layout"><article class="card strong"><span class="tag theme-chip">핵심 가치</span><h3>이 제품으로 바로 달라지는 점</h3><ul class="clean" id="product-values"></ul></article><article class="card strong"><span class="tag theme-chip">결과물</span><h3>결제 후 받아보는 자료</h3><ul class="clean" id="product-outputs"></ul></article></div></section>
+  <section class="section compact" id="demo"><div class="container module-layout"><article class="card strong"><span class="tag theme-chip">즉시 데모</span><h3>몇 가지 정보만 입력하면 샘플 결과를 바로 볼 수 있습니다</h3><form id="product-demo-form" class="stack-form"><div class="form-grid"><div><label>회사명</label><input name="company" data-demo-field="company" placeholder="샘플 브랜드"></div><div><label>목표</label><input name="goal" data-demo-field="goal" placeholder="예: CTA 전환 개선"></div><div><label>핵심 키워드</label><input name="keywords" data-demo-field="keywords" placeholder="예: 랜딩, CTA, 신뢰"></div><div><label>플랜 미리보기</label><select name="plan" data-demo-field="plan"><option value="Starter">Starter</option><option value="Growth">Growth</option><option value="Scale">Scale</option></select></div></div><div class="actions"><button class="button" type="submit">지금 체험해 보기</button><a class="button ghost" href="#order">이 조건으로 바로 구매</a></div></form><div class="result-box" id="product-demo-result"></div></article><article class="card"><span class="tag">체험 포인트</span><h3>데모에서 먼저 보시면 좋은 항목</h3><ul class="clean" id="product-demo-scenarios"></ul></article></div></section>
+  <section class="section compact" id="order"><div class="container module-layout"><article class="card strong"><span class="tag theme-chip">주문</span><h3>플랜을 고른 뒤 바로 결제할 수 있습니다</h3><form id="product-checkout-form" class="stack-form"><input type="hidden" name="product" value="draftforge"><div class="form-grid"><div><label>플랜</label><select name="plan" data-prefill="plan"><option value="Starter">Starter</option><option value="Growth">Growth</option><option value="Scale">Scale</option></select></div><div><label>과금 기준</label><select name="billing"><option value="one-time">1회 결제</option><option value="monthly">월 과금</option><option value="project">프로젝트형</option></select></div><div><label>결제 방식</label><select name="paymentMethod"><option value="toss">Toss 결제</option><option value="invoice">세금계산서/송장</option></select></div><div><label>회사명</label><input name="company" placeholder="회사명"></div><div><label>담당자명</label><input name="name" placeholder="담당자명"></div><div><label>이메일</label><input name="email" type="email" placeholder="email@company.com"></div><div><label>추가 요청</label><input name="note" placeholder="예: 원하는 톤, 꼭 포함할 내용"></div></div><div class="actions"><button class="button" type="submit">지금 구매하기</button><a class="button secondary" href="#payment">결제 안내 보기</a></div></form><div class="result-box" id="product-checkout-result"></div></article><article class="card"><span class="tag">플랜</span><h3>지금 선택할 수 있는 플랜</h3><div class="plan-grid" id="plan-grid"></div></article></div></section>
+  <section class="section compact" id="payment"><div class="container module-layout"><article class="card strong"><span class="tag theme-chip">결제</span><h3>구매 버튼을 누르면 바로 외부 결제창으로 이동합니다</h3><ol class="flow-list"><li>원하는 플랜과 정보를 확인합니다.</li><li>외부 결제창에서 안전하게 결제를 진행합니다.</li><li>결제가 끝나면 자동으로 결과 확인 화면으로 돌아옵니다.</li><li>완료 즉시 결과 자료를 확인하고 다음 진행을 이어갈 수 있습니다.</li></ol></article><article class="card strong"><span class="tag theme-chip">가격 기준</span><h3>시장 비교 기준</h3><p id="product-pricing-basis"></p><div class="notice">처음 시작하기 부담스럽지 않으면서도 바로 써볼 수 있는 범위를 기준으로 플랜을 나눴습니다.</div></article></div></section>
+  <section class="section compact" id="delivery"><div class="container module-layout"><article class="card strong"><span class="tag theme-chip">발행</span><h3>결제 후 결과 자료와 다음 진행이 자연스럽게 이어집니다</h3><ol class="flow-list" id="product-workflow"></ol></article><article class="card strong"><span class="tag theme-chip">함께 보면 좋은 제품</span><h3>비슷한 고민에 이어서 보기 좋은 제품</h3><div class="story-grid" id="product-related-modules"></div></article></div></section>
+            <section class="section compact"><div class="container"><div class="section-head"><div><h2>자주 묻는 질문</h2></div><p>제품 구매 전에 자주 나오는 질문을 먼저 정리했습니다.</p></div><div class="faq-grid" id="product-faq"></div></div></section>
+</main>
+
+<footer class="footer" id="site-footer"></footer>
+</body>
+</html>

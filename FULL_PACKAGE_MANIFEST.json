@@ -1,0 +1,12 @@
+{
+  "package": "nv0_delivery_package_complete_final_20260412",
+  "generated_at": "2026-04-12",
+  "file_count": 822,
+  "total_bytes": 35590343,
+  "contains_runtime_vendor": true,
+  "contains_src": true,
+  "contains_dist": true,
+  "contains_tests": true,
+  "contains_scripts": true,
+  "contains_reports": true
+}
