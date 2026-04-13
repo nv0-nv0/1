@@ -109,7 +109,7 @@ def admin_page(data: dict) -> str:
 def privacy_page(data: dict) -> str:
     brand = data['brand']
     return doc(brand, f"개인정보처리방침 | {brand['name']}", '개인정보 처리방침', 'legal', dedent(f'''
-    <main><section class="section"><div class="container page-hero"><div class="card strong"><div class="crumbs"><a href="../../index.html">HOME</a><span class="sep">/</span><span>개인정보처리방침</span></div><h1>개인정보처리방침</h1><p class="lead">현재 사이트는 AI 자동발행 블로그 허브 운영에 필요한 최소 정보만 처리합니다. 관리자 토큰, 게시판 발행 로그, 백업 파일은 운영 목적으로만 사용합니다.</p><div class="kv"><div class="row"><strong>문의 이메일</strong><span>{escape(brand.get('contact_email', ''))}</span></div><div class="row"><strong>주요 처리 목적</strong><span>게시판 운영, 관리자 작업, 백업 복구, 보안 점검</span></div><div class="row"><strong>기본 보관 원칙</strong><span>운영 목적 달성 후 지체 없이 파기, 법령상 보존 의무 시 별도 분리 보관</span></div></div></div></div></section></main>
+    <main><section class="section"><div class="container page-hero"><div class="card strong"><div class="crumbs"><a href="../../index.html">HOME</a><span class="sep">/</span><span>개인정보처리방침</span></div><h1>개인정보처리방침</h1><p class="lead">현재 사이트는 AI 자동발행 블로그 허브 운영에 필요한 최소 정보만 처리합니다. 관리자 토큰, 게시판 발행 로그, 백업 파일은 운영 목적으로만 사용합니다.</p><div class="kv"><div class="row"><strong>안내 이메일</strong><span>{escape(brand.get('contact_email', ''))}</span></div><div class="row"><strong>주요 처리 목적</strong><span>게시판 운영, 관리자 작업, 백업 복구, 보안 점검</span></div><div class="row"><strong>기본 보관 원칙</strong><span>운영 목적 달성 후 지체 없이 파기, 법령상 보존 의무 시 별도 분리 보관</span></div></div></div></div></section></main>
     '''), depth=2, page_key='privacy', page_path='/legal/privacy/index.html')
 
 

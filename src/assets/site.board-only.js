@@ -30,8 +30,8 @@
   function setAdminToken(value){ try { if (clean(value)) sessionStorage.setItem(AUTH_KEY, clean(value)); else sessionStorage.removeItem(AUTH_KEY); } catch {} }
   function headersFor(url, extra){ const headers = Object.assign({}, extra || {}); const token = getAdminToken(); if (token && String(url || '').includes('/api/admin/')) headers['X-Admin-Token'] = token; return headers; }
   function publicBoardHref(postId, productKey){ const href = `${base}board/index.html`; const params = new URLSearchParams(); if (postId) params.set('post', postId); if (productKey) params.set('product', productKey); const qs = params.toString(); return qs ? `${href}?${qs}` : href; }
-  function buildCtaHref(item){ return item.ctaHref || `mailto:${config.brand?.contact_email || 'ct@nv0.kr'}?subject=${encodeURIComponent((item.productName || productName(item.product)) + ' CTA 문의')}`; }
-  function boardCtaMarkup(item){ return `<a class="button soft" href="${esc(buildCtaHref(item))}">${esc(item.ctaLabel || '문의하기')}</a>`; }
+  function buildCtaHref(item){ return item.ctaHref || `${base}products/${item.product}/index.html#intro`; }
+  function boardCtaMarkup(item){ return `<a class="button soft" href="${esc(buildCtaHref(item))}">${esc(item.ctaLabel || '제품 설명 보기')}</a>`; }
   function showResult(targetId, html){ const root = document.getElementById(targetId); if (root) root.innerHTML = html; }
 
   function seededPublications(){
@@ -47,7 +47,7 @@
       source: 'seed',
       createdAt: new Date(now - idx * 7200000).toISOString(),
       updatedAt: new Date(now - idx * 7200000).toISOString(),
-      ctaLabel: products[item.product]?.board_automation?.cta_label || '문의하기',
+      ctaLabel: products[item.product]?.board_automation?.cta_label || '제품 설명 보기',
       ctaHref: products[item.product]?.board_automation?.cta_href || '',
     }));
   }
@@ -93,7 +93,7 @@
         source: 'scheduled',
         createdAt,
         updatedAt: createdAt,
-        ctaLabel: topic.ctaText || automation.cta_label || '문의하기',
+        ctaLabel: topic.ctaText || automation.cta_label || '제품 설명 보기',
         ctaHref: automation.cta_href || '',
       });
       state.lastPublishedAt = createdAt;
@@ -150,17 +150,17 @@
     const header = document.getElementById('site-header'); if (!header) return;
     const selected = clean(new URLSearchParams(location.search).get('product'));
     const chips = Object.values(products).map((item) => `<a href="${publicBoardHref('', item.key)}" class="sub-link ${selected === item.key ? 'active' : ''}">${esc(item.name)}</a>`).join('');
-    header.innerHTML = `<div class="container nav-wrap"><a class="brand" href="${base}index.html"><span class="brand-mark">N0</span><span class="brand-copy"><strong>${config.brand?.name || 'NV0'}</strong><span>${config.brand?.tagline || ''}</span></span></a><nav class="nav-links">${navItems.map(([label, href, key]) => `<a href="${href}" class="${pageKey === key ? 'active' : ''}">${label}</a>`).join('')}<a class="button" href="mailto:${config.brand?.contact_email || 'ct@nv0.kr'}">운영 문의</a></nav></div><div class="container subnav"><span class="sub-head">제품별 필터</span>${chips}</div>`;
+    header.innerHTML = `<div class="container nav-wrap"><a class="brand" href="${base}index.html"><span class="brand-mark">N0</span><span class="brand-copy"><strong>${config.brand?.name || 'NV0'}</strong><span>${config.brand?.tagline || ''}</span></span></a><nav class="nav-links">${navItems.map(([label, href, key]) => `<a href="${href}" class="${pageKey === key ? 'active' : ''}">${label}</a>`).join('')}<a class="button" href="${base}products/${item.key}/index.html#intro">운영 문의</a></nav></div><div class="container subnav"><span class="sub-head">제품별 필터</span>${chips}</div>`;
   }
 
   function renderFooter(){
     const footer = document.getElementById('site-footer'); if (!footer) return;
-    footer.innerHTML = `<div class="container footer-grid"><div><div class="brand"><span class="brand-mark">N0</span><span class="brand-copy"><strong>${config.brand?.name || 'NV0'}</strong><span>AI 자동발행 블로그 허브</span></span></div><small style="margin-top:14px">게시판 자동발행, 재시드, 즉시 발행, 백업 복구만 운영합니다.</small></div><div><strong>바로 보기</strong><small><a href="${base}board/index.html">게시판</a><br><a href="${base}admin/index.html">관리자</a><br><a href="${base}legal/privacy/index.html">개인정보처리방침</a></small></div><div><strong>문의</strong><small><a href="mailto:${config.brand?.contact_email || 'ct@nv0.kr'}">${config.brand?.contact_email || 'ct@nv0.kr'}</a><br>운영 범위: AI 자동발행 블로그 허브 전용</small></div></div>`;
+    footer.innerHTML = `<div class="container footer-grid"><div><div class="brand"><span class="brand-mark">N0</span><span class="brand-copy"><strong>${config.brand?.name || 'NV0'}</strong><span>AI 자동발행 블로그 허브</span></span></div><small style="margin-top:14px">게시판 자동발행, 재시드, 즉시 발행, 백업 복구만 운영합니다.</small></div><div><strong>바로 보기</strong><small><a href="${base}board/index.html">게시판</a><br><a href="${base}admin/index.html">관리자</a><br><a href="${base}legal/privacy/index.html">개인정보처리방침</a></small></div><div><strong>문의</strong><small><a href="${base}products/${item.key}/index.html#intro">${config.brand?.contact_email || 'ct@nv0.kr'}</a><br>운영 범위: AI 자동발행 블로그 허브 전용</small></div></div>`;
   }
 
   function renderProductGrid(){
     const root = document.getElementById('product-grid'); if (!root) return;
-    root.innerHTML = Object.values(products).map((item) => `<article class="card product-card strong ${item.theme}"><span class="tag theme-chip">${esc(item.label)}</span><h3>${esc(item.name)}</h3><p>${esc(item.headline)}</p><ul class="clean">${(item.board_topics || []).slice(0, 3).map((topic) => `<li>${esc(topic)}</li>`).join('')}</ul><div class="muted-box" style="margin-top:18px">자동발행 주제 ${esc(String((item.board_automation?.topics || []).length))}개 · CTA ${esc(item.board_automation?.cta_label || '문의하기')}</div><div class="actions"><a class="button secondary" href="${publicBoardHref('', item.key)}">같은 축 글 보기</a><a class="button ghost" href="${esc(item.board_automation?.cta_href || `mailto:${config.brand?.contact_email || 'ct@nv0.kr'}`)}">CTA 열기</a></div></article>`).join('');
+    root.innerHTML = Object.values(products).map((item) => `<article class="card product-card strong ${item.theme}"><span class="tag theme-chip">${esc(item.label)}</span><h3>${esc(item.name)}</h3><p>${esc(item.headline)}</p><ul class="clean">${(item.board_topics || []).slice(0, 3).map((topic) => `<li>${esc(topic)}</li>`).join('')}</ul><div class="muted-box" style="margin-top:18px">자동발행 주제 ${esc(String((item.board_automation?.topics || []).length))}개 · CTA ${esc(item.board_automation?.cta_label || '제품 설명 보기')}</div><div class="actions"><a class="button secondary" href="${publicBoardHref('', item.key)}">같은 축 글 보기</a><a class="button ghost" href="${esc(item.board_automation?.cta_href || `${base}products/${item.key}/index.html#intro`)}">CTA 열기</a></div></article>`).join('');
   }
 
   function renderLiveStats(){

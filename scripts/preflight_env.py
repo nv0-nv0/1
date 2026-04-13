@@ -54,13 +54,13 @@ def main() -> None:
     allowed_hosts = {item.strip().lower() for item in values["NV0_ALLOWED_HOSTS"].split(',') if item.strip()}
     allowed_origins = {item.strip().rstrip('/').lower() for item in values["NV0_ALLOWED_ORIGINS"].split(',') if item.strip()}
 
-    if parsed.hostname and parsed.hostname.lower() not in allowed_hosts:
-        fail("NV0_BASE_URL 호스트가 NV0_ALLOWED_HOSTS에 포함되어 있지 않습니다.")
-    ok("NV0_BASE_URL 호스트와 NV0_ALLOWED_HOSTS 일치")
-
     if '*' in allowed_hosts:
         fail("운영 배포에서는 NV0_ALLOWED_HOSTS=* 를 사용하지 마세요.")
     ok("NV0_ALLOWED_HOSTS 와일드카드 미사용")
+
+    if parsed.hostname and parsed.hostname.lower() not in allowed_hosts:
+        fail("NV0_BASE_URL 호스트가 NV0_ALLOWED_HOSTS에 포함되어 있지 않습니다.")
+    ok("NV0_BASE_URL 호스트와 NV0_ALLOWED_HOSTS 일치")
 
     origin = f"{parsed.scheme}://{host}".rstrip('/')
     if origin not in allowed_origins:

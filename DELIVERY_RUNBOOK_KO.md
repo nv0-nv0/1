@@ -3,9 +3,9 @@
 ## 1. 가장 먼저 할 일
 1. `.env.example`를 복사해 실제 환경변수 입력
 2. `NV0_BOARD_ONLY_MODE=0` 확인
-3. `NV0_TOSS_MOCK=1`로 먼저 스테이징 점검
-4. `python3 tests/test_all.py` 실행
-5. `python3 scripts/create_delivery_package.py`로 납품 패키지 생성
+3. `NV0_TOSS_MOCK=1`로 먼저 스테이징 점검 (기본 권장값)
+4. `PYTHONPATH=./runtime_vendor python3 tests/test_all.py` 실행
+5. `PYTHONPATH=./runtime_vendor python3 scripts/create_delivery_package.py`로 납품 패키지 생성
 
 ## 2. Coolify/컨테이너 운영 기본값
 필수:
@@ -18,9 +18,10 @@
 - `NV0_BACKUP_DIR=/app/backups`
 - `NV0_BOARD_ONLY_MODE=0`
 - `NV0_PAYMENT_PROVIDER=toss`
+- `NV0_STRICT_STARTUP=1` (운영 기본값, 필수값이 비면 즉시 실패)
 
 테스트 결제:
-- `NV0_TOSS_MOCK=1`
+- `NV0_TOSS_MOCK=1` (기본 권장값)
 
 실결제:
 - `NV0_TOSS_CLIENT_KEY`
@@ -30,25 +31,26 @@
 
 ## 3. 배포 전 체크
 ```bash
-python3 scripts/preflight_env.py
-python3 build.py
-python3 tests/test_all.py
+PYTHONPATH=./runtime_vendor python3 scripts/preflight_env.py
+PYTHONPATH=./runtime_vendor python3 build.py
+PYTHONPATH=./runtime_vendor python3 tests/test_all.py
+PYTHONPATH=./runtime_vendor python3 tests/packaging_runtime_check.py
 ```
 
 ## 4. 배포 직후 스모크 테스트
 ### full mode
 ```bash
-python3 scripts/smoke_release.py --base-url https://your-domain.example --mode full
+PYTHONPATH=./runtime_vendor python3 scripts/smoke_release.py --base-url https://your-domain.example --mode full
 ```
 
 ### board-only mode
 ```bash
-python3 scripts/smoke_release.py --base-url https://your-domain.example --mode board
+PYTHONPATH=./runtime_vendor python3 scripts/smoke_release.py --base-url https://your-domain.example --mode board
 ```
 
 관리자 확인 포함:
 ```bash
-python3 scripts/smoke_release.py --base-url https://your-domain.example --mode full --admin-token 'YOUR_ADMIN_TOKEN'
+PYTHONPATH=./runtime_vendor python3 scripts/smoke_release.py --base-url https://your-domain.example --mode full --admin-token 'YOUR_ADMIN_TOKEN'
 ```
 
 ## 5. 실결제 전환 절차
@@ -64,12 +66,12 @@ python3 scripts/smoke_release.py --base-url https://your-domain.example --mode f
 ## 6. 백업/복구
 백업 생성:
 ```bash
-python3 scripts/backup_state.py --base-url https://your-domain.example --admin-token 'YOUR_ADMIN_TOKEN' --passphrase 'YOUR_BACKUP_PASSPHRASE'
+PYTHONPATH=./runtime_vendor python3 scripts/backup_state.py --base-url https://your-domain.example --admin-token 'YOUR_ADMIN_TOKEN' --passphrase 'YOUR_BACKUP_PASSPHRASE'
 ```
 
 verify-only 복구 검증:
 ```bash
-python3 scripts/restore_state.py --file /path/to/backup.tar.gz.enc --passphrase 'YOUR_BACKUP_PASSPHRASE' --verify-only
+PYTHONPATH=./runtime_vendor python3 scripts/restore_state.py --file /path/to/backup.tar.gz.enc --passphrase 'YOUR_BACKUP_PASSPHRASE' --verify-only
 ```
 
 ## 7. 문제가 생기면 먼저 볼 것
@@ -86,4 +88,4 @@ python3 scripts/restore_state.py --file /path/to/backup.tar.gz.enc --passphrase 
 - `PACKAGE_CONTENTS.json`
 - `SHA256SUMS.txt`
 - 본 런북
-- README / 통합 맵 / 감사 보고서 / 완료 보고서
+- README / 통합 맵 / 감사 보고서(필요 시 생성) / 테스트 세트

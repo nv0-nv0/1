@@ -73,9 +73,9 @@ def main() -> int:
 
     # Public surfaces
     pages = [
-        ('/', '대표 제품 바로 체험'),
+        ('/', '대표 제품 데모 시연'),
         ('/products/', 'id="product-grid"'),
-        ('/pricing/', '가격, 범위, 결과물을 한 번에 비교하고 바로 시작할 수 있습니다'),
+        ('/pricing/', '가격, 범위, 1회 결제형 자료를 한 번에 비교하고 바로 시작할 수 있습니다'),
         ('/docs/', '문서 센터'),
         ('/board/', 'id="public-board-grid"'),
         ('/demo/', 'id="demo-form"'),
@@ -142,7 +142,7 @@ def main() -> int:
     demo_json = json.loads(body.decode('utf-8'))
     demo_code = demo_json.get('demo', {}).get('code')
     if not demo_code:
-        raise AssertionError('demo code missing')
+        raise AssertionError('demo material missing')
     results.append('OK api:demo')
 
     contact_payload = {
@@ -184,7 +184,7 @@ def main() -> int:
     order = json.loads(body.decode('utf-8')).get('order', {})
     if order.get('paymentStatus') != 'paid':
         raise AssertionError('payment confirm did not mark paymentStatus=paid')
-    if order.get('status') not in {'paid', 'published'}:
+    if order.get('status') not in {'delivered', 'published'}:
         raise AssertionError(f"payment confirm returned unexpected order status: {order.get('status')!r}")
     results.append('OK api:payment-confirm')
 

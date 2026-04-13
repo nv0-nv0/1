@@ -365,6 +365,12 @@ hr.soft { border:0; border-top:1px solid var(--line); margin:30px 0; }
   cursor:pointer;
 }
 .small-actions button.primary { background:#111827; color:#fff; border-color:#111827; }
+
+.plan-head { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+.plan-meta { margin-top:10px; color:var(--muted); font-size:.92rem; line-height:1.6; }
+.plan-include-list { margin:12px 0 0; padding-left:18px; display:grid; gap:8px; color:#344054; }
+.plan-include-list li { line-height:1.6; }
+.plan-card.recommended { border-color:#c7d2fe; box-shadow:0 14px 32px rgba(79,70,229,.12); }
 .flow-list { margin:18px 0 0; padding-left:20px; display:grid; gap:12px; color:#344054; }
 .flow-list li::marker { font-weight:800; }
 .post-detail .small-actions, .portal-card .small-actions, .record-card .small-actions { margin-top:14px; }

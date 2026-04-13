@@ -18,12 +18,16 @@ DEFAULT_NAME = f'nv0_delivery_package_{STAMP}'
 
 BASE_EXCLUDE_DIR_NAMES = {
     '__pycache__', '.venv', '.venvcheck', '.git', '.pytest_cache', 'node_modules',
+    '.auditdata', '.testlogs', '.mypy_cache', '.ruff_cache',
 }
 BASE_EXCLUDE_FILE_SUFFIXES = {'.pyc', '.pyo', '.pyd', '.log'}
 BASE_EXCLUDE_PATTERNS = {'*.zip', '*.tar', '*.tar.gz'}
-BASE_EXCLUDE_RELATIVE = {'.DS_Store'}
+BASE_EXCLUDE_RELATIVE = {'.DS_Store', '.env'}
 CLEAN_MODE_EXTRA_EXCLUDE_DIR_NAMES = {
     '.github', '.testdata', '.testdata_full', '.testdata_prod', 'runtime_vendor', 'reports',
+}
+DEPLOY_MODE_EXTRA_EXCLUDE_DIR_NAMES = {
+    '.github', '.testdata', '.testdata_full', '.testdata_prod', 'reports', 'tests',
 }
 CLEAN_MODE_EXTRA_EXACT = {
     'server_app.py.bak',
@@ -35,10 +39,29 @@ CLEAN_MODE_EXTRA_EXACT = {
     'test_with_vendor.sh',
     'NO_SHELL_NOTE_KO.md',
 }
+DEPLOY_MODE_EXTRA_EXACT = {
+    'server_app.py.bak',
+    'FULL_PACKAGE_MANIFEST.json',
+    'AUDIT_REPORT_KO.md',
+    'CHANGELOG_DELIVERY_20260412.md',
+    'DELIVERY_AUDIT_REWORK_20260412.md',
+    'FINAL_DELIVERY_SUMMARY_20260413.md',
+    'FINAL_DELIVERY_VERIFICATION_KO.md',
+    'FINAL_DEPLOY_VERIFICATION_20260412.md',
+    'FINAL_REAL_COMPLETION_REPORT_KO.md',
+    'FINAL_VERIFICATION_REPORT_KO.md',
+    'GO_LIVE_100_CHECK.md',
+    'NO_SHELL_NOTE_KO.md',
+    'NV0_TEST_PERF_REPORT_20260412.md',
+    'PACKAGE_SIZE_BREAKDOWN_KO.md',
+    'PREEMPTIVE_HARDENING_REPORT_20260412.md',
+    'test_with_vendor.sh',
+}
 ROOT_MANIFEST_NAME = 'FULL_PACKAGE_MANIFEST.json'
 PACKAGE_MANIFEST_NAME = 'DELIVERY_PACKAGE_MANIFEST.json'
 PACKAGE_META_FILES = {ROOT_MANIFEST_NAME, PACKAGE_MANIFEST_NAME, 'PACKAGE_CONTENTS.txt', 'PACKAGE_CONTENTS.json', 'SHA256SUMS.txt'}
 DB_GLOBS = ('.testdata/*.db', '.testdata_full/*.db', '.testdata_prod/*.db', 'data/*.db')
+KEEP_EMPTY_DIR_FILES = ('data/.gitkeep', 'data/backups/.gitkeep')
 
 
 def sha256_file(path: Path) -> str:
@@ -119,6 +142,15 @@ def should_skip(path: Path, *, mode: str, stage_root: Path | None = None) -> boo
             return True
         if path.suffix in {'.enc', '.sha256'}:
             return True
+    if mode == 'deploy':
+        if path.name in DEPLOY_MODE_EXTRA_EXCLUDE_DIR_NAMES or parts & DEPLOY_MODE_EXTRA_EXCLUDE_DIR_NAMES:
+            return True
+        if path.name in DEPLOY_MODE_EXTRA_EXACT or rel in DEPLOY_MODE_EXTRA_EXACT:
+            return True
+        if path.suffix in {'.enc', '.sha256'}:
+            return True
+        if rel.startswith('data/') and path.suffix == '.db':
+            return True
     return False
 
 
@@ -180,6 +212,11 @@ def stage_package(package_dir: Path, *, mode: str) -> dict:
         dest = package_dir / rel
         dest.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(src, dest)
+    if mode == 'deploy':
+        for rel in KEEP_EMPTY_DIR_FILES:
+            target = package_dir / rel
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.touch()
     root_manifest = ROOT / ROOT_MANIFEST_NAME
     if mode == 'full' and root_manifest.exists():
         shutil.copy2(root_manifest, package_dir / ROOT_MANIFEST_NAME)
@@ -209,7 +246,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(description='Create NV0 delivery package.')
     parser.add_argument('--output-dir', default=str(ROOT.parent), help='Directory where the package directory and archives will be created.')
     parser.add_argument('--name', default=DEFAULT_NAME, help='Package directory base name.')
-    parser.add_argument('--mode', choices=['full', 'clean'], default='full', help='full keeps the whole shippable project; clean excludes runtime/vendor/test fixtures.')
+    parser.add_argument('--mode', choices=['full', 'clean', 'deploy'], default='full', help='full keeps the audit-grade project, clean trims vendor/test fixtures, deploy creates a secret-safe deploy bundle.')
     args = parser.parse_args()
 
     output_dir = Path(args.output_dir).resolve()

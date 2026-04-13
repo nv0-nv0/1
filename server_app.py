@@ -25,7 +25,6 @@ from uuid import uuid4
 from fastapi import Depends, FastAPI, Header, HTTPException, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
-from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
@@ -58,11 +57,35 @@ FAIL_PATH = "/payments/toss/fail/"
 LOCAL_HOSTS = {"127.0.0.1", "localhost", "0.0.0.0", "::1"}
 
 
-def parse_internal_hosts() -> set[str]:
-    explicit = os.getenv("NV0_INTERNAL_HOSTS", "").strip()
-    hosts = {item.strip().lower() for item in explicit.split(',') if item.strip()}
-    hosts.update(LOCAL_HOSTS)
+def _parse_csv_env(name: str) -> list[str]:
+    return [item.strip() for item in os.getenv(name, "").split(',') if item.strip()]
+
+
+def _extract_hosts_from_text(value: str) -> list[str]:
+    hosts: list[str] = []
+    for raw in re.split(r"[,\s]+", (value or "")):
+        item = raw.strip()
+        if not item:
+            continue
+        if '://' in item:
+            parsed = urlparse(item)
+            host = (parsed.hostname or '').strip().lower()
+            if host:
+                hosts.append(host)
+            continue
+        host = item.split('/')[0].split(':')[0].strip().lower()
+        if host:
+            hosts.append(host)
     return hosts
+
+
+def parse_internal_hosts() -> set[str]:
+    hosts = set(LOCAL_HOSTS)
+    for item in _parse_csv_env("NV0_INTERNAL_HOSTS"):
+        hosts.update(_extract_hosts_from_text(item))
+    for env_name in ("HOSTNAME", "COOLIFY_URL", "COOLIFY_FQDN", "SERVICE_FQDN_NV0-COMPANY", "SERVICE_FQDN_NV0-COMPANY_8000"):
+        hosts.update(_extract_hosts_from_text(os.getenv(env_name, "")))
+    return {host for host in hosts if host}
 
 
 INTERNAL_HOSTS = parse_internal_hosts()
@@ -70,19 +93,19 @@ HEALTH_ENDPOINTS = {"/health", "/healthz", "/live", "/livez", "/ready", "/readyz
 
 
 def parse_allowed_hosts() -> list[str]:
-    explicit = os.getenv("NV0_ALLOWED_HOSTS", "").strip()
     candidates: list[str] = []
-    base_host = urlparse(NV0_BASE_URL).hostname
+    for item in _parse_csv_env("NV0_ALLOWED_HOSTS"):
+        candidates.extend(_extract_hosts_from_text(item))
+    base_host = (urlparse(NV0_BASE_URL).hostname or '').strip().lower()
     if base_host:
-        candidates.append(base_host.lower())
+        candidates.append(base_host)
+    for env_name in ("COOLIFY_URL", "COOLIFY_FQDN", "SERVICE_FQDN_NV0-COMPANY", "SERVICE_FQDN_NV0-COMPANY_8000"):
+        candidates.extend(_extract_hosts_from_text(os.getenv(env_name, "")))
     candidates.extend(sorted(INTERNAL_HOSTS))
-    if explicit:
-        candidates.extend(item.strip().lower() for item in explicit.split(",") if item.strip())
-    elif (base_host or "").lower() in LOCAL_HOSTS:
-        candidates.extend(sorted(INTERNAL_HOSTS))
     seen: set[str] = set()
     ordered: list[str] = []
     for item in candidates:
+        item = item.lower()
         if item and item not in seen:
             seen.add(item)
             ordered.append(item)
@@ -116,6 +139,7 @@ BOARD_ONLY_DISABLED_API_PREFIXES = (
 _WRITE_LIMIT_BUCKETS: dict[str, deque[float]] = defaultdict(deque)
 _RECORD_CACHE: dict[str, list[dict[str, Any]]] = {}
 _STATE_CACHE: dict[str, list[dict[str, Any]]] | None = None
+_JSON_CACHE: dict[str, bytes] = {}
 _CACHE_LOCK = threading.RLock()
 _SCHEDULE_LOCK = threading.Lock()
 _ORDER_LOCKS: dict[str, threading.Lock] = {}
@@ -133,6 +157,7 @@ def invalidate_cache(*record_types: str) -> None:
         else:
             _RECORD_CACHE.clear()
         _STATE_CACHE = None
+        _JSON_CACHE.clear()
     if not record_types or "publications" in record_types or "scheduler" in record_types:
         _LAST_SCHEDULED_CHECK_MONOTONIC = 0.0
 
@@ -272,6 +297,39 @@ def canonical_redirect_target(request: Request) -> str | None:
     forwarded_proto = clean(request.headers.get('x-forwarded-proto')).split(',')[0].strip().lower()
     scheme = forwarded_proto if forwarded_proto in {'http', 'https'} else (CANONICAL_SCHEME if CANONICAL_SCHEME in {'http', 'https'} else ('https' if HSTS_ENABLED else 'http'))
     return f"{scheme}://{CANONICAL_HOST}{target_path}"
+
+
+def request_host(request: Request) -> str:
+    forwarded_host = clean(request.headers.get('x-forwarded-host')).split(',')[0].strip()
+    host_source = forwarded_host or clean(request.headers.get('host'))
+    return host_source.split(':')[0].strip().lower()
+
+
+def host_matches_allowed(host: str, allowed_hosts: list[str]) -> bool:
+    host = clean(host).lower()
+    if not host:
+        return True
+    for pattern in allowed_hosts:
+        pattern = clean(pattern).lower()
+        if not pattern:
+            continue
+        if pattern == '*' or pattern == host:
+            return True
+        if pattern.startswith('*.') and host.endswith(pattern[1:]) and host.count('.') >= pattern.count('.'):
+            return True
+    return False
+
+
+def invalid_host_response(request: Request) -> Response | None:
+    if ALLOWED_HOSTS == ['*']:
+        return None
+    host = request_host(request)
+    if not host or host in INTERNAL_HOSTS or host_matches_allowed(host, ALLOWED_HOSTS):
+        return None
+    redirect_target = canonical_redirect_target(request)
+    if redirect_target and request.method.upper() in {'GET', 'HEAD'}:
+        return Response(status_code=308, headers={'Location': redirect_target})
+    return JSONResponse(status_code=400, content={"ok": False, "detail": f"허용되지 않은 Host 입니다: {host}"})
 
 
 def verify_toss_webhook_signature(raw_body: bytes, request_headers: dict[str, str]) -> tuple[bool, str]:
@@ -478,6 +536,18 @@ def export_state_payload() -> dict[str, Any]:
     }
 
 
+def cached_json_bytes(cache_key: str, payload_factory) -> bytes:
+    with _CACHE_LOCK:
+        cached = _JSON_CACHE.get(cache_key)
+        if cached is not None:
+            return cached
+    payload = payload_factory()
+    encoded = json.dumps(payload, ensure_ascii=False, separators=(",", ":")).encode('utf-8')
+    with _CACHE_LOCK:
+        _JSON_CACHE[cache_key] = encoded
+    return encoded
+
+
 def import_state_payload(payload: dict[str, Any], *, replace: bool = True) -> dict[str, Any]:
     state = payload.get("state") if isinstance(payload, dict) else None
     if not isinstance(state, dict):
@@ -526,13 +596,13 @@ def plan_info(product_key: str, plan_name: str) -> dict[str, Any]:
 def next_status_for_payment(payment_status: str) -> str:
     mapping = {
         "ready": "payment_pending",
-        "pending": "draft_ready",
-        "paid": "published",
+        "pending": "payment_pending",
+        "paid": "delivered",
         "failed": "payment_failed",
         "cancelled": "payment_cancelled",
         "expired": "payment_failed",
     }
-    return mapping.get(payment_status, "draft_ready")
+    return mapping.get(payment_status, "payment_pending")
 
 
 def build_result_pack(product_key: str, plan_name: str, company: str) -> dict[str, Any]:
@@ -588,8 +658,8 @@ def build_article_sections(target: dict[str, Any], *, title: str, summary: str, 
     outputs_text = smooth_phrases(outputs) or "결과 자료"
     value_text = smooth_phrases(values, sep=" / ") or target.get("summary", "")
     fit_text = smooth_phrases(fit_for) or "실무 팀"
-    workflow_text = smooth_phrases(workflow, sep=" → ") or "요청 정리 → 자동 초안 → 결과 확인"
-    proof = f"조회 코드 {order_code}로 결과와 공개 글을 함께 확인할 수 있습니다." if order_code else "무료 샘플과 데모 코드부터 확인한 뒤 시작 여부를 결정하실 수 있습니다."
+    workflow_text = smooth_phrases(workflow, sep=" → ") or "자동발행게시판 → 제품 설명 → 데모 시연 → 결제 → 자동 제공"
+    proof = f"조회 코드 {order_code}로 정상작동 상태와 자동발행 글을 함께 확인할 수 있습니다." if order_code else "무료 샘플과 데모 시연 자료부터 확인한 뒤 결제 여부를 결정하실 수 있습니다."
     audience = company or "운영팀"
     plan_line = f"{plan} 플랜 기준으로 " if plan else ""
     focus = clean(title or topic_summary or target.get("summary", ""))
@@ -604,19 +674,19 @@ def build_article_sections(target: dict[str, Any], *, title: str, summary: str, 
         },
         {
             "heading": f"{target.get('name')}이 실제로 줄여주는 일",
-            "body": f"{plan_line}{target.get('name')}은 {value_text} 같은 핵심 작업을 더 짧은 흐름으로 정리합니다. 결과적으로 {outputs_text}를 한 번에 준비하고, 제품 설명·문의·구매·결과 확인까지 같은 흐름으로 이어 주기 때문에 중간 설명 비용이 줄어듭니다.",
+            "body": f"{plan_line}{target.get('name')}은 {value_text} 같은 핵심 작업을 더 짧은 흐름으로 정리합니다. 결과적으로 {outputs_text}를 한 번에 준비하고, 자동발행게시판·제품 설명·데모 시연·결제·정상작동 및 발행 제공까지 같은 흐름으로 이어 주기 때문에 중간 설명 비용이 줄어듭니다.",
         },
         {
-            "heading": "도입 전에 확인하면 좋은 기준",
+            "heading": "자동발행게시판을 홍보 허브로 쓰는 기준",
             "body": f"누가 요청을 넣는지, 어떤 기준으로 검토하는지, 결과물을 어디서 확인하는지 세 가지만 먼저 정해도 시작이 훨씬 쉬워집니다. NV0 안에서는 {workflow_text} 흐름으로 이 기준을 한 줄로 맞춰 둘 수 있습니다.",
         },
         {
             "heading": "이렇게 시작하면 가장 부담이 적습니다",
-            "body": f"처음부터 큰 전환을 하기보다 가장 자주 반복되는 한 가지 업무를 골라 무료 샘플과 데모 코드부터 확인해 보세요. {fit_text}처럼 빠르게 비교가 필요한 팀이라면 작은 테스트만으로도 도입 판단이 빨라집니다. {proof}",
+            "body": f"처음부터 큰 전환을 하기보다 가장 자주 반복되는 한 가지 업무를 골라 무료 샘플과 데모 시연 자료부터 확인해 보세요. {fit_text}처럼 빠르게 비교가 필요한 팀이라면 작은 테스트만으로도 도입 판단이 빨라집니다. {proof}",
         },
         {
             "heading": "다음 행동 안내",
-            "body": f"이 글이 지금 상황과 맞는다면 {cta_label} 버튼으로 제품 상세를 먼저 확인해 보세요. 가격, 샘플, 주문, 결제, 결과 확인까지 같은 흐름으로 이어지기 때문에 따로 헤매지 않고 바로 검토를 이어갈 수 있습니다.",
+            "body": f"이 글이 지금 상황과 맞는다면 {cta_label} 버튼으로 제품 상세를 먼저 확인해 보세요. 제품 설명, 데모 시연, 결제, 정상작동 및 발행 제공까지 같은 흐름으로 이어지기 때문에 따로 헤매지 않고 바로 검토를 이어갈 수 있습니다.",
         },
     ]
 
@@ -643,8 +713,8 @@ def build_publication_payload(*, product_key: str, title: str, summary: str, sou
     target = PRODUCTS[product_key]
     automation = target.get("board_automation") or {}
     created = created_at or now_iso()
-    cta = cta_label or automation.get("cta_label") or "자세히 보고 시작하기"
-    href = cta_href or automation.get("cta_href") or f"/products/{product_key}/index.html#order"
+    cta = cta_label or automation.get("cta_label") or "제품 설명 보기"
+    href = cta_href or automation.get("cta_href") or f"/products/{product_key}/index.html#intro"
     company = clean((order or {}).get("company"))
     plan = clean((order or {}).get("plan"))
     order_code = clean((order or {}).get("code"))
@@ -691,7 +761,7 @@ def create_publications_for_order(order: dict[str, Any], forced_ids: list[str] |
         pub_id = forced_ids[idx] if idx < len(forced_ids) and forced_ids[idx] else uid("pub")
         if idx == 0:
             pub_title = f"{target['name']} {order.get('company') or order.get('email') or '고객'} 맞춤 제안"
-            summary = f"{order.get('company') or order.get('email') or '고객'} 상황에 맞춰 {target['name']} {order['plan']} 플랜으로 바로 줄일 수 있는 일과 결과 자료를 블로그 형식으로 정리했습니다."
+            summary = f"{order.get('company') or order.get('email') or '고객'} 상황에 맞춰 {target['name']} {order['plan']} 플랜으로 바로 줄일 수 있는 일과 전자동 발행 제공 결과를 블로그 형식으로 정리했습니다."
         else:
             pub_title = title
             summary = f"{target.get('summary', '')} 조회 코드 {order['code']} 기준으로 함께 확인할 수 있는 AI 자동발행 안내 글입니다."
@@ -701,8 +771,8 @@ def create_publications_for_order(order: dict[str, Any], forced_ids: list[str] |
             summary=summary,
             source="order-automation",
             code=order["code"],
-            cta_label=(target.get("board_automation") or {}).get("cta_label") or "지금 시작하기",
-            cta_href=(target.get("board_automation") or {}).get("cta_href") or f"/products/{order['product']}/index.html#order",
+            cta_label=(target.get("board_automation") or {}).get("cta_label") or "제품 설명 보기",
+            cta_href=(target.get("board_automation") or {}).get("cta_href") or f"/products/{order['product']}/index.html#intro",
             order=order,
             topic_summary=title,
             publication_id=pub_id,
@@ -727,8 +797,8 @@ def ensure_seed_publications() -> None:
             source="seed",
             code=f"SEED-{idx + 1}",
             created_at=created,
-            cta_label=automation.get("cta_label") or "자세히 보고 시작하기",
-            cta_href=automation.get("cta_href") or f"/products/{item['product']}/index.html#order",
+            cta_label=automation.get("cta_label") or "제품 설명 보기",
+            cta_href=automation.get("cta_href") or f"/products/{item['product']}/index.html#intro",
             topic_summary=item["summary"],
             publication_id=f"pubseed-{idx + 1}",
         )
@@ -769,8 +839,8 @@ def ensure_scheduled_publications() -> None:
                 source="scheduled",
                 code=f"AUTO-{product_prefix(key)}-{topic_index + 1:03d}",
                 created_at=created,
-                cta_label=topic.get("ctaText") or automation.get("cta_label") or "자세히 보고 시작하기",
-                cta_href=automation.get("cta_href") or f"/products/{key}/index.html#order",
+                cta_label=topic.get("ctaText") or automation.get("cta_label") or "제품 설명 보기",
+                cta_href=automation.get("cta_href") or f"/products/{key}/index.html#intro",
                 topic_summary=topic.get("summary") or target.get("summary", ""),
                 publication_id=uid("pubsch"),
             )
@@ -800,6 +870,19 @@ def ensure_publications_for_order(order: dict[str, Any]) -> dict[str, Any]:
     order["publicationIds"] = [item["id"] for item in pubs]
     order["publicationCount"] = len(order["publicationIds"])
     order["resultPack"] = build_result_pack(order["product"], order["plan"], order.get("company", ""))
+    return order
+
+
+def finalize_paid_order(order: dict[str, Any]) -> dict[str, Any]:
+    order["paymentStatus"] = "paid"
+    order["status"] = "delivered"
+    order["resultPack"] = build_result_pack(order["product"], order["plan"], order.get("company", ""))
+    order = ensure_publications_for_order(order)
+    delivery_meta = deepcopy(order.get("deliveryMeta") or {})
+    delivery_meta.setdefault("automation", "full_auto")
+    delivery_meta.setdefault("deliveredAt", now_iso())
+    delivery_meta["publicationCount"] = len(order.get("publicationIds") or [])
+    order["deliveryMeta"] = delivery_meta
     return order
 
 
@@ -865,7 +948,7 @@ def create_lookup_entry(payload: dict[str, Any]) -> dict[str, Any]:
     email = normalize_email(payload.get("email"))
     code = normalize_code(payload.get("code"))
     if not validate_email(email):
-        raise HTTPException(status_code=400, detail="결과 확인용 이메일 형식이 올바르지 않습니다.")
+        raise HTTPException(status_code=400, detail="정상작동 및 발행 제공 확인용 이메일 형식이 올바르지 않습니다.")
     if not code:
         raise HTTPException(status_code=400, detail="조회 코드를 입력해 주세요.")
     if payload.get("id"):
@@ -883,10 +966,13 @@ def base_order_entry(payload: dict[str, Any], *, payment_method: str | None = No
     name = clip_text(payload.get("name"), 120)
     email = normalize_email(payload.get("email"))
     method = clean(payment_method or payload.get("paymentMethod") or "toss")
+    billing = clean(payload.get("billing") or "one-time")
     validate_product(product)
     validate_plan(product, plan)
+    if billing != "one-time":
+        raise HTTPException(status_code=400, detail="현재 온라인 결제는 1회 결제형만 지원합니다.")
     if not company or not name or not validate_email(email):
-        raise HTTPException(status_code=400, detail="주문 필수값이 누락되었습니다.")
+        raise HTTPException(status_code=400, detail="결제 필수값이 누락되었습니다.")
     plan_meta = plan_info(product, plan)
     status = payment_status or ("paid" if method == "toss" and not NV0_TOSS_CLIENT_KEY and not NV0_TOSS_SECRET_KEY else "pending")
     order_id = clean(payload.get("id")) or uid("ord")
@@ -900,7 +986,7 @@ def base_order_entry(payload: dict[str, Any], *, payment_method: str | None = No
         "price": plan_meta["display"],
         "amount": plan_meta["amount"],
         "planNote": plan_meta["note"],
-        "billing": clean(payload.get("billing") or "one-time"),
+        "billing": billing,
         "paymentMethod": method,
         "paymentStatus": status,
         "status": next_status_for_payment(status),
@@ -921,7 +1007,7 @@ def base_order_entry(payload: dict[str, Any], *, payment_method: str | None = No
 def create_order_entry(payload: dict[str, Any]) -> dict[str, Any]:
     order = base_order_entry(payload)
     if order["paymentStatus"] == "paid":
-        order = ensure_publications_for_order(order)
+        order = finalize_paid_order(order)
     return upsert_record("orders", order)
 
 
@@ -952,7 +1038,7 @@ def find_order(email: str, code: str) -> dict[str, Any] | None:
 def update_order(order_id: str, updater) -> dict[str, Any]:
     order = get_record("orders", order_id)
     if not order:
-        raise HTTPException(status_code=404, detail="주문을 찾지 못했습니다.")
+        raise HTTPException(status_code=404, detail="결제 기록을 찾지 못했습니다.")
     updated = updater(deepcopy(order))
     updated["updatedAt"] = now_iso()
     return upsert_record("orders", updated)
@@ -1107,20 +1193,19 @@ def confirm_toss_payment(payload: dict[str, Any]) -> dict[str, Any]:
         if not order:
             raise HTTPException(status_code=404, detail="결제 준비 정보를 찾지 못했습니다.")
         if int(order.get("amount") or 0) != amount:
-            raise HTTPException(status_code=400, detail="결제 금액이 주문 금액과 일치하지 않습니다.")
+            raise HTTPException(status_code=400, detail="결제 금액이 저장된 결제 정보와 일치하지 않습니다.")
         existing_payment_key = clean(order.get("paymentKey"))
         if order.get("paymentStatus") == "paid":
             if existing_payment_key and existing_payment_key != payment_key:
-                raise HTTPException(status_code=409, detail="이미 다른 결제 키로 승인된 주문입니다.")
-            return ensure_publications_for_order(order)
+                raise HTTPException(status_code=409, detail="이미 다른 결제 키로 승인된 결제 건입니다.")
+            order = finalize_paid_order(order)
+            order["updatedAt"] = now_iso()
+            return upsert_record("orders", order)
 
         payment = toss_confirm_remote(payment_key, order_id, amount)
-        order["paymentStatus"] = "paid"
-        order["status"] = "published"
         order["paymentKey"] = payment_key
         order["paymentMeta"] = payment
-        order["resultPack"] = build_result_pack(order["product"], order["plan"], order.get("company", ""))
-        order = ensure_publications_for_order(order)
+        order = finalize_paid_order(order)
         order["updatedAt"] = now_iso()
         return upsert_record("orders", order)
 
@@ -1129,15 +1214,12 @@ def apply_webhook_to_order(order: dict[str, Any], event_type: str, data: dict[st
     status = clean(data.get("status") or raw.get("status")).upper()
     payment_key = clean(data.get("paymentKey") or data.get("lastTransactionKey") or order.get("paymentKey"))
     if status in {"DONE", "PAID"}:
-        order["paymentStatus"] = "paid"
-        order["status"] = "published"
         if payment_key:
             order["paymentKey"] = payment_key
         merged_meta = deepcopy(order.get("paymentMeta") or {})
         merged_meta.update(data)
         order["paymentMeta"] = merged_meta
-        order["resultPack"] = build_result_pack(order["product"], order["plan"], order.get("company", ""))
-        order = ensure_publications_for_order(order)
+        order = finalize_paid_order(order)
     elif status in {"CANCELED", "PARTIAL_CANCELED"}:
         order["paymentStatus"] = "cancelled"
         order["status"] = "payment_cancelled"
@@ -1245,8 +1327,8 @@ def create_board_publication(product_key: str, *, source: str = 'manual', force_
         source=source,
         code=f"{source.upper()}-{product_prefix(product_key)}-{topic_index + 1:03d}",
         created_at=created,
-        cta_label=topic.get('ctaText') or automation.get('cta_label') or '문의하기',
-        cta_href=automation.get('cta_href') or f"mailto:{SITE_DATA.get('brand',{}).get('contact_email','ct@nv0.kr')}?subject={target.get('name','NV0')}%20CTA%20문의",
+        cta_label=topic.get('ctaText') or automation.get('cta_label') or '제품 설명 보기',
+        cta_href=automation.get('cta_href') or f"/products/{product_key}/index.html#intro",
         topic_summary=topic.get('summary') or target.get('summary', ''),
         publication_id=uid('pubman' if source == 'manual' else 'pubsch'),
     )
@@ -1280,11 +1362,11 @@ def create_app() -> FastAPI:
         allow_headers=["*"],
     )
     app.add_middleware(GZipMiddleware, minimum_size=1024)
-    if ALLOWED_HOSTS != ["*"]:
-        app.add_middleware(TrustedHostMiddleware, allowed_hosts=ALLOWED_HOSTS)
-
     @app.middleware("http")
     async def add_security_headers(request: Request, call_next):
+        host_response = invalid_host_response(request)
+        if host_response is not None:
+            return host_response
         redirect_target = canonical_redirect_target(request)
         if redirect_target is not None:
             return Response(status_code=308, headers={'Location': redirect_target})
@@ -1296,7 +1378,7 @@ def create_app() -> FastAPI:
             return body_limit_response
         if BOARD_ONLY_MODE and board_only_disabled_api(request.url.path):
             return board_only_json_response('이 기능은 비활성화되었습니다. 현재는 AI 자동발행 블로그 허브만 운영합니다.')
-        if BOARD_ONLY_MODE and request.method == 'GET' and not request.url.path.startswith('/api/') and not board_only_path_allowed(request.url.path):
+        if BOARD_ONLY_MODE and request.method == 'GET' and request.url.path not in HEALTH_ENDPOINTS and not request.url.path.startswith('/api/') and not board_only_path_allowed(request.url.path):
             return board_only_html_response(request.url.path)
         response = await call_next(request)
         response.headers.setdefault("X-Content-Type-Options", "nosniff")
@@ -1376,8 +1458,8 @@ def create_app() -> FastAPI:
         return {"ok": True, "protected": bool(NV0_ADMIN_TOKEN)}
 
     @app.get("/api/admin/state")
-    def admin_state(_: None = Depends(require_admin)) -> dict[str, Any]:
-        return {"ok": True, "state": state_payload()}
+    def admin_state(_: None = Depends(require_admin)) -> Response:
+        return Response(content=cached_json_bytes("admin_state", lambda: {"ok": True, "state": state_payload()}), media_type="application/json")
 
     @app.get("/api/admin/export")
     def admin_export(_: None = Depends(require_admin)) -> dict[str, Any]:
@@ -1389,9 +1471,9 @@ def create_app() -> FastAPI:
         return {"ok": True, "state": state}
 
     @app.get("/api/public/board/feed")
-    def public_board_feed() -> dict[str, Any]:
+    def public_board_feed() -> Response:
         ensure_scheduled_publications()
-        return {"ok": True, "items": load_records("publications")}
+        return Response(content=cached_json_bytes("public_board_feed", lambda: {"ok": True, "items": load_records("publications")}), media_type="application/json")
 
     if not BOARD_ONLY_MODE:
         @app.post("/api/public/orders")
@@ -1450,8 +1532,8 @@ def create_app() -> FastAPI:
     if not BOARD_ONLY_MODE:
         @app.post("/api/admin/actions/seed-demo")
         def admin_seed_demo(_: None = Depends(require_admin)) -> dict[str, Any]:
-            order = create_order_entry({"product": "veridion", "plan": "Growth", "billing": "one-time", "paymentMethod": "toss", "company": "Demo Company", "name": "테스터", "email": "demo@nv0.kr", "note": "시드 주문"})
-            create_demo_entry({"product": "clearport", "company": "Demo Company", "name": "테스터", "email": "demo@nv0.kr", "team": "3명 팀", "need": "결과 확인"})
+            order = upsert_record("orders", base_order_entry({"product": "veridion", "plan": "Growth", "billing": "one-time", "paymentMethod": "toss", "company": "Demo Company", "name": "테스터", "email": "demo@nv0.kr", "note": "시드 결제"}, payment_status="pending"))
+            create_demo_entry({"product": "clearport", "company": "Demo Company", "name": "테스터", "email": "demo@nv0.kr", "team": "3명 팀", "need": "정상작동 확인"})
             create_contact_entry({"product": "grantops", "company": "Demo Company", "email": "demo@nv0.kr", "issue": "제출 일정 문의"})
             return {"ok": True, "order": order, "state": state_payload()}
 
@@ -1481,30 +1563,22 @@ def create_app() -> FastAPI:
 
 def _advance_order(order: dict[str, Any]) -> dict[str, Any]:
     current = order.get("status") or next_status_for_payment(order.get("paymentStatus", "pending"))
-    if current in {"payment_pending", "payment_failed", "payment_cancelled"}:
-        raise HTTPException(status_code=400, detail="결제 완료 전에는 발행 단계로 이동할 수 없습니다.")
-    if current == "draft_ready" and order.get("paymentStatus") != "paid":
-        raise HTTPException(status_code=400, detail="결제 완료 전에는 발행 단계로 이동할 수 없습니다.")
-    steps = ["draft_ready", "published", "delivered"]
-    idx = max(0, steps.index(current) if current in steps else 0)
-    order["status"] = steps[min(idx + 1, len(steps) - 1)]
-    return order
+    if order.get("paymentStatus") != "paid":
+        raise HTTPException(status_code=400, detail="결제 완료 전에는 자동 제공을 완료할 수 없습니다.")
+    if current == "delivered":
+        return order
+    return finalize_paid_order(order)
 
 
 def _toggle_payment(order: dict[str, Any]) -> dict[str, Any]:
     payment_status = "pending" if order.get("paymentStatus") == "paid" else "paid"
     if order.get("status") == "delivered" and payment_status != "paid":
-        raise HTTPException(status_code=400, detail="납품 완료 주문은 미결제로 되돌릴 수 없습니다.")
-    status = order.get("status")
+        raise HTTPException(status_code=400, detail="정상작동 및 발행 제공 완료 결제 건은 미결제로 되돌릴 수 없습니다.")
     if payment_status == "pending":
-        status = "draft_ready"
-    elif status in {"draft_ready", "payment_pending", "payment_failed", "payment_cancelled"} and payment_status == "paid":
-        status = "published"
-    order["paymentStatus"] = payment_status
-    order["status"] = status
-    if payment_status == "paid":
-        order = ensure_publications_for_order(order)
-    return order
+        order["paymentStatus"] = payment_status
+        order["status"] = "payment_pending"
+        return order
+    return finalize_paid_order(order)
 
 
 def _republish_order(order: dict[str, Any]) -> dict[str, Any]:
