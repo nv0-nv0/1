@@ -75,7 +75,7 @@ def main() -> int:
     pages = [
         ('/', 'id="quick-demo-result"'),
         ('/products/', 'id="product-grid"'),
-        ('/pricing/', '가격, 범위, 1회 결제형 자료를 한 번에 비교하고 바로 시작할 수 있습니다'),
+        ('/pricing/', '가격, 범위, 1회 결제형 전달물을 한 번에 비교하고 바로 시작할 수 있습니다'),
         ('/docs/', '문서 센터'),
         ('/board/', 'id="public-board-grid"'),
         ('/demo/', 'id="demo-form"'),

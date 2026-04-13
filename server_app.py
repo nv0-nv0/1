@@ -658,7 +658,7 @@ def build_article_sections(target: dict[str, Any], *, title: str, summary: str, 
     outputs_text = smooth_phrases(outputs) or "결과 자료"
     value_text = smooth_phrases(values, sep=" / ") or target.get("summary", "")
     fit_text = smooth_phrases(fit_for) or "실무 팀"
-    workflow_text = smooth_phrases(workflow, sep=" → ") or "자동발행게시판 → 제품 설명 → 데모 시연 → 결제 → 자동 제공"
+    workflow_text = smooth_phrases(workflow, sep=" → ") or "콘텐츠 허브 → 제품 설명 → 데모 시연 → 결제 → 결과 전달"
     proof = f"조회 코드 {order_code}로 정상작동 상태와 자동발행 글을 함께 확인할 수 있습니다." if order_code else "무료 샘플과 데모 시연 자료부터 확인한 뒤 결제 여부를 결정하실 수 있습니다."
     audience = company or "운영팀"
     plan_line = f"{plan} 플랜 기준으로 " if plan else ""
@@ -674,10 +674,10 @@ def build_article_sections(target: dict[str, Any], *, title: str, summary: str, 
         },
         {
             "heading": f"{target.get('name')}이 실제로 줄여주는 일",
-            "body": f"{plan_line}{target.get('name')}은 {value_text} 같은 핵심 작업을 더 짧은 흐름으로 정리합니다. 결과적으로 {outputs_text}를 한 번에 준비하고, 자동발행게시판·제품 설명·데모 시연·결제·정상작동 및 발행 제공까지 같은 흐름으로 이어 주기 때문에 중간 설명 비용이 줄어듭니다.",
+            "body": f"{plan_line}{target.get('name')}은 {value_text} 같은 핵심 작업을 더 짧은 흐름으로 정리합니다. 결과적으로 {outputs_text}를 한 번에 준비하고, 콘텐츠 허브·제품 설명·데모 시연·결제·결과 전달까지 같은 흐름으로 이어 주기 때문에 중간 설명 비용이 줄어듭니다.",
         },
         {
-            "heading": "자동발행게시판을 홍보 허브로 쓰는 기준",
+            "heading": "콘텐츠 허브를 먼저 읽으면 좋은 이유",
             "body": f"누가 요청을 넣는지, 어떤 기준으로 검토하는지, 결과물을 어디서 확인하는지 세 가지만 먼저 정해도 시작이 훨씬 쉬워집니다. NV0 안에서는 {workflow_text} 흐름으로 이 기준을 한 줄로 맞춰 둘 수 있습니다.",
         },
         {
@@ -686,7 +686,7 @@ def build_article_sections(target: dict[str, Any], *, title: str, summary: str, 
         },
         {
             "heading": "다음 행동 안내",
-            "body": f"이 글이 지금 상황과 맞는다면 {cta_label} 버튼으로 제품 상세를 먼저 확인해 보세요. 제품 설명, 데모 시연, 결제, 정상작동 및 발행 제공까지 같은 흐름으로 이어지기 때문에 따로 헤매지 않고 바로 검토를 이어갈 수 있습니다.",
+            "body": f"이 글이 지금 상황과 맞는다면 {cta_label} 버튼으로 제품 상세를 먼저 확인해 보세요. 제품 설명, 데모 시연, 결제, 결과 전달까지 같은 흐름으로 이어지기 때문에 따로 헤매지 않고 바로 검토를 이어갈 수 있습니다.",
         },
     ]
 
@@ -948,7 +948,7 @@ def create_lookup_entry(payload: dict[str, Any]) -> dict[str, Any]:
     email = normalize_email(payload.get("email"))
     code = normalize_code(payload.get("code"))
     if not validate_email(email):
-        raise HTTPException(status_code=400, detail="정상작동 및 발행 제공 확인용 이메일 형식이 올바르지 않습니다.")
+        raise HTTPException(status_code=400, detail="결과 전달 확인용 이메일 형식이 올바르지 않습니다.")
     if not code:
         raise HTTPException(status_code=400, detail="조회 코드를 입력해 주세요.")
     if payload.get("id"):
@@ -1573,7 +1573,7 @@ def _advance_order(order: dict[str, Any]) -> dict[str, Any]:
 def _toggle_payment(order: dict[str, Any]) -> dict[str, Any]:
     payment_status = "pending" if order.get("paymentStatus") == "paid" else "paid"
     if order.get("status") == "delivered" and payment_status != "paid":
-        raise HTTPException(status_code=400, detail="정상작동 및 발행 제공 완료 결제 건은 미결제로 되돌릴 수 없습니다.")
+        raise HTTPException(status_code=400, detail="결과 전달 완료 결제 건은 미결제로 되돌릴 수 없습니다.")
     if payment_status == "pending":
         order["paymentStatus"] = payment_status
         order["status"] = "payment_pending"
