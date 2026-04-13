@@ -237,52 +237,64 @@ def plan_cards_markup(product: dict) -> str:
 def build_home_page(data: dict) -> str:
     brand = data['brand']
     products = data['products']
-    representative = products[0]
-    body = dedent(f'''
-    <main>
+    featured = products[0]
+    module_cards = ''.join(
+        f'<article class="story-card {escape(item["theme"])}"><span class="tag theme-chip">{escape(item["label"])}</span><h3>{escape(item["name"])}</h3><p>{escape(item["summary"])}</p><div class="small-actions"><a href="./products/{escape(item["key"] )}/index.html">제품 모듈 열기</a><a href="./products/{escape(item["key"] )}/demo/index.html">즉시 데모</a><a href="./products/{escape(item["key"] )}/plans/index.html">플랜</a></div></article>'
+        for item in products
+    )
+    body = dedent(f'''    <main>
       <section class="hero">
         <div class="container hero-grid">
           <div class="card strong">
             <span class="kicker">{escape(brand["tagline"])}</span>
-            <h1>{escape(brand["hero_title"])}</h1>
-            <p class="lead">{escape(brand["hero_description"])}</p>
+            <h1>공통 엔진 사이트 위에 제품 모듈을 결합해 운영합니다</h1>
+            <p class="lead">홈은 공통 엔진과 신뢰 기준만 보여주고, 실제 설명과 체험은 제품 메뉴에서 각 모듈로 분기되게 정리했습니다. 한 페이지에 모든 설명을 밀어 넣지 않고, 필요한 정보만 단계별로 들어가도록 구조를 다시 나눴습니다.</p>
             <div class="actions">
-              <a class="button secondary" href="./company/index.html">회사 소개 보기</a>
-              <a class="button" href="./products/index.html">제품 구조 보기</a>
-              <a class="button ghost" href="./pricing/index.html">가격 먼저 보기</a>
-              <a class="button ghost" href="./products/{escape(representative["key"])}/index.html#demo">대표 제품 데모 시연</a>
+              <a class="button" href="./products/index.html">제품 모듈 보기</a>
+              <a class="button secondary" href="./engine/index.html">공통 엔진 보기</a>
+              <a class="button ghost" href="./products/{escape(featured['key'])}/demo/index.html">대표 제품 즉시 데모</a>
             </div>
-            <div class="live-strip" id="live-stats">
-              <article class="mini"><strong>회사형 메인</strong><span>회사 소개와 제품 판매 동선을 분리해 첫 이해를 돕습니다.</span></article>
-              <article class="mini"><strong>공용 엔진</strong><span>결제, 자동 실행, 발행, 포털, 관리자 기록을 하나로 묶습니다.</span></article>
-              <article class="mini"><strong>모듈형 제품</strong><span>새 제품을 같은 구조에 붙여 빠르게 확장할 수 있습니다.</span></article>
-              <article class="mini"><strong>결과 납품</strong><span>결제 직후 정상작동 설정과 발행 제공 자료, 포털 확인까지 자동으로 이어집니다.</span></article>
+            <div class="quick-link-grid">
+              <a class="quick-link-card" href="./engine/index.html"><strong>공통 엔진</strong><span>공용 흐름과 재사용 구조를 봅니다.</span></a>
+              <a class="quick-link-card" href="./products/index.html"><strong>제품 모듈</strong><span>제품 메뉴에서 필요한 모듈로 분기합니다.</span></a>
+              <a class="quick-link-card" href="./pricing/index.html"><strong>가격</strong><span>제품별 플랜과 시작가를 확인합니다.</span></a>
+              <a class="quick-link-card" href="./docs/index.html"><strong>문서</strong><span>준비물과 전달물만 먼저 볼 수 있습니다.</span></a>
             </div>
           </div>
-          <div class="showcase-grid">
-            <article class="card accent">
-              <span class="tag" style="background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.12);color:#fff">공용 엔진</span>
-              <h3 style="font-size:1.75rem;margin:16px 0 10px">한 번 만든 엔진 위에 제품 모듈을 계속 붙일 수 있습니다</h3>
-              <p>NV0는 회사 소개, 제품 상세, 자동발행게시판, 결제, 고객 포털, 관리자 허브를 하나의 공용 엔진 위에서 관리합니다. 1인 운영 기준으로 새 제품 추가와 운영 반복 비용을 줄이는 구조입니다.</p>
-              <div class="inline-list">{engine_layers_markup(data)}</div>
-            </article>
-            <article class="card strong">
-              <span class="tag">각 제품 페이지에서 되는 일</span>
-              <h3>소개만 하는 페이지가 아니라 자동발행게시판을 보고, 설명을 이해하고, 데모 시연 뒤 결제와 정상작동 및 발행 제공까지 이어지는 페이지입니다</h3>
-              <p class="lead" style="font-size:1rem">제품 상세에는 자동발행게시판 → 제품 설명 → 데모 시연 → 결제 → 정상작동 및 발행 제공 흐름이 한 줄로 들어가 있습니다.</p>
-              <div class="badge-row"><span class="badge">자동발행게시판</span><span class="badge">제품 설명</span><span class="badge">데모 시연</span><span class="badge">결제</span><span class="badge">자동 제공</span><span class="badge">포털 확인</span></div>
-            </article>
+          <div class="card accent">
+            <span class="tag" style="background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.12);color:#fff">즉시 미리보기</span>
+            <h3 style="font-size:1.72rem;margin:16px 0 10px">데모는 절차를 늘리지 않고 바로 시작합니다</h3>
+            <div class="quick-demo-grid">
+              {''.join(f'<button class="quick-demo-button" type="button" data-quick-demo="{escape(item["key"])}" data-quick-scenario="0">{escape(item["name"])} 미리보기</button>' for item in products)}
+            </div>
+            <div class="result-box" id="quick-demo-result" role="status" aria-live="polite"></div>
           </div>
         </div>
       </section>
-      <section class="section compact"><div class="container"><div class="section-head"><div><h2>한 사이트 안에서 자동발행게시판, 제품 설명, 데모 시연, 결제, 정상작동 및 발행 제공이 모두 이어지도록 설계했습니다</h2></div><p>루트 홈은 회사형 메인으로, 제품 상세는 실행형 판매 페이지로, 자료 허브는 검토형 고객용 동선으로 나눠 첫 방문부터 자동발행게시판, 설명, 데모 시연, 결제, 정상작동 및 발행 제공까지 막힘 없이 이어가도록 구성했습니다.</p></div><div class="timeline">{timeline_markup(data)}</div></div></section>
-      <section class="section compact"><div class="container"><div class="section-head"><div><h2>지금 붙어 있는 4개 제품 모듈</h2></div><p>모든 제품은 공용 엔진을 공유하지만 문제 정의, 결과물, CTA, 가격 기준은 각각 다르게 가져갑니다.</p></div><div class="product-grid" id="product-grid">{product_cards_markup(products, './')}</div></div></section>
-      <section class="section compact"><div class="container"><div class="section-head"><div><h2>NV0가 실제로 제공하는 화면과 흐름</h2></div><p>광고형 랜딩 한 장이 아니라, 판매·자료·발행·납품 동선이 서로 끊기지 않는 제품 회사 구조를 기준으로 설계했습니다.</p></div><div class="support-grid">{support_cards_markup()}</div></div></section>
-      <section class="section compact"><div class="container"><div class="section-head"><div><h2>검토부터 결제와 정상작동 및 발행 제공까지 바로 이어지는 메뉴</h2></div><p>가격, 문서, 사례, FAQ, AI 자동발행 블로그 허브, 고객 포털을 별도 메뉴로 두어 읽는 고객과 결제까지 바로 이어가려는 고객이 모두 막히지 않게 했습니다.</p></div><div class="story-grid">{quick_links_markup('./')}</div></div></section>
+      <section class="section compact">
+        <div class="container">
+          <div class="section-head">
+            <div><h2>제품 메뉴를 누르면 제품 모듈로 분기됩니다</h2></div>
+            <p>제품 목록에서 제품을 고르고, 각 제품 안에서는 요약 · 즉시 데모 · 플랜 · 전달물 · FAQ · 게시판으로 다시 나눠 필요한 화면만 확인할 수 있게 만들었습니다.</p>
+          </div>
+          <div class="story-grid">{module_cards}</div>
+        </div>
+      </section>
+      <section class="section compact">
+        <div class="container accordion-stack">
+          <details class="fold-card" open>
+            <summary><strong>핵심 흐름</strong><span>공통 엔진 → 제품 모듈 → 데모 → 결제 → 포털 → 관리자</span></summary>
+            <div><div class="timeline">{timeline_markup(data)}</div></div>
+          </details>
+          <details class="fold-card">
+            <summary><strong>왜 이렇게 나눴는지</strong><span>한 페이지 과밀을 줄이고 첫 클릭을 단순화했습니다.</span></summary>
+            <div><p>홈은 공통 엔진과 신뢰, 제품 메뉴는 문제별 분기, 제품 모듈은 실행 화면으로 역할을 분리했습니다. 접힘 상태에서는 핵심만, 펼침 상태에서는 상세 설명을 보게 구성했습니다.</p></div>
+          </details>
+        </div>
+      </section>
     </main>
     ''')
     return doc(brand, brand['title'], brand['hero_description'], 'home', body, depth=0, page_key='home', page_path='/index.html')
-
 
 def build_company_page(data: dict) -> str:
     brand = data['brand']
@@ -297,52 +309,75 @@ def build_company_page(data: dict) -> str:
             <div class="crumbs"><a href="{prefix}index.html">HOME</a><span class="sep">/</span><span>회사</span></div>
             <span class="kicker">Company</span>
             <h1>{escape(company_profile.get('headline', ''))}</h1>
-            <p class="lead">NV0는 회사형 메인에서 브랜드와 운영 기준을 설명하고, 제품 상세에서는 자동발행게시판 → 제품 설명 → 데모 시연 → 결제 → 정상작동 및 발행 제공 흐름이 바로 이어지게 만드는 구조를 지향합니다. 회사 페이지는 그 전체 구조의 기준과 운영 원칙을 보여 주는 곳입니다.</p>
+            <p class="lead">회사 메뉴는 NV0가 왜 공통 엔진 사이트로 운영되고, 제품 메뉴에서 어떤 식으로 모듈을 붙여 가는지 보여주는 화면입니다. 실제 체험과 결제는 제품 메뉴에서 진행되도록 역할을 분리했습니다.</p>
             <div class="actions">
-              <a class="button secondary" href="{prefix}engine/index.html">공용 엔진 보기</a>
-              <a class="button" href="{prefix}products/index.html">제품 보기</a>
-              <a class="button ghost" href="{prefix}pricing/index.html">가격 보기</a>
+              <a class="button secondary" href="{prefix}engine/index.html">공통 엔진 보기</a>
+              <a class="button" href="{prefix}products/index.html">제품 모듈 보기</a>
+              <a class="button ghost" href="{prefix}docs/index.html">문서 센터</a>
             </div>
           </div>
           <div class="card accent">
             <span class="tag" style="background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.12);color:#fff">운영 원칙</span>
-            <h3 style="font-size:1.72rem;margin:16px 0 10px">1인 운영에서도 설명보다 결정과 실행이 빠른 구조를 우선합니다</h3>
+            <h3 style="font-size:1.72rem;margin:16px 0 10px">브랜드는 공통으로, 실행은 모듈로</h3>
             <ul class="clean inverse-list">{principles}</ul>
           </div>
         </div>
       </section>
-      <section class="section compact"><div class="container"><div class="section-head"><div><h2>회사형 메인으로 운영해도 운영 흐름이 끊기지 않는 이유</h2></div><p>브랜드 소개와 판매 설명을 한 화면에 모두 넣으면 첫 인지가 흐려집니다. 그래서 회사 메뉴는 기준과 구조를, 제품 메뉴는 실제 데모 시연과 결제 흐름을 담당하게 분리했습니다.</p></div><div class="story-grid">{company_sections_markup(company_profile)}<article class="story-card"><span class="tag">4</span><h3>자료 허브</h3><p>가격, 문서, 사례, FAQ, 게시판을 별도 메뉴로 두어 검토형 고객도 바로 필요한 자료를 찾게 했습니다.</p></article><article class="story-card"><span class="tag">5</span><h3>포털/운영</h3><p>결제 후에는 고객 포털과 관리자 허브에서 정상작동 상태와 발행 제공 자료를 다시 확인할 수 있게 구성했습니다.</p></article><article class="story-card"><span class="tag">6</span><h3>모듈 확장</h3><p>새 제품이 생겨도 공용 엔진과 같은 전환 구조에 붙일 수 있게 설계해 확장 비용을 낮췄습니다.</p></article></div></div></section>
+      <section class="section compact"><div class="container"><div class="story-grid">{company_sections_markup(company_profile)}</div></div></section>
       <section class="section compact"><div class="container module-layout"><article class="card strong"><span class="tag">운영 정보</span><h3>시작 전에 확인할 수 있는 기본 운영 정보</h3><div class="kv">{business_info_markup(brand)}</div></article><article class="card strong"><span class="tag">신뢰 기준</span><h3>고객이 헷갈리지 않도록 먼저 밝히는 원칙</h3><ul class="clean">{trust_points_markup(brand)}</ul></article></div></section>
-      <section class="section compact"><div class="container"><div class="section-head"><div><h2>공용 엔진이 맡는 역할</h2></div><p>회사 메뉴는 설명에 그치지 않고, 제품 메뉴와 자료 허브, 포털, 관리자 기능이 같은 데이터 흐름을 공유한다는 점을 분명하게 보여 줘야 합니다.</p></div><div class="timeline">{timeline_markup(data)}</div></div></section>
     </main>
     ''')
     return doc(brand, f'회사 | {brand["name"]}', '엔브이제로 회사 소개', 'company', body, depth=1, page_key='company', page_path='/company/index.html')
-
 
 def build_products_page(data: dict) -> str:
     brand = data['brand']
     products = data['products']
     prefix = rel_prefix(1)
-    body = dedent(f'''
-    <main>
+    cards = []
+    for item in products:
+        cards.append(f'''        <article class="card product-card strong {escape(item['theme'])}">
+          <span class="tag theme-chip">{escape(item['label'])}</span>
+          <h3>{escape(item['name'])}</h3>
+          <p>{escape(item['headline'])}</p>
+          <div class="product-module-grid compact-grid">
+            <a class="quick-link-card" href="{prefix}products/{escape(item['key'])}/index.html"><strong>요약</strong><span>제품 개요와 맞는 상황만 봅니다.</span></a>
+            <a class="quick-link-card" href="{prefix}products/{escape(item['key'])}/demo/index.html"><strong>즉시 데모</strong><span>바로 미리보고 저장합니다.</span></a>
+            <a class="quick-link-card" href="{prefix}products/{escape(item['key'])}/plans/index.html"><strong>플랜</strong><span>가격과 범위를 확인합니다.</span></a>
+            <a class="quick-link-card" href="{prefix}products/{escape(item['key'])}/delivery/index.html"><strong>전달물</strong><span>무엇을 받는지 확인합니다.</span></a>
+            <a class="quick-link-card" href="{prefix}products/{escape(item['key'])}/faq/index.html"><strong>FAQ</strong><span>반복 질문만 먼저 봅니다.</span></a>
+            <a class="quick-link-card" href="{prefix}products/{escape(item['key'])}/board/index.html"><strong>게시판</strong><span>제품 관련 공개 글을 읽습니다.</span></a>
+          </div>
+          <div class="actions">
+            <a class="button" href="{prefix}products/{escape(item['key'])}/demo/index.html">즉시 데모</a>
+            <a class="button secondary" href="{prefix}products/{escape(item['key'])}/plans/index.html">플랜 보기</a>
+            <a class="button ghost" href="{prefix}docs/{escape(item['key'])}/index.html">문서</a>
+          </div>
+        </article>
+        ''')
+    body = dedent(f'''    <main>
       <section class="section">
         <div class="container page-hero">
           <div class="card strong">
             <div class="crumbs"><a href="{prefix}index.html">HOME</a><span class="sep">/</span><span>제품</span></div>
             <span class="kicker">Products</span>
-            <h1>공용 엔진 위에 붙는 제품 모듈을 문제 기준으로 바로 고를 수 있습니다</h1>
-            <p class="lead">각 제품 상세 안에서 자동발행게시판, 설명, 데모 시연, 결제, 자동 실행 안내, 정상작동 및 발행 제공까지 자연스럽게 이어집니다. 문제를 먼저 보고 들어와도, 가격이나 문서를 먼저 보고 들어와도 같은 제품 페이지로 수렴하도록 설계했습니다.</p>
-            <div class="actions"><a class="button" href="{prefix}pricing/index.html">가격 비교</a><a class="button secondary" href="{prefix}docs/index.html">문서 센터</a><a class="button ghost" href="{prefix}board/index.html">게시판 보기</a></div>
+            <h1>제품 메뉴에서 각 제품 모듈로 바로 분기됩니다</h1>
+            <p class="lead">제품을 누르면 한 페이지에 모든 것을 몰아넣지 않고, 요약 · 즉시 데모 · 플랜 · 전달물 · FAQ · 게시판으로 다시 나뉘도록 설계했습니다.</p>
+            <div class="actions"><a class="button" href="{prefix}demo/index.html">공통 데모 시연</a><a class="button secondary" href="{prefix}pricing/index.html">가격 비교</a><a class="button ghost" href="{prefix}engine/index.html">공통 엔진</a></div>
           </div>
-          <div class="card accent"><span class="tag" style="background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.12);color:#fff">운영 흐름</span><h3 style="font-size:1.72rem;margin:16px 0 10px">자동발행게시판 → 제품 설명 → 데모 시연 → 결제 → 정상작동 및 발행 제공</h3><p>복잡한 문의 절차보다, 직접 써보고 결제까지 이어갈 수 있는 흐름을 우선합니다. 결제 방식은 제품과 상황에 따라 외부 결제 또는 세금계산서 안내로 이어집니다. 제품마다 CTA AI 자동발행 블로그 허브와 문서 링크를 함께 둬 검토형 고객도 놓치지 않게 했습니다.</p></div>
+          <div class="card accent">
+            <span class="tag" style="background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.12);color:#fff">선택 가이드</span>
+            <h3 style="font-size:1.72rem;margin:16px 0 10px">첫 클릭은 단순하게, 깊이는 모듈별로</h3>
+            <div class="accordion-stack">
+              <details class="fold-card light-open" open><summary><strong>빠르게 고르기</strong><span>요약 → 즉시 데모 → 플랜 순서로 보시면 됩니다.</span></summary><div><p>상세를 다 읽기 전에 먼저 문제에 맞는 제품을 고르고, 데모로 방향을 확인한 뒤 플랜을 보시면 됩니다.</p></div></details>
+              <details class="fold-card light-open"><summary><strong>문서와 전달물</strong><span>준비물과 전달물은 별도 페이지에 나눴습니다.</span></summary><div><p>문서 센터와 전달물 페이지를 분리해, 제품 소개 화면이 과밀해지지 않도록 정리했습니다.</p></div></details>
+            </div>
+          </div>
         </div>
       </section>
-      <section class="section compact"><div class="container"><div class="product-grid" id="product-grid">{product_cards_markup(products, prefix, include_docs=True)}</div></div></section>
-      <section class="section compact"><div class="container"><div class="section-head"><div><h2>문제에서 시작하는 제품 선택</h2></div><p>제품명보다 문제를 먼저 떠올리는 고객을 위해 각 제품이 해결하는 대표 장면을 같이 정리했습니다.</p></div><div class="story-grid">{product_fit_cards_markup(products, prefix)}</div></div></section>
+      <section class="section compact"><div class="container"><div class="product-grid" id="product-grid">{''.join(cards)}</div></div></section>
     </main>
     ''')
-    return doc(brand, f'제품 | {brand["name"]}', 'NV0 제품 목록', 'products', body, depth=1, page_key='products', page_path='/products/index.html')
-
+    return doc(brand, f'제품 | {brand["name"]}', '문제별 제품 선택', 'products', body, depth=1, page_key='products', page_path='/products/index.html')
 
 def build_engine_page(data: dict) -> str:
     brand = data['brand']
@@ -352,21 +387,19 @@ def build_engine_page(data: dict) -> str:
       <section class="section">
         <div class="container page-hero">
           <div class="card strong">
-            <div class="crumbs"><a href="{prefix}index.html">HOME</a><span class="sep">/</span><span>공용 엔진</span></div>
+            <div class="crumbs"><a href="{prefix}index.html">HOME</a><span class="sep">/</span><span>공통 엔진</span></div>
             <span class="kicker">Common engine</span>
-            <h1>결제 저장, 자동 실행, 자동 발행, 고객 포털을 하나의 기록선으로 묶습니다</h1>
-            <p class="lead">NV0의 차별점은 페이지를 많이 만드는 것이 아니라, 자동발행게시판 → 제품 설명 → 데모 시연 → 결제 → 정상작동 및 발행 제공 흐름과 포털, 운영 허브가 같은 엔진을 공유한다는 점입니다. 그래서 1인 운영에서도 관리 포인트를 늘리지 않고 새 모듈을 붙일 수 있습니다.</p>
-            <div class="actions"><a class="button" href="{prefix}products/index.html">제품 보기</a><a class="button secondary" href="{prefix}board/index.html">게시판 보기</a><a class="button ghost" href="{prefix}portal/index.html">포털 보기</a></div>
+            <h1>공통 엔진 하나에 제품 모듈을 결합해 운영합니다</h1>
+            <p class="lead">결제 저장, 데모 기록, 자동 발행, 고객 포털, 관리자 운영은 공통 엔진이 맡고, 제품마다 달라지는 소개와 전달물만 모듈로 분리했습니다. 그래서 새 제품을 붙여도 전체 흐름이 흔들리지 않습니다.</p>
+            <div class="actions"><a class="button" href="{prefix}products/index.html">제품 모듈 보기</a><a class="button secondary" href="{prefix}board/index.html">게시판 보기</a><a class="button ghost" href="{prefix}admin/index.html">관리자</a></div>
           </div>
-          <div class="card accent"><span class="tag" style="background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.12);color:#fff">엔진 계층</span><h3 style="font-size:1.72rem;margin:16px 0 10px">한 번 만든 흐름을 제품마다 다시 쓰도록 설계했습니다</h3><p>{escape(data["engine"].get("headline", ""))}</p><div class="inline-list">{engine_layers_markup(data)}</div></div>
+          <div class="card accent"><span class="tag" style="background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.12);color:#fff">엔진 계층</span><h3 style="font-size:1.72rem;margin:16px 0 10px">공통으로 움직이는 부분을 먼저 보여드립니다</h3><p>{escape(data['engine'].get('headline', ''))}</p><div class="inline-list">{engine_layers_markup(data)}</div></div>
         </div>
       </section>
-      <section class="section compact"><div class="container"><div class="timeline">{timeline_markup(data)}</div></div></section>
-      <section class="section compact"><div class="container"><div class="section-head"><div><h2>엔진 위에서 반복되는 공통 화면</h2></div><p>제품마다 문구와 결과물은 다르지만, 고객이 겪는 핵심 단계는 공통 엔진 안에서 재사용됩니다.</p></div><div class="support-grid">{support_cards_markup()}</div></div></section>
+      <section class="section compact"><div class="container accordion-stack"><details class="fold-card" open><summary><strong>핵심 엔진 흐름</strong><span>공통 단계만 먼저 봅니다.</span></summary><div><div class="timeline">{timeline_markup(data)}</div></div></details><details class="fold-card"><summary><strong>왜 공통 엔진으로 운영하는가</strong><span>제품 수가 늘어나도 관리 지점을 최소화합니다.</span></summary><div><div class="support-grid">{support_cards_markup()}</div></div></details></div></section>
     </main>
     ''')
-    return doc(brand, f'공용 엔진 | {brand["name"]}', '신청부터 발행까지 묶는 공용 엔진 소개', 'engine', body, depth=1, page_key='engine', page_path='/engine/index.html')
-
+    return doc(brand, f'공통 엔진 | {brand["name"]}', '신청부터 발행까지 묶는 공용 엔진 소개', 'engine', body, depth=1, page_key='engine', page_path='/engine/index.html')
 
 def build_solutions_page(data: dict) -> str:
     brand = data['brand']
@@ -379,69 +412,93 @@ def build_solutions_page(data: dict) -> str:
           <div class="card strong">
             <div class="crumbs"><a href="{prefix}index.html">HOME</a><span class="sep">/</span><span>문제별 시작</span></div>
             <span class="kicker">Solutions</span>
-            <h1>문제에서 시작해 제품, 가격, 자료까지 바로 이어집니다</h1>
-            <p class="lead">어떤 이름의 제품을 사야 할지보다, 지금 막히는 장면이 무엇인지가 먼저인 고객을 위해 문제 기준의 시작 페이지를 따로 뒀습니다.</p>
+            <h1>문제에서 시작해 맞는 제품 모듈로 바로 이동합니다</h1>
+            <p class="lead">어떤 제품 이름을 봐야 할지보다 지금 막히는 장면이 무엇인지 먼저 판단하도록 만든 시작 페이지입니다. 문제를 고르면 제품 요약과 즉시 데모, 플랜으로 이어집니다.</p>
             <div class="actions"><a class="button" href="{prefix}products/index.html">전체 제품 보기</a><a class="button secondary" href="{prefix}pricing/index.html">가격 비교</a><a class="button ghost" href="{prefix}docs/index.html">문서 센터</a></div>
           </div>
-          <div class="card accent"><span class="tag" style="background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.12);color:#fff">바로 가는 구조</span><h3 style="font-size:1.72rem;margin:16px 0 10px">자동발행게시판 → 제품 설명 → 데모 시연 → 결제 → 정상작동 및 발행 제공</h3><p>이 페이지는 영업 문구보다 먼저, 어떤 상황에서 어느 제품을 먼저 봐야 하는지 판단하도록 돕는 허브입니다.</p></div>
+          <div class="card accent"><span class="tag" style="background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.12);color:#fff">추천 경로</span><h3 style="font-size:1.72rem;margin:16px 0 10px">문제 선택 → 제품 모듈 → 데모 → 플랜</h3><p>홈에서 출발하든 게시판에서 들어오든 결국 제품 모듈과 공통 엔진 흐름으로 수렴되도록 정리했습니다.</p></div>
         </div>
       </section>
       <section class="section compact"><div class="container"><div class="story-grid">{product_fit_cards_markup(products, prefix)}</div></div></section>
-      <section class="section compact"><div class="container"><div class="section-head"><div><h2>문제별 다음 행동</h2></div><p>읽기형 고객은 문서와 사례로, 결정형 고객은 자동발행게시판 → 제품 설명 → 데모 시연 → 결제 → 정상작동 및 발행 제공 흐름으로 자연스럽게 이어지도록 링크를 배치했습니다.</p></div><div class="story-grid">{quick_links_markup(prefix)}</div></div></section>
     </main>
     ''')
     return doc(brand, f'문제별 시작 | {brand["name"]}', '문제 기준으로 제품을 고르는 안내', 'solutions', body, depth=1, page_key='solutions', page_path='/solutions/index.html')
 
-
 def build_product_page(data: dict, product: dict) -> str:
     brand = data['brand']
-    product_map = {item['key']: item for item in data['products']}
     prefix = rel_prefix(2)
-    selected_plan = product.get('demo_defaults', {}).get('plan', 'Starter')
-    body = dedent(f'''
-    <main>
+    selected_plan = next((plan['name'] for plan in product.get('plans', []) if plan.get('recommended')), (product.get('plans') or [{}])[0].get('name', 'Starter'))
+    quick_links = [
+        ('즉시 데모', f'{prefix}products/{product["key"]}/demo/index.html', '버튼 한 번으로 바로 미리봅니다'),
+        ('플랜', f'{prefix}products/{product["key"]}/plans/index.html', '가격과 포함 범위를 확인합니다'),
+        ('전달물', f'{prefix}products/{product["key"]}/delivery/index.html', '무엇을 받는지 확인합니다'),
+        ('FAQ', f'{prefix}products/{product["key"]}/faq/index.html', '반복 질문만 먼저 봅니다'),
+        ('게시판', f'{prefix}products/{product["key"]}/board/index.html', '관련 공개 글을 읽습니다'),
+        ('문서', f'{prefix}docs/{product["key"]}/index.html', '준비물과 기준을 먼저 봅니다'),
+    ]
+    quick_markup = ''.join(f'<a class="quick-link-card" href="{href}"><strong>{label}</strong><span>{body}</span></a>' for label, href, body in quick_links)
+    body = dedent(f'''    <main>
       <section class="section">
         <div class="container page-hero">
           <div class="card strong">
-            <div class="crumbs"><a href="{prefix}index.html">HOME</a><span class="sep">/</span><a href="{prefix}products/index.html">제품</a><span class="sep">/</span><span>{escape(product["name"])}</span></div>
-            <span class="tag theme-chip">{escape(product["label"])}</span>
-            <h1 data-fill="product-name">{escape(product["name"])}</h1>
-            <p class="lead" data-fill="product-headline">{escape(product["headline"])}</p>
+            <div class="crumbs"><a href="{prefix}index.html">HOME</a><span class="sep">/</span><a href="{prefix}products/index.html">제품</a><span class="sep">/</span><span>{escape(product['name'])}</span></div>
+            <span class="tag theme-chip">{escape(product['label'])}</span>
+            <h1>{escape(product['name'])}</h1>
+            <p class="lead">{escape(product['headline'])}</p>
+            <p>{escape(product['summary'])}</p>
             <div class="actions" id="product-actions">
-              <a class="button ghost" href="#board">자동발행게시판 보기</a>
-              <a class="button secondary" href="#intro">제품 설명 보기</a>
-              <a class="button" href="#demo">데모 시연하기</a>
-              <a class="button ghost" href="#order">결제</a>
-              <a class="button ghost" href="{prefix}docs/{escape(product["key"])}/index.html">문서 보기</a>
-            </div>
-            <div class="inline-tabs">
-              <a href="#board">자동발행게시판</a>
-              <a href="#intro">제품 설명</a>
-              <a href="#demo">데모 시연</a>
-              <a href="#order">결제</a>
-              <a href="#payment">자동 제공 안내</a>
-              <a href="#delivery">정상작동 및 발행 제공</a>
+              <a class="button" href="{prefix}products/{escape(product['key'])}/demo/index.html">즉시 데모</a>
+              <a class="button secondary" href="{prefix}products/{escape(product['key'])}/plans/index.html">플랜 보기</a>
+              <a class="button ghost" href="{prefix}products/{escape(product['key'])}/delivery/index.html">전달물 보기</a>
             </div>
           </div>
           <div class="card theme-panel">
-            <span class="tag" style="background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.12);color:#fff">이런 분께 잘 맞습니다</span>
-            <h3 style="font-size:1.75rem;margin:16px 0 10px">{escape(product["problem"])}</h3>
-            <p data-fill="product-summary">{escape(product["summary"])}</p>
-            <div class="notice notice-light"><strong>가격 기준</strong><br><span data-fill="product-pricing">{' · '.join(f"{plan['name']} {plan['price']}" for plan in product.get('plans', []))}</span></div>
+            <span class="tag" style="background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.12);color:#fff">추천 시작점</span>
+            <h3 style="font-size:1.75rem;margin:16px 0 10px">먼저 짧게 보고, 필요한 모듈만 들어가세요</h3>
+            <div class="quick-demo-grid">{''.join(f'<button class="quick-demo-button" type="button" data-quick-demo="{escape(product["key"])}" data-quick-scenario="{idx}">{escape((item if isinstance(item, str) else str(item))[:30])}</button>' for idx, item in enumerate(product.get('demo_scenarios', [])[:4]))}</div>
+            <div class="result-box" id="quick-demo-result" role="status" aria-live="polite"></div>
+            <div class="notice notice-light"><strong>추천 플랜</strong><br><span>{escape(selected_plan)} · {' · '.join(f"{plan['name']} {plan['price']}" for plan in product.get('plans', []))}</span></div>
           </div>
         </div>
       </section>
-      <section class="section compact" id="board"><div class="container"><div class="section-head"><div><h2>{escape(product["name"])} AI 자동발행 블로그 허브</h2></div><p>제품을 자세히 보기 전에 먼저 읽어보면 좋은 홍보 글을 모아두었습니다. 자동발행게시판에서 먼저 관심을 만들고, 곧바로 제품 설명과 데모 시연으로 이어질 수 있습니다.</p></div><div class="board-grid" id="product-board-grid"></div><div id="product-post-detail"></div></div></section>
-      <section class="section compact" id="intro"><div class="container module-layout"><article class="card strong"><span class="tag theme-chip">핵심 가치</span><h3>이 제품으로 바로 달라지는 점</h3><ul class="clean" id="product-values">{product_value_list(product, "value_points")}</ul></article><article class="card strong"><span class="tag theme-chip">결과물</span><h3>정상작동 및 발행 제공 자료</h3><ul class="clean" id="product-outputs">{product_value_list(product, "outputs")}</ul></article></div></section>
-      <section class="section compact" id="demo"><div class="container module-layout"><article class="card strong"><span class="tag theme-chip">데모 시연</span><h3>몇 가지 정보만 입력하면 샘플 결과를 바로 확인하고 데모 시연 자료까지 받을 수 있습니다</h3><form id="product-demo-form" class="stack-form"><div class="form-grid"><div><label>회사명</label><input name="company" data-demo-field="company" placeholder="샘플 브랜드" autocomplete="organization" required value="{escape(product.get("demo_defaults", {}).get("company", ""))}"></div><div><label>담당자명</label><input name="name" data-demo-field="name" placeholder="담당자명" autocomplete="name" required></div><div><label>이메일</label><input name="email" type="email" data-demo-field="email" placeholder="email@company.com" autocomplete="email" inputmode="email" required></div><div><label>팀 규모</label><input name="team" data-demo-field="team" placeholder="예: 2인 운영팀" autocomplete="organization-title"></div><div><label>목표</label><input name="goal" data-demo-field="goal" placeholder="예: CTA 전환 개선" required value="{escape(product.get("demo_defaults", {}).get("goal", ""))}"></div><div><label>핵심 키워드</label><input name="keywords" data-demo-field="keywords" placeholder="예: 랜딩, CTA, 신뢰" value="{escape(product.get("demo_defaults", {}).get("keywords", ""))}"></div><div><label>플랜 미리보기</label><select name="plan" data-demo-field="plan"><option value="Starter"{' selected' if selected_plan == 'Starter' else ''}>Starter</option><option value="Growth"{' selected' if selected_plan == 'Growth' else ''}>Growth</option><option value="Scale"{' selected' if selected_plan == 'Scale' else ''}>Scale</option></select></div></div><div class="actions"><button class="button" type="submit">무료 샘플과 데모 시연 자료 받기</button><a class="button ghost" href="#order">이 조건으로 결제 계속하기</a></div></form><div class="result-box" id="product-demo-result" role="status" aria-live="polite"></div></article><article class="card"><span class="tag">체험 포인트</span><h3>데모에서 먼저 보시면 좋은 항목</h3><ul class="clean" id="product-demo-scenarios">{product_value_list(product, "demo_scenarios")}</ul></article></div></section>
-      <section class="section compact" id="order"><div class="container module-layout"><article class="card strong"><span class="tag theme-chip">결제</span><h3>플랜을 고른 뒤 1회 결제 정보를 입력하면 전자동 실행 준비까지 한 번에 정리됩니다</h3><form id="product-checkout-form" class="stack-form"><input type="hidden" name="product" value="{escape(product["key"])}"><div class="form-grid"><div><label>플랜</label><select name="plan" data-prefill="plan" required><option value="Starter">Starter</option><option value="Growth">Growth</option><option value="Scale">Scale</option></select></div><div><label>결제 유형</label><select name="billing"><option value="one-time">1회 결제형</option></select></div><div><label>결제 방식</label><select name="paymentMethod" required><option value="toss">Toss 결제</option></select></div><div><label>회사명</label><input name="company" placeholder="회사명" autocomplete="organization" required></div><div><label>담당자명</label><input name="name" placeholder="담당자명" autocomplete="name" required></div><div><label>이메일</label><input name="email" type="email" placeholder="email@company.com" autocomplete="email" inputmode="email" required></div><div><label>추가 요청</label><input name="note" placeholder="예: 원하는 톤, 꼭 포함할 내용" autocomplete="off"></div></div><div class="actions"><button class="button" type="submit">결제 계속하기</button><a class="button secondary" href="#payment">자동 실행 안내 보기</a><a class="button ghost" href="{prefix}pricing/index.html">가격 전체 보기</a></div></form><div class="result-box" id="product-checkout-result" role="status" aria-live="polite"></div></article><article class="card"><span class="tag">플랜</span><h3>지금 바로 선택할 수 있는 플랜</h3><div class="plan-grid" id="plan-grid">{plan_cards_markup(product)}</div></article></div></section>
-      <section class="section compact" id="payment"><div class="container module-layout"><article class="card strong"><span class="tag theme-chip">자동 제공 안내</span><h3>결제가 완료되면 정상작동 설정과 발행 제공이 자동으로 이어집니다</h3><ol class="flow-list"><li>결제 정보를 저장하고 외부 결제창으로 이동합니다.</li><li>결제가 확인되면 결과 자료와 자동발행 글이 즉시 생성됩니다.</li><li>정상작동 설정과 발행 제공 상태가 같은 조회 코드로 묶입니다.</li><li>포털에서 결과 자료와 자동발행 글을 함께 확인합니다.</li></ol><div class="notice">전자동 실행이 기본입니다. 기업 정산이 필요한 경우에도 먼저 자동 흐름과 동일한 결과 기준을 맞춘 뒤 별도 문의로 이어집니다.</div></article><article class="card strong"><span class="tag theme-chip">가격 기준</span><h3>시장 비교 기준</h3><p id="product-pricing-basis">{escape(product.get("pricing_basis", ""))}</p><div class="notice">처음 시작하는 팀도 부담 없이 바로 적용해 볼 수 있는 범위를 기준으로 플랜을 나눴습니다.</div></article></div></section>
-      <section class="section compact" id="delivery"><div class="container module-layout"><article class="card strong"><span class="tag theme-chip">정상작동 및 발행 제공</span><h3>결제 직후 정상작동 설정과 발행 제공 자료, 자동발행 글이 자동으로 이어집니다</h3><ol class="flow-list" id="product-workflow">{product_value_list(product, "workflow")}</ol></article><article class="card strong"><span class="tag theme-chip">함께 보면 좋은 제품</span><h3>비슷한 고민에 이어서 보기 좋은 제품</h3><div class="story-grid" id="product-related-modules">{related_modules_markup(product, product_map, prefix)}</div></article></div></section>
-      <section class="section compact"><div class="container"><div class="section-head"><div><h2>자주 묻는 질문</h2></div><p>제품 결제와 자동 제공 전에 자주 나오는 질문을 먼저 정리했습니다.</p></div><div class="faq-grid" id="product-faq">{faq_markup(product)}</div></div></section>
+      <section class="section compact">
+        <div class="container">
+          <div class="section-head"><div><h2>이 제품에서 바로 갈 수 있는 모듈</h2></div><p>제품 개요 화면은 핵심 판단만 담당하고, 실제 입력과 세부 확인은 각 모듈 페이지로 분리했습니다.</p></div>
+          <div class="product-module-grid" id="product-module-grid">{quick_markup}</div>
+        </div>
+      </section>
+      <section class="section compact">
+        <div class="container accordion-stack" id="product-overview-folds">
+          <details class="fold-card" open><summary><strong>이 제품이 맞는 상황</strong><span>{escape(product['problem'])}</span></summary><div><ul class="clean">{product_value_list(product, 'fit_for') or product_value_list(product, 'value_points')}</ul></div></details>
+          <details class="fold-card"><summary><strong>핵심 가치</strong><span>접힘 상태에서는 한 줄, 펼치면 세부 포인트를 봅니다.</span></summary><div><ul class="clean">{product_value_list(product, 'value_points')}</ul></div></details>
+          <details class="fold-card"><summary><strong>대표 전달물</strong><span>전체 전달물은 전달물 페이지에서 더 자세히 볼 수 있습니다.</span></summary><div><ul class="clean">{product_value_list(product, 'outputs')}</ul><div class="small-actions" style="margin-top:14px"><a href="{prefix}products/{escape(product['key'])}/delivery/index.html">전달물 전체 보기</a></div></div></details>
+        </div>
+      </section>
+      <section class="section compact" id="board"><div class="container"><div class="section-head"><div><h2>{escape(product['name'])} 게시판 미리보기</h2></div><p>상세 읽기용 글은 게시판 전체 페이지로 분리하고, 이 화면에는 미리보기만 남겼습니다.</p></div><div class="board-grid" id="product-board-grid"></div><div class="small-actions" style="margin-top:18px"><a href="{prefix}products/{escape(product['key'])}/board/index.html">게시판 전체 보기</a></div><div id="product-post-detail"></div></div></section>
     </main>
     ''')
     return doc(brand, f'{product["name"]} | {brand["name"]}', product['summary'], product['theme'], body, depth=2, page_key='product', product_key=product['key'], page_path=f'/products/{product["key"]}/index.html')
 
+def build_board_page(data: dict) -> str:
+    brand = data['brand']
+    prefix = rel_prefix(1)
+    body = dedent(f'''    <main>
+      <section class="section">
+        <div class="container page-hero">
+          <div class="card strong">
+            <div class="crumbs"><a href="{prefix}index.html">HOME</a><span class="sep">/</span><span>게시판</span></div>
+            <span class="kicker">Board</span>
+            <h1>게시판도 읽기용으로 정리하고, 운영성 절차는 감췄습니다</h1>
+            <p class="lead">공개 화면에서는 글 목록과 상세만 보이고, 실제 운영 기능은 노출하지 않게 정리했습니다. 제품별 게시판은 각 제품 안에서 별도로 이어집니다.</p>
+            <div class="actions"><a class="button secondary" href="{prefix}products/index.html">제품 보기</a><a class="button ghost" href="{prefix}docs/index.html">문서 보기</a></div>
+          </div>
+          <div class="card accent"><span class="tag" style="background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.12);color:#fff">읽기 모드</span><h3 style="font-size:1.72rem;margin:16px 0 10px">공개 화면에서는 읽고 이동하는 데 필요한 것만 남겼습니다</h3><p>글을 읽은 뒤 바로 제품 상세, 데모, 플랜으로 이동할 수 있게 연결했습니다.</p></div>
+        </div>
+      </section>
+      <section class="section compact"><div class="container"><div class="board-grid" id="public-board-grid"></div><div id="public-post-detail"></div></div></section>
+    </main>
+    ''')
+    return doc(brand, f'게시판 | {brand["name"]}', '공개 게시판', 'board', body, depth=1, page_key='board', page_path='/board/index.html')
 
 
 def build_terms_page(data: dict) -> str:
@@ -539,6 +596,7 @@ def apply_page_overrides(dist: Path, data: dict):
     write(dist / 'index.html', build_home_page(data))
     write(dist / 'company' / 'index.html', build_company_page(data))
     write(dist / 'products' / 'index.html', build_products_page(data))
+    write(dist / 'board' / 'index.html', build_board_page(data))
     write(dist / 'engine' / 'index.html', build_engine_page(data))
     write(dist / 'solutions' / 'index.html', build_solutions_page(data))
     write(dist / 'legal' / 'terms' / 'index.html', build_terms_page(data))

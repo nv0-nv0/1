@@ -222,7 +222,55 @@ def portal_page() -> str:
 def admin_page() -> str:
     prefix = rel_prefix(1)
     return doc(f"관리자 허브 | {brand['name']}", '운영 관리자 허브', 'admin', dedent(f'''
-        <main id="admin-console"><section class="section"><div class="container page-hero"><div class="card strong"><div class="crumbs"><a href="{prefix}index.html">HOME</a><span class="sep">/</span><span>관리자 허브</span></div><span class="kicker">Admin hub</span><h1>결제, 데모, 발행, 포털 상태를 한곳에서 관리합니다</h1><p class="lead">운영자는 이 화면에서 샘플 데이터를 만들고, 결제 상태를 조정하고, AI 자동발행 블로그 허브를 재발행할 수 있습니다.</p><div class="auth-inline"><input id="admin-token-input" placeholder="관리자 토큰" autocomplete="off" spellcheck="false"><button class="button secondary" type="button" id="admin-token-save">토큰 저장</button><button class="button ghost" type="button" id="admin-token-clear">토큰 지우기</button></div><div class="toolbar"><button class="button" data-admin-action="seed-demo">샘플 데이터 생성</button><button class="button secondary" data-admin-action="reset-all">엔진 데이터 초기화</button></div><div class="result-box" id="admin-action-result"></div></div><div class="card accent"><span class="tag" style="background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.12);color:#fff">운영 목적</span><h3 style="font-size:1.72rem;margin:16px 0 10px">1인 운영 기준으로 확인 비용을 줄이는 허브</h3><p>반복 확인을 줄이기 위해 결제, 자동 제공, 발행을 같은 기록선으로 관리합니다.</p></div></div></section><section class="section compact"><div class="container"><div class="admin-grid" id="admin-summary"></div></div></section><section class="section compact"><div class="container"><div class="admin-stack" id="admin-orders"></div></div></section><section class="section compact"><div class="container"><div class="record-grid" id="admin-requests"></div></div></section><section class="section compact"><div class="container"><div class="record-grid" id="admin-publications"></div></div></section><section class="section compact"><div class="container"><div class="card strong"><div class="mock-progress" id="admin-feed"></div></div></div></section></main>
+        <main id="admin-console">
+          <section class="section">
+            <div class="container page-hero">
+              <div class="card strong">
+                <div class="crumbs"><a href="{prefix}index.html">HOME</a><span class="sep">/</span><span>관리자 허브</span></div>
+                <span class="kicker">Admin hub</span>
+                <h1>관리 기능은 관리자 허브로만 모으고, 공개 화면에서는 감췄습니다</h1>
+                <p class="lead">비밀키가 있어야 운영 화면을 열 수 있습니다. 자동발행 설정, 결제 상태, 공개 글 재발행, 샘플 데이터, 포털 확인 연결을 모두 이 화면에서 관리합니다.</p>
+                <div class="result-box admin-gate" id="admin-gate-result">관리자 비밀키를 입력하면 운영 메뉴가 열립니다.</div>
+                <div class="auth-inline admin-auth-inline">
+                  <input id="admin-token-input" placeholder="관리자 비밀키" autocomplete="off" spellcheck="false">
+                  <button class="button secondary" type="button" id="admin-token-save">관리자 열기</button>
+                  <button class="button ghost" type="button" id="admin-token-clear">토큰 지우기</button>
+                </div>
+              </div>
+              <div class="card accent">
+                <span class="tag" style="background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.12);color:#fff">운영 원칙</span>
+                <h3 style="font-size:1.72rem;margin:16px 0 10px">공개 화면은 단순하게, 운영 기능은 이곳으로</h3>
+                <p>고객이 보는 화면에서는 판매와 이해에 필요한 것만 남기고, 자동발행 재설정과 데이터 조작은 관리자 허브에서만 다룹니다.</p>
+              </div>
+            </div>
+          </section>
+          <section class="section compact admin-shell" id="admin-shell">
+            <div class="container admin-layout">
+              <aside class="admin-sidebar card strong">
+                <span class="tag">관리 메뉴</span>
+                <nav class="admin-side-links">
+                  <a href="#admin-overview">개요</a>
+                  <a href="#admin-automation">자동발행 설정</a>
+                  <a href="#admin-orders-section">주문/결제</a>
+                  <a href="#admin-requests-section">요청</a>
+                  <a href="#admin-publications-section">공개 글</a>
+                </nav>
+                <div class="toolbar">
+                  <button class="button" data-admin-action="seed-demo">샘플 데이터 생성</button>
+                  <button class="button secondary" data-admin-action="reset-all">엔진 데이터 초기화</button>
+                </div>
+                <div class="result-box" id="admin-action-result"></div>
+              </aside>
+              <div class="admin-main-stack">
+                <section id="admin-overview" class="admin-section"><div class="admin-grid" id="admin-summary"></div></section>
+                <section id="admin-automation" class="admin-section"><div class="record-grid" id="admin-automation-grid"></div></section>
+                <section id="admin-orders-section" class="admin-section"><div class="admin-stack" id="admin-orders"></div></section>
+                <section id="admin-requests-section" class="admin-section"><div class="record-grid" id="admin-requests"></div></section>
+                <section id="admin-publications-section" class="admin-section"><div class="record-grid" id="admin-publications"></div><div class="card strong"><div class="mock-progress" id="admin-feed"></div></div></section>
+              </div>
+            </div>
+          </section>
+        </main>
     '''), depth=1, page_key='admin', page_path='/admin/index.html')
 
 

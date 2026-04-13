@@ -1,5 +1,4 @@
-FROM python:3.13-slim
-# runtime_vendor contains CPython 3.13 native wheels; keep the image in sync.
+FROM python:3.12-slim
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
