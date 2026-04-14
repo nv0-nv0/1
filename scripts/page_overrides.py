@@ -700,12 +700,8 @@ def favicon_ico_bytes() -> bytes:
 
 
 def apply_page_overrides(dist: Path, data: dict):
-    write(dist / 'index.html', build_home_page(data))
-    write(dist / 'company' / 'index.html', build_company_page(data))
-    write(dist / 'products' / 'index.html', build_products_page(data))
-    write(dist / 'board' / 'index.html', build_board_page(data))
-    write(dist / 'engine' / 'index.html', build_engine_page(data))
-    write(dist / 'solutions' / 'index.html', build_solutions_page(data))
+    # Preserve the main pages produced by build.py.
+    # This post-build step only adds auxiliary SEO and security assets.
     write(dist / 'legal' / 'terms' / 'index.html', build_terms_page(data))
     write(dist / '404.html', build_404_page(data))
     write(dist / 'robots.txt', robots_txt())
@@ -713,5 +709,3 @@ def apply_page_overrides(dist: Path, data: dict):
     write(dist / '.well-known' / 'security.txt', security_txt(data))
     write(dist / 'assets' / 'favicon.svg', favicon_svg(data))
     write_bytes(dist / 'favicon.ico', favicon_ico_bytes())
-    for product in data['products']:
-        write(dist / 'products' / product['key'] / 'index.html', build_product_page(data, product))
