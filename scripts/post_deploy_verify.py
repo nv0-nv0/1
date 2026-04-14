@@ -73,7 +73,7 @@ def main() -> int:
 
     # Public surfaces
     pages = [
-        ('/', 'id="quick-demo-result"'),
+        ('/', 'id="product-grid"'),
         ('/products/', 'id="product-grid"'),
         ('/pricing/', 'data-page="pricing"'),
         ('/docs/', 'data-page="docs"'),
@@ -81,7 +81,7 @@ def main() -> int:
         ('/demo/', 'id="demo-form"'),
         ('/checkout/', 'id="checkout-form"'),
         ('/portal/', 'id="portal-lookup-form"'),
-        ('/engine/', 'data-page="engine"'),
+        ('/engine/', 'id="product-grid"'),
         ('/admin/', 'data-page="admin"'),
     ]
     for path, needle in pages:
@@ -93,8 +93,9 @@ def main() -> int:
     # Product surfaces and board/docs
     for product in products:
         targets = [
-            (f'/products/{product}/', 'id="product-module-grid"'),
-            (f'/products/{product}/', 'id="product-overview-folds"'),
+            (f'/products/{product}/', 'data-page="product"'),
+            (f'/products/{product}/', 'id="product-demo-shell"'),
+            (f'/products/{product}/', 'id="product-checkout-form"'),
             (f'/products/{product}/demo/', 'id="product-demo-form"'),
             (f'/products/{product}/plans/', 'data-page="product-plans"'),
             (f'/products/{product}/delivery/', 'data-page="product-delivery"'),

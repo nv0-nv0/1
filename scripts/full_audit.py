@@ -35,7 +35,15 @@ def count_todo_like() -> int:
         if path.suffix.lower() not in allowed_suffixes:
             continue
         rel = path.relative_to(ROOT).as_posix()
-        if rel in {'scripts/full_audit.py', 'AUDIT_REPORT_KO.md', 'PACKAGE_CONTENTS.txt', 'PACKAGE_CONTENTS.json', 'SHA256SUMS.txt'}:
+        if rel in {
+            'scripts/full_audit.py',
+            'AUDIT_REPORT_KO.md',
+            'AUDIT_REPORT_FULL_KO.md',
+            'AUDIT_REPORT_BOARD_KO.md',
+            'PACKAGE_CONTENTS.txt',
+            'PACKAGE_CONTENTS.json',
+            'SHA256SUMS.txt',
+        }:
             continue
         text = path.read_text(encoding='utf-8', errors='ignore')
         total += len(re.findall(r'\b(TODO|FIXME|XXX)\b', text))

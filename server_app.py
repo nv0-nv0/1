@@ -26,6 +26,7 @@ from html import escape
 from uuid import uuid4
 
 from bs4 import BeautifulSoup
+from bs4 import FeatureNotFound
 from fastapi import Depends, FastAPI, Header, HTTPException, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
@@ -1178,7 +1179,11 @@ def build_veridion_scan(payload: dict[str, Any]) -> dict[str, Any]:
         if 'html' not in content_type and '<html' not in (fetched.get('text') or '').lower():
             continue
         fetched_urls.append(current)
-        soup = BeautifulSoup(fetched.get('text') or '', 'lxml')
+        html_text = fetched.get('text') or ''
+        try:
+            soup = BeautifulSoup(html_text, 'lxml')
+        except FeatureNotFound:
+            soup = BeautifulSoup(html_text, 'html.parser')
         title = clean(soup.title.string if soup.title and soup.title.string else '')
         page_text = re.sub(r'\s+', ' ', soup.get_text(' ', strip=True))
         links = extract_same_origin_links(current, soup, origin_host=origin_host)

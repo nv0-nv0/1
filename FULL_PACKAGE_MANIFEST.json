@@ -1,8 +1,8 @@
 {
-  "package_name": "nv0_delivery_package_fixed_full_20260414_v2",
-  "generated_at_utc": "2026-04-14T13:07:49.594413+00:00",
-  "file_count": 822,
-  "total_bytes": 38233128,
+  "package_name": "nv0-root-project",
+  "generated_at_utc": "2026-04-14T13:07:45.158968+00:00",
+  "file_count": 821,
+  "total_bytes": 38090404,
   "files": [
     {
       "path": ".dockerignore",
@@ -68,11 +68,6 @@
       "path": "Dockerfile",
       "size": 915,
       "sha256": "30b9c601c424522b8b6a6f3fc160c239e2dfd31b4e3b6ace7e4a1dfbd696ef8e"
-    },
-    {
-      "path": "FULL_PACKAGE_MANIFEST.json",
-      "size": 142724,
-      "sha256": "743c6f03e8c60657fd6a52be7ce95ee76a99bc28e810a5c73ac47bec5ef336e8"
     },
     {
       "path": "INTEGRATION_MAP.md",
