@@ -36,6 +36,19 @@ def log(msg: str) -> None:
     print(f"[startup] {msg}", flush=True)
 
 
+def int_env(name: str, default: int | None = None) -> int | None:
+    raw = clean(os.getenv(name))
+    if not raw:
+        return default
+    try:
+        value = int(raw)
+    except ValueError as exc:
+        raise RuntimeError(f"{name} must be an integer.") from exc
+    if value <= 0:
+        return None
+    return value
+
+
 def main() -> None:
     port = clean(os.getenv("PORT")) or "8000"
     maybe_set_default("NV0_BASE_URL", f"http://127.0.0.1:{port}")
@@ -76,8 +89,30 @@ def main() -> None:
                 ensure("NV0_TOSS_MOCK", "1")
                 log("Toss live keys were missing. Switched NV0_TOSS_MOCK=1 automatically to avoid startup failure.")
 
+    proxy_headers = is_true(os.getenv("UVICORN_PROXY_HEADERS", "1" if not local_base else "0"))
+    forwarded_allow_ips = clean(os.getenv("FORWARDED_ALLOW_IPS")) or ("*" if proxy_headers and not local_base else "127.0.0.1")
+    server_header = is_true(os.getenv("UVICORN_SERVER_HEADER", "0"))
+    date_header = is_true(os.getenv("UVICORN_DATE_HEADER", "0"))
+    timeout_keep_alive = int_env("UVICORN_TIMEOUT_KEEP_ALIVE", 5) or 5
+    limit_concurrency = int_env("UVICORN_LIMIT_CONCURRENCY")
+    limit_max_requests = int_env("UVICORN_LIMIT_MAX_REQUESTS")
+    timeout_graceful_shutdown = int_env("UVICORN_TIMEOUT_GRACEFUL_SHUTDOWN")
+
     log(f"Starting uvicorn on 0.0.0.0:{port}")
-    uvicorn.run("server_app:app", host="0.0.0.0", port=int(port), log_level=os.getenv("UVICORN_LOG_LEVEL", "info"))
+    uvicorn.run(
+        "server_app:app",
+        host="0.0.0.0",
+        port=int(port),
+        log_level=os.getenv("UVICORN_LOG_LEVEL", "info"),
+        proxy_headers=proxy_headers,
+        forwarded_allow_ips=forwarded_allow_ips,
+        server_header=server_header,
+        date_header=date_header,
+        timeout_keep_alive=timeout_keep_alive,
+        limit_concurrency=limit_concurrency,
+        limit_max_requests=limit_max_requests,
+        timeout_graceful_shutdown=timeout_graceful_shutdown,
+    )
 
 
 if __name__ == "__main__":

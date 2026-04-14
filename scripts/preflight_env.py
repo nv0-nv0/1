@@ -105,6 +105,14 @@ def main() -> None:
             fail("실결제 운영에서는 NV0_TOSS_WEBHOOK_SECRET 이 필요합니다.")
         ok("Toss 키/웹훅 시크릿 형식 확인")
 
+    forwarded_allow_ips = os.getenv("FORWARDED_ALLOW_IPS", "").strip()
+    if not is_local and not forwarded_allow_ips:
+        fail("운영 배포에서는 FORWARDED_ALLOW_IPS 값을 명시하세요. 신뢰할 프록시 IP 또는 *를 직접 선택해야 합니다.")
+    if forwarded_allow_ips == '*':
+        warn("FORWARDED_ALLOW_IPS=* 는 신뢰된 프록시 환경에서만 사용하세요. 가능하면 프록시 IP 또는 CIDR로 제한하는 편이 더 안전합니다.")
+    elif forwarded_allow_ips:
+        ok("FORWARDED_ALLOW_IPS 설정 확인")
+
     docs = os.getenv("NV0_ENABLE_DOCS", "0").strip()
     if docs in {"1", "true", "yes", "on"}:
         warn("NV0_ENABLE_DOCS가 활성화되어 있습니다. 운영에서는 0 권장입니다.")

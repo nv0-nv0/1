@@ -357,6 +357,7 @@ hr.soft { border:0; border-top:1px solid var(--line); margin:30px 0; }
 .output-list li { padding:14px 16px; border-radius:16px; background:#f8fafc; border:1px solid var(--line); }
 .output-list li strong { display:block; color:#111827; }
 .output-list li span { display:block; margin-top:6px; color:var(--muted); line-height:1.6; }
+.output-list li small { display:block; margin-top:6px; color:var(--muted); line-height:1.6; }
 .split-two { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:18px; }
 .small-actions { display:flex; gap:8px; flex-wrap:wrap; margin-top:12px; }
 .small-actions button, .small-actions a {
@@ -633,3 +634,11 @@ input, select, textarea, button {
   .fold-card summary,
   .fold-card > div { padding-left: 16px; padding-right: 16px; }
 }
+
+
+.service-filter-grid{align-items:end}
+.service-filter-grid input,.service-filter-grid select{width:100%}
+.story-card ul.clean{margin-top:12px}
+#service-catalog-results{margin-top:20px}
+#product-service-catalog{margin-top:16px}
+#product-service-stats{margin-bottom:16px}

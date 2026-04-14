@@ -1,8 +1,8 @@
 {
-  "package_name": "nv0_fulltest_hardened_deploy_20260413",
-  "generated_at_utc": "2026-04-13T13:36:50.379330+00:00",
-  "file_count": 806,
-  "total_bytes": 35093709,
+  "package_name": "nv0_100_master_completed_20260414",
+  "generated_at_utc": "2026-04-14T01:48:27.463079+00:00",
+  "file_count": 816,
+  "total_bytes": 35585694,
   "files": [
     {
       "path": ".dockerignore",
@@ -11,13 +11,13 @@
     },
     {
       "path": ".env.example",
-      "size": 959,
-      "sha256": "e703b7d07caf230b5707cb97105eb0d967a1fe039e1f2d3122bf46c82060fe33"
+      "size": 1208,
+      "sha256": "2f463a91b3e5eecf4b1558897cf047040bdaa35202e2b7b28cd2acd63e0acb2a"
     },
     {
       "path": ".env.production.example",
-      "size": 935,
-      "sha256": "07d0e564ac21a5569f7b2ce9ce36ff7b3dfab162ccd142d27fa0d0f2c74e01e0"
+      "size": 1184,
+      "sha256": "bb2f216703dd21eb9bd4bff777abb8d8bcfe2de2755a4746c24183adca6c78c1"
     },
     {
       "path": ".gitignore",
@@ -30,9 +30,19 @@
       "sha256": "eb13a60d6f7763fc418524e2a0c68c76ebd42ac6c7fd03aea191415965fc99c6"
     },
     {
+      "path": "COOLIFY_APP_DEPLOYMENT_KO.md",
+      "size": 1888,
+      "sha256": "ed3829c1b214a4aaf75ec0e563140f556cf0ae5fabad3effd09976ece3fdbbd6"
+    },
+    {
       "path": "DELIVERY_RUNBOOK_KO.md",
-      "size": 2872,
-      "sha256": "a525e3e20978c28a2e30f0f5ebf9fdcaa8f3165155218c22b73e6d1dcf215340"
+      "size": 3791,
+      "sha256": "608a5b67e5049e9485da93ec90905bd9938a1e06e9000877e6011932e73be020"
+    },
+    {
+      "path": "DEMO_ISSUANCE_QUALITY_GATE_100_KO.md",
+      "size": 1731,
+      "sha256": "90f86614d4886484dc2da4bf2fcb20628840c355b08c93714279e42b1d3e16e3"
     },
     {
       "path": "Dockerfile",
@@ -50,19 +60,29 @@
       "sha256": "5ebb46c7fb9b8c8b7f7549a91efc9774ac1c41d9ddab145ff31a23e22f709d2e"
     },
     {
+      "path": "PRODUCT_ARCHITECTURE_DESIGN_KO.md",
+      "size": 9983,
+      "sha256": "078036094036064a9ff65c117049ebf997c1a8a592e2f635a3e765b870d8f34c"
+    },
+    {
+      "path": "PRODUCT_RUNTIME_COMPLETION_KO.md",
+      "size": 4092,
+      "sha256": "e6de9e0b1696f90abc5f43194e65d37beece9ffdd0161609d9f5da986711dd2b"
+    },
+    {
       "path": "README_KO.md",
-      "size": 7625,
-      "sha256": "6afb02d719d9005d9a3f998ed978d1f61c48cdd1f4b8824dce8c35e29817cd72"
+      "size": 9014,
+      "sha256": "d3e754833b36cd0c2333497c5acb30d9cf5d69fc48a9c399b2c06489d4e875e7"
     },
     {
       "path": "build.py",
-      "size": 42244,
-      "sha256": "43797cc310c9677e400f857fdcc9895dd00a3a91013cb78ba030241c9338fc4a"
+      "size": 43385,
+      "sha256": "f05706164b27c5c5d811afdfb6d97f831b01267451a2060734a1d341eaa6c725"
     },
     {
       "path": "compose.coolify.yaml",
-      "size": 2993,
-      "sha256": "2704970ca18b8e127329fdafa6ad85f7ae544ebfa3b52b321aba60627dbe114b"
+      "size": 3519,
+      "sha256": "9c9affaaf0685d475d022a36453a28e3927719ecc0c2b5e0e7a3642b492265ed"
     },
     {
       "path": "data/.gitkeep",
@@ -81,8 +101,8 @@
     },
     {
       "path": "dist/404.html",
-      "size": 3121,
-      "sha256": "9e31e4817ee6458619a16b4153e63a86fe27c793bcd7e9df7a68a6c4900b3847"
+      "size": 3214,
+      "sha256": "9ff9825cecc53c0353ffdbaed86b2e4f7cf3d4e6689876cd489405598df91852"
     },
     {
       "path": "dist/admin/index.html",
@@ -96,18 +116,18 @@
     },
     {
       "path": "dist/assets/site-data.js",
-      "size": 39004,
-      "sha256": "0c9377e524e271ac7f36f12943f9b127b7f0bb37f0b98ed9e7fbf5c7a1e054b7"
+      "size": 144602,
+      "sha256": "c328c91d988792fd88834628059144a1e779b3d62b611828a1b32b53f7a9e23a"
     },
     {
       "path": "dist/assets/site.css",
-      "size": 26712,
-      "sha256": "30dd4de4f200605504cd208b877808d87f17c92227092c7309eb0e502c923413"
+      "size": 27078,
+      "sha256": "49259f7fdcc6f7d067efe4b66df419e80852f9bd48a40eed2c046d9f0901b6e6"
     },
     {
       "path": "dist/assets/site.js",
-      "size": 82645,
-      "sha256": "6bf0125a2721182aa281656e8246126cd410306f6063652530a111545de4659b"
+      "size": 96015,
+      "sha256": "b3f19bdce2d070ee15b1956f4281892cbe5a8dc9ec6ca929f04b30b477ed8c72"
     },
     {
       "path": "dist/billing/index.html",
@@ -116,8 +136,8 @@
     },
     {
       "path": "dist/board/index.html",
-      "size": 3192,
-      "sha256": "cd2b57e6e9eab3b4bdeea474e4375449b7f041fcb4680a2d27ac2e8487486719"
+      "size": 3312,
+      "sha256": "b9b05d8149109f7628bbfe4cb9f46477ec06dccf3ff9025d05b658ea6efe677a"
     },
     {
       "path": "dist/board/post/index.html",
@@ -126,63 +146,63 @@
     },
     {
       "path": "dist/cases/index.html",
-      "size": 3796,
-      "sha256": "2265fc019c975bdadc9bf7687c37ea116c8d642cfe76429ff4e3a0aaf9fc7fad"
+      "size": 3925,
+      "sha256": "aa361d181e3db86a706cb79036f5b3eb4ec367f2ab17e1053e9c2570c5922f64"
     },
     {
       "path": "dist/checkout/index.html",
-      "size": 4145,
-      "sha256": "8decfda21f599ba1ce1b19b412b3256f5faaf1a523c28fcaa5cf7f9351a8abe7"
+      "size": 4241,
+      "sha256": "1a3c92f0d426be7d9b2e6dcaea09191c40d4c4418bdeb551a7be4527dcc6a0d0"
     },
     {
       "path": "dist/company/index.html",
-      "size": 5491,
-      "sha256": "70d83cc1776ff0ff0798c3abbda3764d854e3b97ac788df0001bdb6848c492f9"
+      "size": 5827,
+      "sha256": "99e8849ed54463222f70db05326f39e375ec2aa6656b2dc5f771e2b75c71b0f3"
     },
     {
       "path": "dist/contact/index.html",
-      "size": 3524,
-      "sha256": "00c9e6d6260b8b7b36a591594921b99adb9068f6208c79cb759097f8f5f7d1ec"
+      "size": 3597,
+      "sha256": "14fa78845b28fcf22f82f3cd16aebe8f6abc0862b14b2fabe45acc78f6ec8512"
     },
     {
       "path": "dist/demo/index.html",
-      "size": 5296,
-      "sha256": "61ff013a062b5d564980a29ed37d22dbde13a305d55575f9c13eb3c8b7e60fe4"
+      "size": 5529,
+      "sha256": "5e31913a4a024c604cdd20f3dcae71be8e777507aa9ab85e5fc7d7751152be25"
     },
     {
       "path": "dist/docs/clearport/index.html",
-      "size": 2902,
-      "sha256": "c5f157f94cf09604c29f68f11b19718d6050b4ae9b922ee985153eddcd1ba108"
+      "size": 2952,
+      "sha256": "1822afaaff6bcebafcbde3f2132c654807cec08bb2f88e304cce6be724214dfa"
     },
     {
       "path": "dist/docs/draftforge/index.html",
-      "size": 2893,
-      "sha256": "c1a50852421de1d2a53d44715bbf2ed10ce66aa7b83fe55de29dffcc0a18da38"
+      "size": 2943,
+      "sha256": "f61c5ea84ca7f346aef8b5ee3134fa4586df506ba9110e0fe9a496b83fdc9827"
     },
     {
       "path": "dist/docs/grantops/index.html",
-      "size": 2861,
-      "sha256": "d313d54a8f848f95a8a3272bcd8ab884d530c4b69f44a391c09bf5f2ef453b3b"
+      "size": 2911,
+      "sha256": "133571874d390856bc86abd82f1b86fdcaa52419c513add7c5a40b1f6f580aad"
     },
     {
       "path": "dist/docs/index.html",
-      "size": 4011,
-      "sha256": "d20db5e61d957b44e5fe0e8521aed2a1d733ef942f54ff47130e6fc469981995"
+      "size": 4357,
+      "sha256": "ad1764b66126419b248d3a8b9b7ce901ded16d9aec54c9a2138e2adfa4b2b51e"
     },
     {
       "path": "dist/docs/veridion/index.html",
-      "size": 2934,
-      "sha256": "6f29187405f89192b4832ab5058cbb33ae9e74666fac58f4de4b800c5c8159c8"
+      "size": 3171,
+      "sha256": "99709c2defa1499192a7a3321e8238cf7476461a78cf6b521626412d0dada6c5"
     },
     {
       "path": "dist/engine/index.html",
-      "size": 6177,
-      "sha256": "2f52f6a20e05a4ede547c9e50c8bda5bdbc2aa891c97f2d6b8b55c8086f03565"
+      "size": 11280,
+      "sha256": "792333aa92e45e66c2069262e09720e07eb7d1356102f995da17ab28b6f61b4f"
     },
     {
       "path": "dist/faq/index.html",
-      "size": 5412,
-      "sha256": "31ada97b41b2dbada49d3954f92c5649eafacdfc43e765073af8effd92484a7e"
+      "size": 5563,
+      "sha256": "a3b8ed4341f11cef115d7bf3dc4af4ee54a4d2b29d5dfe14524a1545b373d86d"
     },
     {
       "path": "dist/favicon.ico",
@@ -191,13 +211,13 @@
     },
     {
       "path": "dist/guides/index.html",
-      "size": 3748,
-      "sha256": "adf0e9b0b66d70f2e0f51581e35e9c881bbe115f4a0ad00818a892550e11e641"
+      "size": 4242,
+      "sha256": "3f886b997cd2329aa4714203559aa82c5c6300b50727cc8ef31f472273d0241b"
     },
     {
       "path": "dist/index.html",
-      "size": 11280,
-      "sha256": "fc7c2a805c60ffb995338c9060a40155053b23919ec62b8d3c6546b886b3e281"
+      "size": 12203,
+      "sha256": "57262447f799c1ca5d664e9df8422beb1a9fc700a4bedd6e07990e1c4d519b13"
     },
     {
       "path": "dist/legal/cookies/index.html",
@@ -221,8 +241,8 @@
     },
     {
       "path": "dist/onboarding/index.html",
-      "size": 1485,
-      "sha256": "4575b58c86c701b9e8f731ce1516ea9c18e3f97c5e2e7d6b9a911248e944a92e"
+      "size": 1593,
+      "sha256": "729abd02b116e73823bbc58b27d5e3410b19195a2742211235cfe93b049d4b91"
     },
     {
       "path": "dist/payments/toss/fail/index.html",
@@ -241,18 +261,18 @@
     },
     {
       "path": "dist/pricing/index.html",
-      "size": 6745,
-      "sha256": "2ecc2fd9e585d63fbeeb50c169439f967ccb6f905727d25f2c7e340bcdf6ef0f"
+      "size": 9199,
+      "sha256": "d87e4581c1a03671d6928c2bcc5058a92027b2678f266fe5f8ce55adc2b41c60"
     },
     {
       "path": "dist/products/clearport/board/index.html",
-      "size": 2514,
-      "sha256": "cf0ae83047705f3b5e82bedccce3c37313de74b36e73caf21c76fe86baa6284a"
+      "size": 2574,
+      "sha256": "0a73a6398c5cf78e59a0c11efb554b62e39fd638618cf2fe5059d7aabcd7687c"
     },
     {
       "path": "dist/products/clearport/delivery/index.html",
-      "size": 3209,
-      "sha256": "6a4da82735c3cadf5923e342bcda67b1653f057d858d0667f30769d60a43cb67"
+      "size": 3257,
+      "sha256": "d31cf6c75bf51556ae0da7481e041051203aa4deb01a4305eb6c3d82ce13721a"
     },
     {
       "path": "dist/products/clearport/demo/index.html",
@@ -261,28 +281,28 @@
     },
     {
       "path": "dist/products/clearport/faq/index.html",
-      "size": 3471,
-      "sha256": "6afeea7dd8eb8a64a0138930543fd0f58e68190dcb534362bfc9eaef1f7ceaa0"
+      "size": 3655,
+      "sha256": "17e6f8b6af5adbbfa0a89d7b85a9eaaa37fad0e021201bb149172f7aa3a65e72"
     },
     {
       "path": "dist/products/clearport/index.html",
-      "size": 8774,
-      "sha256": "d323f1e9e2bab89b8922b0b0e7bfc22ba2a39f6bbdc87ff52984d531332f1ca3"
+      "size": 17262,
+      "sha256": "d83d1eb7993eb61db0095795df63070aa0b305d39e576f9a187c23bf9204cf52"
     },
     {
       "path": "dist/products/clearport/plans/index.html",
-      "size": 4802,
-      "sha256": "4f635d13d1a24186ab75487cb25a21557079d3d83e8918ec477556b4631c647d"
+      "size": 4787,
+      "sha256": "e51b6a0819c1a7d86e8e5a2e2836b33ff816c6d1c13ce68d214f5c490c405cc0"
     },
     {
       "path": "dist/products/draftforge/board/index.html",
-      "size": 2543,
-      "sha256": "bb82bab80fbedb6fedc8fac5751f0d441b1511e456abdd3722b3cddb26423202"
+      "size": 2570,
+      "sha256": "7d90a1f4fd57ef3843ff0616ddfe755280db2aef12a6cff164ddf4feb5776f03"
     },
     {
       "path": "dist/products/draftforge/delivery/index.html",
-      "size": 3233,
-      "sha256": "ea21dfb2dac7a1740a3859486432c711f494026d30e1ceaa48cd4b3ec7d70199"
+      "size": 3281,
+      "sha256": "d8da3f4f72bdf8eb9c1340fbe99232153ac27ec3708f5912417aef009d691e43"
     },
     {
       "path": "dist/products/draftforge/demo/index.html",
@@ -291,28 +311,28 @@
     },
     {
       "path": "dist/products/draftforge/faq/index.html",
-      "size": 3524,
-      "sha256": "d35eb6eb17c7142b4553ac11a80d739821186870f63fd7267d40d808372afd19"
+      "size": 3708,
+      "sha256": "ce505488b36443e25128a13db176343e377922d26efc02a1499c6198e9117970"
     },
     {
       "path": "dist/products/draftforge/index.html",
-      "size": 8855,
-      "sha256": "4c7b7c95b2e8414ab6669ca97d98bfbe52f69273cf6d96fdb73a9cde4197cfe2"
+      "size": 16971,
+      "sha256": "ebaf4cc4d9aab969910557a69f6c14e28bcb5055c605144a40298a6094ad0d77"
     },
     {
       "path": "dist/products/draftforge/plans/index.html",
-      "size": 4734,
-      "sha256": "4483dac69799a6495189cb7c5b26dc4db68995414f9c01ff8ebb9cb87d3e527f"
+      "size": 4727,
+      "sha256": "b8a0d60b5ac2f2341b29bbdc16011d0f6f57553304dc7b05374f94e57363195d"
     },
     {
       "path": "dist/products/grantops/board/index.html",
-      "size": 2486,
-      "sha256": "6db00b36e4c17ba4d63e75c49f1da0373b4f4af4eeec5e57a89e60697feef7a2"
+      "size": 2519,
+      "sha256": "c59a42a8b07b0184332b5b4f8775c50949e32a0cabc77fe822824c7ffa8f22e0"
     },
     {
       "path": "dist/products/grantops/delivery/index.html",
-      "size": 3199,
-      "sha256": "ca3224d20be462030aa06459c825f79ad8800e675dca669d8dbf1de616fd5ce8"
+      "size": 3247,
+      "sha256": "3409163db7c7506e892a6555476933c663937cb33b83bf545c02f4d2390f9821"
     },
     {
       "path": "dist/products/grantops/demo/index.html",
@@ -321,58 +341,58 @@
     },
     {
       "path": "dist/products/grantops/faq/index.html",
-      "size": 3472,
-      "sha256": "3b46d0f9c99c6a780daa4c89157661a4e09a7a166b06e5340951455dfe1cd8ec"
+      "size": 3656,
+      "sha256": "435fb2ce7482dd049975a22dc92f6227c3eaa536def7d80888c53c2b7be3b19d"
     },
     {
       "path": "dist/products/grantops/index.html",
-      "size": 8638,
-      "sha256": "903d0d9b0838df4a190f4da53ff6cc000ed2f91ccc1fc9335ea9f1397d14f090"
+      "size": 16906,
+      "sha256": "51150ab0a39ce1222901399d151eda238649e31f953a25fc73bda10262e3f9fb"
     },
     {
       "path": "dist/products/grantops/plans/index.html",
-      "size": 4717,
-      "sha256": "2ea6be4651a8721656d6d5e525123848a3bfe94aa46a3b8b016f43d0eb53715a"
+      "size": 4730,
+      "sha256": "1a812c20e3504caabeac8ef0c798ca34b8e88af6f7b6cadaedda69e8f1808c03"
     },
     {
       "path": "dist/products/index.html",
-      "size": 11096,
-      "sha256": "51cd4c0d67b89681edc13f35e887563ea6773f3fbbf0b0f646abe77c80d5d4e2"
+      "size": 11569,
+      "sha256": "7e5dffd60d9edb2541bf2cb79bf9c24558b3d2fc9e63f58ae2343e2a9dd06a45"
     },
     {
       "path": "dist/products/veridion/board/index.html",
-      "size": 2520,
-      "sha256": "ba14b6da2646107b40e68e140684c60e133dd83ea50516ecc523f072043f0866"
+      "size": 2639,
+      "sha256": "35ba2d722c2786f419851e9ae928995fe202ea5585be25f1d8c62b7b459370e8"
     },
     {
       "path": "dist/products/veridion/delivery/index.html",
-      "size": 3199,
-      "sha256": "b9c2386586ce3349f16c420a16cff48bb12965a5aabdf866cf5b5b05302491ec"
+      "size": 3373,
+      "sha256": "3c984669a1fe13aa451ab77c5b11d93c1306d2070314d1feb23405141af4534c"
     },
     {
       "path": "dist/products/veridion/demo/index.html",
-      "size": 5001,
-      "sha256": "00297599f864b441592022b352e47ede4b8e0c7b06f10676fb7efec8da19cd7f"
+      "size": 5250,
+      "sha256": "c901279c87542e3c32fcc7383e8ebafc6ba5f8802a5fb47561f5c004a124b3d7"
     },
     {
       "path": "dist/products/veridion/faq/index.html",
-      "size": 3476,
-      "sha256": "280311acced8afb0367e9fae5a450d8e97bff4777809cc833b67f515fb8fb381"
+      "size": 3901,
+      "sha256": "13aea625256feff4e66795c43715494acbe8ab33750038ce18d8b8df0d5d33ab"
     },
     {
       "path": "dist/products/veridion/index.html",
-      "size": 8819,
-      "sha256": "cb067ab50362a783006dcff74444880bd980323e79a2c879b050d17460b2fb4f"
+      "size": 18603,
+      "sha256": "60053c2a839fe84188459b7e0fd8cfc5378dd07767fb68c78827cb3937789646"
     },
     {
       "path": "dist/products/veridion/plans/index.html",
-      "size": 4795,
-      "sha256": "cb2e21a1ec965f545a1f8c0bcf4e3a64c8cb870a8b39bf94bfba1bb4f9abceb8"
+      "size": 5011,
+      "sha256": "54086634d53ef41fa72508799269d4f6ad10938e18b3c7cfa001dba43a9a44c9"
     },
     {
       "path": "dist/resources/index.html",
-      "size": 1557,
-      "sha256": "6335b2e98b1d8bde36ddb2888218c39b60b02a8a272f19b3b7562d5c1ea91333"
+      "size": 3497,
+      "sha256": "e9146efc1da45eb8b5fe5eafd08d83da2ec039a1843d678d4ac25b51187014f7"
     },
     {
       "path": "dist/robots.txt",
@@ -381,8 +401,8 @@
     },
     {
       "path": "dist/service/index.html",
-      "size": 1583,
-      "sha256": "ff25d4c1a8726a2353e76e8de1609ad03afc1d9270ddb4678bd5eb2a04c383cc"
+      "size": 97954,
+      "sha256": "791b23a8ca540b5560d67eda325bc45c94b2507774a1c8be27c15330c138aafd"
     },
     {
       "path": "dist/sitemap.xml",
@@ -391,8 +411,8 @@
     },
     {
       "path": "dist/solutions/index.html",
-      "size": 5554,
-      "sha256": "3636c4246232612e9f5528690bbe461983f63ad997263716083c3828ce350e83"
+      "size": 6026,
+      "sha256": "e96250d6a8a5fc9c8dcc9b366a0b4b57877ac82c65087b5ffa82154683c2a8e4"
     },
     {
       "path": "requirements.txt",
@@ -3950,14 +3970,24 @@
       "sha256": "953408cd2570f0c83dc2fe39f7e4e388e41eeb05738aa69196a5f6ffcf6ba79e"
     },
     {
+      "path": "scripts/api_safety_regression.py",
+      "size": 8324,
+      "sha256": "511ae1bac979e06eaacc70c2fc6f711bc9c8d14a6fd35ed3621f9f0380938ff0"
+    },
+    {
       "path": "scripts/backup_scheduler.py",
       "size": 648,
       "sha256": "66678d831074d8cf0377c8d7e50472f5061f06cfc088a53a40cf162f04fc4909"
     },
     {
       "path": "scripts/backup_state.py",
-      "size": 5081,
-      "sha256": "5bc1f6a764ff8e417f22a8eaf46740578d4fe15a1c06359a23e33eabdef52eb7"
+      "size": 5291,
+      "sha256": "9ab765c9d7d46f9044176294aa717534799a9d33cd78bf142a5d4d42a95b85be"
+    },
+    {
+      "path": "scripts/board_mode_regression.py",
+      "size": 3471,
+      "sha256": "b0c8e07340ff44f4aa9899e9f6691e7ec7c53ee0d8235fd1f6a009f8c4c0f044"
     },
     {
       "path": "scripts/board_only_postbuild.py",
@@ -3970,34 +4000,54 @@
       "sha256": "2ba8d885d88a9acac334b41984d77c2cef6b5bad949f90249e8c1d2fef8ef577"
     },
     {
+      "path": "scripts/deployment_consistency_check.py",
+      "size": 3451,
+      "sha256": "eea564cb1da3a8d893903be674dae2e91af340dcae13d857b623ee0f7a2a712d"
+    },
+    {
       "path": "scripts/full_audit.py",
-      "size": 5283,
-      "sha256": "cf6b4ffc96575271b8e58f9ce6c10417dfb5a161ebfd4806086e592cd70efeee"
+      "size": 5995,
+      "sha256": "a913266d54c378bd95b5974adf66be49ad9b6138080f59c2d850acd362fd6ad7"
     },
     {
       "path": "scripts/generate_compat_pages.py",
-      "size": 47123,
-      "sha256": "fbf39d1de7bb62a51abd9eb48fa10645eb1bfa14fb825e27b0be758005495404"
+      "size": 55510,
+      "sha256": "b57bc4f9e49ae61ed57774e3475ec44908a38b7b67fdad3f3d6bd00badb85497"
+    },
+    {
+      "path": "scripts/package_completion_gate.py",
+      "size": 4840,
+      "sha256": "e133545d98f81f224535c3ea576cd7218dc331c2f4cf6778b03aae6a30e71e0d"
     },
     {
       "path": "scripts/page_overrides.py",
-      "size": 45889,
-      "sha256": "2a65b8771e92a51d165a3b014927f273d5f80ae570fe7632726324ae4878e29d"
+      "size": 55784,
+      "sha256": "ffaa4fb4b39d2d949a32eec5db705fc022e5f9e0aa86965102d6c2efcb20b37d"
     },
     {
       "path": "scripts/post_deploy_verify.py",
-      "size": 9265,
-      "sha256": "940974388ff89bc28e5d36a46d8f4d023677dd9c524831f801d402cd0653367e"
+      "size": 9256,
+      "sha256": "009ffbff2fef7a77ba5a7f11d8a79ab40cdef4b026af610a79e3e1a62e03f3c2"
     },
     {
       "path": "scripts/preflight_env.py",
-      "size": 4576,
-      "sha256": "6606c2a64992fadeda56eb2fd63b34bad694ac31ff0d6dd73e5b3849a608dcab"
+      "size": 5136,
+      "sha256": "49cb81459852141b125c2b91b589d437848c7cb4630960a3dd07a06b55d2167e"
+    },
+    {
+      "path": "scripts/product_runtime_e2e.py",
+      "size": 7688,
+      "sha256": "a32a39d44a073a6fb33769d9877d68302cfaf9136fa76ba558d104f06ce8c8af"
     },
     {
       "path": "scripts/restore_state.py",
-      "size": 5200,
-      "sha256": "04beea81a0c8a5ca67d7f8c1d5ac9db3de5e90f6c5d0df577738ebf5550c47f3"
+      "size": 5410,
+      "sha256": "a71c8e35cd6b6baa480fbe1a58aa77301b3b6e8273724c834216ac12baef0b07"
+    },
+    {
+      "path": "scripts/result_quality_gate.py",
+      "size": 7533,
+      "sha256": "f1f3909ffab6c76a6c55c0bc53ffda50bd90f61507bb132061e22ffa12c26236"
     },
     {
       "path": "scripts/smoke_release.py",
@@ -4006,8 +4056,8 @@
     },
     {
       "path": "server_app.py",
-      "size": 74486,
-      "sha256": "24e9e5a592ac63d19f1f8e7058ec4cd8bfa48b74a133b8734ff6ee269d9b7a35"
+      "size": 102063,
+      "sha256": "e745bb1a4292e8e2362550196af7be6c0dad91b5b1ab629be656202e6e1dca0c"
     },
     {
       "path": "src/assets/site.board-only.js",
@@ -4016,23 +4066,23 @@
     },
     {
       "path": "src/assets/site.css",
-      "size": 26712,
-      "sha256": "30dd4de4f200605504cd208b877808d87f17c92227092c7309eb0e502c923413"
+      "size": 27078,
+      "sha256": "49259f7fdcc6f7d067efe4b66df419e80852f9bd48a40eed2c046d9f0901b6e6"
     },
     {
       "path": "src/assets/site.js",
-      "size": 82645,
-      "sha256": "6bf0125a2721182aa281656e8246126cd410306f6063652530a111545de4659b"
+      "size": 96015,
+      "sha256": "b3f19bdce2d070ee15b1956f4281892cbe5a8dc9ec6ca929f04b30b477ed8c72"
     },
     {
       "path": "src/data/site.json",
-      "size": 38980,
-      "sha256": "9394f4be99d0d6dccf8f2f8781e81a41ba6bac738e3b47f39e947e692582b162"
+      "size": 144578,
+      "sha256": "34840c9446a2036f39e6352f2c4c3aafd2a00a0dd6ad101ad52a74efb50ff5e0"
     },
     {
       "path": "start_server.py",
-      "size": 3293,
-      "sha256": "18a4683c53c512677171021d8e1ca753bd97b257b9e0f870ef95835ee01e6dfe"
+      "size": 4646,
+      "sha256": "57c83d9a9ef81444f9403ffae6bcf5e280a444ce0040b8eb0708d0216202ebf2"
     }
   ]
 }

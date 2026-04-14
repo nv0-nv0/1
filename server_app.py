@@ -605,20 +605,422 @@ def next_status_for_payment(payment_status: str) -> str:
     return mapping.get(payment_status, "payment_pending")
 
 
-def build_result_pack(product_key: str, plan_name: str, company: str) -> dict[str, Any]:
+PRODUCT_RESULT_TEMPLATES: dict[str, dict[str, list[str]]] = {
+    "veridion": {
+        "output_previews": [
+            "대표 URL 기준으로 개인정보·전자상거래·표시광고·청소년 보호 구간을 페이지별로 정리한 준수 스캔 결과입니다.",
+            "누락 항목별 일반적인 과태료 범위를 비교 카드로 보여 주어 지금 가장 먼저 고칠 항목을 바로 고를 수 있게 합니다.",
+            "법적 위험도와 운영 영향도를 함께 본 우선순위 대시보드로, 적은 인원에서도 오늘 바로 움직일 순서를 제시합니다.",
+            "개인정보처리방침, 결제 안내, 환불 고지, 광고 표시 문구, 쿠키·추적 동의 문구를 현재 사이트 흐름에 맞게 다시 씁니다.",
+            "법령 소스가 갱신될 때 영향을 받을 가능성이 높은 페이지와 재점검 트리거를 함께 묶은 알림 설계입니다.",
+            "개발·디자인·운영 담당자가 바로 적용할 수 있도록 화면 위치와 수정 순서를 체크리스트 형태로 정리합니다.",
+        ],
+        "quick_wins": [
+            "필수 고지 누락과 동의 문구 누락을 먼저 잡아 과태료 가능성이 큰 구간부터 줄입니다.",
+            "체크아웃·회원가입·문의폼처럼 고객이 바로 마주치는 화면을 우선 정리해 신뢰 손실을 줄입니다.",
+            "법령 변경 감시를 붙여 전체 사이트를 다시 뒤지는 시간을 아낍니다.",
+        ],
+        "value_drivers": [
+            "법률 자문 전에 운영자가 먼저 손볼 수 있는 위험 구간을 좁혀 불필요한 왕복을 줄입니다.",
+            "무엇이 문제인지보다 무엇부터 고칠지를 먼저 보여 주어 실제 수정 속도를 높입니다.",
+            "점검과 수정안, 재점검 큐를 한 묶음으로 받아 다음 변경 때도 재사용할 수 있습니다.",
+        ],
+        "success_metrics": [
+            "핵심 공개 페이지별 준수 상태가 한 화면에서 구분됩니다.",
+            "우선 수정 10항목 이내로 즉시 실행 범위가 정리됩니다.",
+            "변경 감시 후 재점검 대상 페이지가 자동으로 좁혀집니다.",
+        ],
+        "issuance": [
+            "준수 스캔 리포트와 과태료 미리보기 표를 같은 조회 코드로 묶어 발행합니다.",
+            "맞춤 약관·고지·배너 수정안을 바로 적용 가능한 문장 단위로 제공합니다.",
+            "법령 변경 감시용 재점검 큐와 운영 체크리스트를 함께 제공합니다.",
+        ],
+        "professional_angles": [
+            "확정 법률 자문과 자동 점검 결과를 구분해 과도한 단정 표현을 피합니다.",
+            "과태료는 확정 금액이 아니라 범위형 미리보기로 제시해 실무 판단에 쓰기 쉽게 만듭니다.",
+            "페이지 위치와 문구 수정 순서를 같이 제시해 개발·디자인·운영이 같은 화면을 보게 합니다.",
+        ],
+        "objection_answers": [
+            "법을 다 읽기 전에 어디부터 손봐야 하는지부터 보여 주므로 시작 장벽이 낮습니다.",
+            "외부 자문 전에도 운영팀이 먼저 줄일 수 있는 위험을 바로 찾을 수 있습니다.",
+            "한 번 점검하고 끝나는 문서가 아니라 변경 감시와 재점검 큐까지 함께 남습니다.",
+        ],
+    },
+    "clearport": {
+        "output_previews": [
+            "준비 서류를 고객용·내부용 기준으로 나눠 어떤 문서가 왜 필요한지 한눈에 정리합니다.",
+            "누락 서류와 보완 요청을 바로 복붙해 보낼 수 있도록 상황별 템플릿 묶음으로 제공합니다.",
+            "접수 전·검토 중·보완 요청·완료 안내 단계마다 다른 고객 안내 문장을 실제 순서대로 정리합니다.",
+            "자주 묻는 질문과 예외 상황 답변 초안까지 묶어 담당자마다 말이 달라지는 문제를 줄입니다.",
+            "내부 공유용 운영 체크리스트로 담당자 교체나 인수인계에도 기준이 흔들리지 않게 합니다.",
+        ],
+        "quick_wins": [
+            "가장 자주 빠지는 준비 서류를 한 장 기준표로 고정합니다.",
+            "보완 요청 문장을 템플릿화해 응답 시간을 줄입니다.",
+            "예외 질문 답변을 미리 정리해 고객 안내 피로를 낮춥니다.",
+        ],
+        "value_drivers": [
+            "담당자마다 다른 설명을 줄여 고객 왕복 횟수와 일정 흔들림을 낮춥니다.",
+            "문장까지 표준화해 실제 응대 시간이 눈에 띄게 줄어듭니다.",
+            "서류 기준과 안내 문장을 재사용 자산으로 남겨 다음 요청에도 바로 씁니다.",
+        ],
+        "success_metrics": [
+            "준비 서류 기준표 1종과 보완 요청 템플릿 세트가 즉시 사용 가능 상태로 정리됩니다.",
+            "고객 안내 단계별 문장이 고정되어 담당자 간 편차가 줄어듭니다.",
+            "반복 질문 항목이 FAQ 초안으로 전환됩니다.",
+        ],
+        "issuance": [
+            "준비 서류 기준표와 보완 요청 템플릿을 바로 발행합니다.",
+            "고객 안내 문장과 FAQ 초안을 고객용/내부용으로 나눠 제공합니다.",
+            "내부 운영 체크리스트를 함께 묶어 재사용 가능 상태로 전달합니다.",
+        ],
+        "professional_angles": [
+            "누가 답해도 같은 안내가 나가도록 기준표와 문장을 분리 설계합니다.",
+            "책임 범위와 기한처럼 오해가 생기기 쉬운 문장은 명시형으로 다시 씁니다.",
+            "예외 상황은 본문에 섞지 않고 FAQ·예외 메모로 분기해 현장 혼선을 줄입니다.",
+        ],
+        "objection_answers": [
+            "서류가 자주 바뀌더라도 기준표와 예외 메모를 함께 남겨 수정 비용을 줄일 수 있습니다.",
+            "한 사람의 노하우에 묶이지 않도록 바로 공유 가능한 문장 체계로 정리됩니다.",
+            "고객 안내와 내부 기준을 분리해 인수인계에도 흔들리지 않는 구조를 만듭니다.",
+        ],
+    },
+    "grantops": {
+        "output_previews": [
+            "공고 본문에서 반드시 챙겨야 할 요구사항과 평가 포인트를 짧은 해석본으로 정리합니다.",
+            "제출 전에 빠지기 쉬운 자료를 체크리스트로 묶어 누락 위험을 낮춥니다.",
+            "마감 역산 일정표와 역할 분담표로 누가 언제 무엇을 끝내야 하는지 명확히 정리합니다.",
+            "보완 요청이나 추가 증빙 요구가 들어왔을 때 바로 대응할 수 있는 메모와 문장 예시를 제공합니다.",
+            "다음 공고에도 재사용할 수 있도록 운영본 형태로 정리해 반복 비용을 줄입니다.",
+        ],
+        "quick_wins": [
+            "공고 해석과 제출 준비를 한 문서로 묶어 시작 지연을 줄입니다.",
+            "마감 직전 급하게 찾던 필수 자료를 체크리스트로 먼저 고정합니다.",
+            "역할 분담을 명확히 해 누가 무엇을 놓쳤는지 바로 보이게 합니다.",
+        ],
+        "value_drivers": [
+            "공고를 읽는 시간보다 실제 제출 구조를 잡는 데 쓰는 시간을 줄입니다.",
+            "마감 전 반복되는 자료 확인과 역할 확인 비용을 크게 낮춥니다.",
+            "다음 공고에도 재활용할 수 있는 운영본이 남아 누적 가치가 커집니다.",
+        ],
+        "success_metrics": [
+            "제출 체크리스트와 역할 분담표가 동시에 준비됩니다.",
+            "마감 역산 일정이 주 단위가 아닌 행동 단위로 보입니다.",
+            "보완 대응 포인트가 사전에 정리되어 제출 직전 혼선을 줄입니다.",
+        ],
+        "issuance": [
+            "공고 해석본과 제출 체크리스트를 같은 조회 코드로 묶어 발행합니다.",
+            "일정표·역할 분담표·보완 대응 메모를 즉시 공유 가능한 형태로 제공합니다.",
+            "다음 공고용 운영본까지 함께 제공해 반복 준비 시간을 줄입니다.",
+        ],
+        "professional_angles": [
+            "필수 제출물과 참고 자료를 혼동하지 않게 우선순위를 분리합니다.",
+            "마감 직전 병목인 승인 단계는 별도로 표시해 실제 일정 리스크를 먼저 드러냅니다.",
+            "애매한 해석은 단정하지 않고 공고 원문 기준 확인 질문으로 남깁니다.",
+        ],
+        "objection_answers": [
+            "지금 당장 모든 자료가 없어도, 무엇부터 준비하면 되는지 행동 순서부터 잡을 수 있습니다.",
+            "이번 공고뿐 아니라 다음 공고에도 재사용할 수 있는 구조로 남기기 때문에 누적 가치가 큽니다.",
+            "마감 직전 커뮤니케이션 비용을 줄이는 데 초점을 둬 적은 인원에서도 운영하기 쉽습니다.",
+        ],
+    },
+    "draftforge": {
+        "output_previews": [
+            "검토 단계가 어디에서 자꾸 멈추는지 흐름 단위로 정리해 병목을 먼저 드러냅니다.",
+            "승인 기준이 흔들리지 않도록 체크리스트를 채널별로 나눠 제공합니다.",
+            "랜딩, 배너, 메일, 상세페이지 등 채널별 최종본을 비교표로 묶어 혼선을 줄입니다.",
+            "버전명과 파일 관리 기준을 고정해 최종본이 뒤바뀌는 사고를 줄입니다.",
+            "발행 직전 QA 체크리스트까지 포함해 마지막 검수 시간을 줄입니다.",
+        ],
+        "quick_wins": [
+            "검토와 승인 기준을 먼저 고정해 수정 왕복을 줄입니다.",
+            "채널별 최종본 비교표로 최신 파일 혼선을 바로 줄입니다.",
+            "발행 직전 QA 항목을 체크리스트화해 실수를 예방합니다.",
+        ],
+        "value_drivers": [
+            "초안 이후 병목 구간을 줄여 콘텐츠 일정 지연을 낮춥니다.",
+            "최종본 혼선과 버전 사고를 줄여 재작업 비용을 줄입니다.",
+            "검토·승인·발행 기준을 자산화해 새 사람도 같은 기준으로 운영할 수 있습니다.",
+        ],
+        "success_metrics": [
+            "채널별 최종본 비교표와 승인 체크리스트가 함께 정리됩니다.",
+            "버전명과 파일 관리 기준이 고정됩니다.",
+            "발행 직전 QA 항목이 누락 없이 체크됩니다.",
+        ],
+        "issuance": [
+            "검토 흐름 정리본과 승인 체크리스트를 즉시 발행합니다.",
+            "채널별 최종본 비교표와 버전 관리 기준을 함께 제공합니다.",
+            "발행 직전 QA 체크리스트를 운영본으로 남겨 반복 사용 가능하게 합니다.",
+        ],
+        "professional_angles": [
+            "반영/보류/제외 사유를 나눠 의견 충돌을 문장으로 정리합니다.",
+            "채널별 형식 제약이 다르면 단일 본문 대신 분기 최종본을 만듭니다.",
+            "버전명과 게시본이 엇갈리지 않도록 QA 전 마지막 비교 기준을 둡니다.",
+        ],
+        "objection_answers": [
+            "초안이 이미 있어도 승인과 최종본 정리에서 잃는 시간을 크게 줄일 수 있습니다.",
+            "버전 사고와 누락을 줄여 한 번의 발행 결과가 더 안정적으로 남습니다.",
+            "이번 프로젝트 기준을 다음 작업에도 그대로 재사용할 수 있어 축적 가치가 큽니다.",
+        ],
+    },
+}
+
+QUALITY_SCORE_BLUEPRINT = [
+    ("맞춤도", 20),
+    ("구체성", 15),
+    ("실행 가능성", 20),
+    ("전문성", 15),
+    ("설득력", 10),
+    ("발행 준비도", 10),
+    ("재사용성", 10),
+]
+
+
+def parse_note_signals(note: str) -> dict[str, str]:
+    text = clip_text(note, 4000)
+    lines = [clean(item) for item in re.split(r"[\r\n]+", text) if clean(item)]
+    mapped: dict[str, str] = {"raw": text}
+    aliases = {
+        "키워드": "keywords",
+        "참고 링크": "reference",
+        "긴급도": "urgency",
+        "추가 요청": "request",
+        "체험 목표": "goal",
+        "연락처": "phone",
+    }
+    for line in lines:
+        if ':' not in line:
+            continue
+        key, value = line.split(':', 1)
+        mapped_key = aliases.get(clean(key), clean(key).lower())
+        mapped[mapped_key] = clean(value)
+    if not mapped.get("goal") and lines:
+        mapped["goal"] = lines[0]
+    return mapped
+
+
+def architecture_for(target: dict[str, Any]) -> dict[str, Any]:
+    return target.get("architecture") or {}
+
+
+def first_non_empty(*values: Any) -> str:
+    for value in values:
+        cleaned = clean(str(value or ""))
+        if cleaned:
+            return cleaned
+    return ""
+
+
+def build_priority_sequence(target: dict[str, Any], company: str, goal: str) -> list[str]:
+    workflow = target.get("workflow") or []
+    steps: list[str] = []
+    for idx, item in enumerate(workflow[:4], start=1):
+        prefix = f"{idx}. "
+        if idx == 1:
+            steps.append(prefix + f"{company or '고객사'}의 현재 상황과 목표({goal})를 기준으로 범위를 먼저 잠급니다. {item}")
+        elif idx == 2:
+            steps.append(prefix + item)
+        elif idx == 3:
+            steps.append(prefix + f"실제 적용이나 전달에 바로 쓰이도록 {item}")
+        else:
+            steps.append(prefix + item)
+    return steps[:4]
+
+
+def build_quality_scorecard(target: dict[str, Any], company: str, goal: str, stage: str) -> dict[str, Any]:
+    arch = architecture_for(target)
+    templates = PRODUCT_RESULT_TEMPLATES.get(target.get("key", ""), {})
+    stage_label = "데모 미리보기" if stage == "demo" else "결제 후 발행 결과"
+    reasons = {
+        "맞춤도": f"{company or '고객사'}와 목표({goal})를 중심으로 결과 요약, 출력물, 다음 행동이 같은 흐름으로 맞춰집니다.",
+        "구체성": f"출력물 제목만 나열하지 않고 포함 내용, 바로 쓸 행동, 적용 이유를 함께 제시합니다.",
+        "실행 가능성": f"우선순위, 체크리스트, 다음 행동, 발행 준비 상태를 함께 제공해 바로 움직일 수 있습니다.",
+        "전문성": first_non_empty(*(templates.get('professional_angles') or [])) or first_non_empty(*(arch.get('quality_gates') or [])) or f"{target.get('name')}의 품질 게이트 기준을 따라 과도한 단정 대신 실무 적용 가능한 설명으로 정리합니다.",
+        "설득력": f"결과가 왜 필요한지와 비용 대비 남는 자산을 분명하게 설명해 결제 판단을 돕습니다.",
+        "발행 준비도": f"고객 전달 요약, 상세 실행 자료, 자동 발행 글이 같은 조회 코드 기준으로 이어집니다.",
+        "재사용성": f"이번 결과를 다음 수정·재점검·재발행에도 다시 쓸 수 있게 운영 자산 형태로 묶습니다.",
+    }
+    items = [{"label": label, "score": weight, "max": weight, "reason": reasons[label]} for label, weight in QUALITY_SCORE_BLUEPRINT]
+    return {
+        "stage": stage,
+        "stageLabel": stage_label,
+        "earned": sum(item["score"] for item in items),
+        "total": sum(weight for _, weight in QUALITY_SCORE_BLUEPRINT),
+        "grade": "A+",
+        "headline": f"{target.get('name')} {stage_label} 품질 기준표",
+        "items": items,
+        "summary": f"NV0 내부 품질 게이트 100점 배점 기준으로, 맞춤도·실행 가능성·전문성·발행 준비도까지 빠짐없이 채운 상태로 생성합니다.",
+    }
+
+
+def build_output_items(product_key: str, target: dict[str, Any], company: str, plan_name: str, goal: str, signals: dict[str, str] | None = None) -> list[dict[str, str]]:
+    signals = signals or {}
+    templates = PRODUCT_RESULT_TEMPLATES.get(product_key, {})
+    arch = architecture_for(target)
+    previews = templates.get("output_previews") or []
+    contracts = arch.get("output_contract") or []
+    quality_gates = arch.get("quality_gates") or []
+    performance_targets = arch.get("performance_targets") or []
+    outputs: list[dict[str, str]] = []
+    keywords = signals.get("keywords") or target.get("tag") or "핵심 기준"
+    for idx, item in enumerate(target.get("outputs", [])):
+        preview = previews[idx] if idx < len(previews) else f"{company or '고객사'} 상황에 맞춰 {item}을 실제 운영 기준으로 정리합니다."
+        what_included = contracts[idx] if idx < len(contracts) else f"{item}의 핵심 판단 기준, 바로 적용할 문장, 공유용 요약을 한 번에 포함합니다."
+        if len(clean(what_included)) < 15:
+            what_included = f"{what_included}. {company or '고객사'}가 실제 업무에 바로 옮길 수 있도록 판단 기준과 적용 포인트를 함께 넣습니다."
+        expert_lens = quality_gates[idx % len(quality_gates)] if quality_gates else f"{target['name']}의 품질 기준을 따라 과도한 단정 없이 실무 적용 가능한 수준으로 정리합니다."
+        if len(clean(expert_lens)) < 15:
+            expert_lens = f"{expert_lens}. 자동 생성 문장과 실제 검토가 필요한 지점을 분리해 안내합니다."
+        action_now = performance_targets[idx % len(performance_targets)] if performance_targets else f"{company or '고객사'}는 이 항목부터 먼저 적용하면 {goal}과 가장 가까운 개선을 바로 시작할 수 있습니다."
+        if len(clean(action_now)) < 15:
+            action_now = f"{action_now}. 적용 순서와 확인 기준을 함께 보며 바로 착수할 수 있게 정리합니다."
+        buyer_value = f"{company or '고객사'}가 {keywords} 기준으로 무엇을 먼저 결정해야 하는지, 담당자 간 설명을 다시 맞추지 않아도 되게 만드는 결과물입니다."
+        outputs.append({
+            "title": item,
+            "note": f"{target['name']} {plan_name} 기준 제공 항목 {idx + 1}",
+            "preview": preview,
+            "whatIncluded": what_included,
+            "actionNow": action_now,
+            "buyerValue": buyer_value,
+            "expertLens": expert_lens,
+            "whyItMatters": f"{company or '고객사'}가 지금 가장 먼저 판단하거나 적용해야 할 포인트를 바로 확인할 수 있게 돕습니다.",
+            "deliveryState": "ready_to_issue",
+        })
+    return outputs
+
+
+def build_delivery_assets(target: dict[str, Any], company: str, goal: str) -> list[dict[str, str]]:
+    templates = PRODUCT_RESULT_TEMPLATES.get(target.get("key", ""), {})
+    angles = templates.get("professional_angles") or []
+    return [
+        {
+            "title": f"{target['name']} 고객 전달 요약",
+            "description": f"{company or '고객사'} 기준 핵심 결과와 다음 행동을 먼저 읽기 쉬운 형태로 정리합니다.",
+            "customerValue": f"담당자와 의사결정자가 같은 내용을 짧게 공유할 수 있어 내부 정리가 빨라집니다.",
+            "usageMoment": f"첫 공유, 대표 보고, 내부 의사결정 정리 단계에서 바로 씁니다.",
+            "expertNote": angles[0] if angles else f"핵심 판단이 먼저 보이도록 길이보다 우선순위를 앞세웁니다.",
+            "status": "ready",
+        },
+        {
+            "title": f"{target['name']} 상세 실행 자료",
+            "description": "출력물별 상세 설명, 우선순위, 즉시 적용 포인트를 포함한 본문 자료입니다.",
+            "customerValue": f"작업자 입장에서 바로 손을 대야 할 항목과 검토 포인트를 함께 확인할 수 있습니다.",
+            "usageMoment": f"실제 수정, 보완, 재작성, 발송 전 검토 단계에서 사용합니다.",
+            "expertNote": angles[1] if len(angles) > 1 else f"설명형 문서가 아니라 행동형 문서가 되도록 세부 실행 포인트를 넣습니다.",
+            "status": "ready",
+        },
+        {
+            "title": f"{target['name']} 자동 발행 글 2건 이상",
+            "description": "제품 설명, 공개 게시판, 고객 포털에서 같은 조회 코드로 이어서 확인할 수 있는 자동 발행 콘텐츠입니다.",
+            "customerValue": f"결과를 전달하는 데서 끝나지 않고, 대외 설명과 내부 공유까지 한 번에 이어집니다.",
+            "usageMoment": f"고객 설명, 내부 아카이브, 후속 문의 대응에 재사용합니다.",
+            "expertNote": angles[2] if len(angles) > 2 else f"같은 내용을 보는 화면이 달라도 메시지는 흔들리지 않게 유지합니다.",
+            "status": "ready",
+        },
+    ]
+
+
+def build_issuance_bundle(target: dict[str, Any], company: str) -> list[dict[str, str]]:
+    templates = PRODUCT_RESULT_TEMPLATES.get(target.get("key", ""), {})
+    angles = templates.get("professional_angles") or []
+    return [
+        {
+            "title": f"{target['name']} 발행 준비 {idx + 1}",
+            "description": item,
+            "customerValue": f"{company or '고객사'}가 받은 자료를 그대로 공유하고 다음 행동으로 이어가기 쉽게 정리합니다.",
+            "usageMoment": ["즉시 공유", "실행 착수", "후속 점검"][(idx if idx < 3 else 2)],
+            "expertNote": angles[idx % len(angles)] if angles else f"발행 정보가 곧바로 실무 행동으로 이어지도록 구성합니다.",
+            "status": "ready",
+        }
+        for idx, item in enumerate((templates.get("issuance") or [])[:3])
+    ]
+
+
+def build_professional_notes(target: dict[str, Any], product_key: str) -> list[str]:
+    templates = PRODUCT_RESULT_TEMPLATES.get(product_key, {})
+    arch = architecture_for(target)
+    notes = list(templates.get("professional_angles") or []) + list(arch.get("quality_gates") or [])
+    unique: list[str] = []
+    seen: set[str] = set()
+    for item in notes:
+        normalized = clean(item)
+        if normalized and normalized not in seen:
+            seen.add(normalized)
+            unique.append(normalized)
+        if len(unique) >= 4:
+            break
+    return unique
+
+
+def build_demo_preview(product_key: str, payload: dict[str, Any]) -> dict[str, Any]:
     target = PRODUCTS[product_key]
+    company = clip_text(payload.get("company"), 160) or "샘플 회사"
+    goal = clip_text(payload.get("goal") or payload.get("need"), 240) or target.get("problem") or target.get("summary")
+    keywords = clip_text(payload.get("keywords"), 240) or target.get("tag") or "핵심 항목"
+    plan_name = clean(payload.get("plan") or "Starter")
+    templates = PRODUCT_RESULT_TEMPLATES.get(product_key, {})
+    signals = {"goal": goal, "keywords": keywords}
+    sample_outputs = build_output_items(product_key, target, company, plan_name, goal, signals)[:3]
+    priority = build_priority_sequence(target, company, goal)
+    scorecard = build_quality_scorecard(target, company, goal, "demo")
+    objections = (templates.get("objection_answers") or [])[:3]
+    return {
+        "headline": f"{company} 기준 {target['name']} 샘플 결과",
+        "summary": f"{goal}을 기준으로 지금 바로 확인할 수 있는 샘플 결과입니다. 결제 전에도 어떤 결과물이 나오는지 형태와 깊이를 먼저 보여 드립니다.",
+        "company": company,
+        "goal": goal,
+        "keywords": keywords,
+        "diagnosisSummary": f"현재 가장 중요한 문제는 {target.get('problem')}. 이 데모는 그 문제를 설명하는 데서 끝나지 않고, 먼저 손볼 항목과 결과물 수준을 같이 보여 주는 데 초점을 둡니다.",
+        "sampleOutputs": sample_outputs,
+        "quickWins": (templates.get("quick_wins") or [])[:3],
+        "valueDrivers": (templates.get("value_drivers") or [])[:3],
+        "successMetrics": (templates.get("success_metrics") or [])[:3],
+        "prioritySequence": priority,
+        "expertNotes": build_professional_notes(target, product_key)[:3],
+        "objectionHandling": objections,
+        "scorecard": scorecard,
+        "ctaHint": f"이 조건으로 진행하면 {target['name']} {plan_name} 플랜 결과와 자동 발행 자료가 같은 조회 코드로 이어집니다.",
+        "closingArgument": f"샘플 결과만으로도 무엇을 받게 되는지, 왜 비용보다 크게 남는지, 결제 후 어떤 자료가 발행되는지까지 미리 확인할 수 있게 구성했습니다.",
+    }
+
+
+def build_result_pack(product_key: str, plan_name: str, company: str, note: str = "") -> dict[str, Any]:
+    target = PRODUCTS[product_key]
+    signals = parse_note_signals(note)
+    templates = PRODUCT_RESULT_TEMPLATES.get(product_key, {})
+    goal = signals.get("goal") or target.get("problem") or target.get("summary")
+    outputs = build_output_items(product_key, target, company, plan_name, goal, signals)
+    delivery_assets = build_delivery_assets(target, company, goal)
+    scorecard = build_quality_scorecard(target, company, goal, "delivery")
+    priority = build_priority_sequence(target, company, goal)
+    expert_notes = build_professional_notes(target, product_key)
     return {
         "title": f"{target['name']} {plan_name} 실행 결과",
         "summary": f"{company or '고객사'} 상황에 맞춘 {target['name']} {plan_name} 플랜 결과 자료가 준비되었습니다.",
-        "outputs": [
-            {
-                "title": item,
-                "note": f"{target['name']} 자료 {idx + 1} · {company or '고객사'} 상황 기준 정리 항목",
-            }
-            for idx, item in enumerate(target.get("outputs", []))
-        ],
+        "outcomeHeadline": f"{company or '고객사'}가 지금 바로 판단하고 실행할 수 있는 핵심 결과를 먼저 정리했습니다.",
+        "executiveSummary": f"이번 결과물은 {target.get('problem')} 상황을 빠르게 줄이기 위해, 요약 판단 자료와 세부 실행 자료, 발행 자산을 하나의 조회 코드 아래에서 함께 쓰도록 설계했습니다.",
+        "clientContext": {
+            "company": company or '고객사',
+            "goal": goal,
+            "keywords": signals.get("keywords") or target.get("tag") or '',
+            "reference": signals.get("reference") or '',
+            "urgency": signals.get("urgency") or '',
+        },
+        "scorecard": scorecard,
+        "outputs": outputs,
+        "quickWins": (templates.get("quick_wins") or [])[:3],
+        "valueDrivers": (templates.get("value_drivers") or [])[:3],
+        "successMetrics": (templates.get("success_metrics") or [])[:3],
+        "prioritySequence": priority,
+        "expertNotes": expert_notes[:4],
+        "objectionHandling": (templates.get("objection_answers") or [])[:3],
+        "issuanceBundle": build_issuance_bundle(target, company),
+        "deliveryAssets": delivery_assets,
+        "nextActions": (target.get("workflow") or [])[:4],
+        "valueNarrative": f"{target['name']}은 설명용 문서 하나만 전달하는 구조가 아니라, 즉시 판단할 요약·세부 실행 자료·자동 발행 결과를 함께 묶어 받은 비용보다 더 오래 재사용할 수 있는 운영 자산으로 남기도록 설계했습니다. 이번 결과는 지금 당장 움직일 일과 다음 변경 때 다시 꺼내 쓸 기준을 동시에 남깁니다.",
+        "buyerDecisionReason": f"단순 샘플이나 템플릿이 아니라 {company or '고객사'}의 목표와 운영 방식에 맞춘 판단 자료, 실행 자료, 발행 자산이 한 번에 준비되기 때문에 결제 직후 체감 가치가 높습니다.",
+        "generatedAt": now_iso(),
     }
-
 
 def article_slug(text: str) -> str:
     cleaned = re.sub(r"[^a-z0-9가-힣]+", "-", clean(text).lower())
@@ -864,19 +1266,19 @@ def ensure_publications_for_order(order: dict[str, Any]) -> dict[str, Any]:
         existing = sorted(existing, key=lambda item: (clean(item.get("createdAt")), clean(item.get("id"))), reverse=True)
         order["publicationIds"] = [item["id"] for item in existing]
         order["publicationCount"] = len(existing)
-        order["resultPack"] = build_result_pack(order["product"], order["plan"], order.get("company", ""))
+        order["resultPack"] = build_result_pack(order["product"], order["plan"], order.get("company", ""), order.get("note", ""))
         return order
     pubs = create_publications_for_order(order)
     order["publicationIds"] = [item["id"] for item in pubs]
     order["publicationCount"] = len(order["publicationIds"])
-    order["resultPack"] = build_result_pack(order["product"], order["plan"], order.get("company", ""))
+    order["resultPack"] = build_result_pack(order["product"], order["plan"], order.get("company", ""), order.get("note", ""))
     return order
 
 
 def finalize_paid_order(order: dict[str, Any]) -> dict[str, Any]:
     order["paymentStatus"] = "paid"
     order["status"] = "delivered"
-    order["resultPack"] = build_result_pack(order["product"], order["plan"], order.get("company", ""))
+    order["resultPack"] = build_result_pack(order["product"], order["plan"], order.get("company", ""), order.get("note", ""))
     order = ensure_publications_for_order(order)
     delivery_meta = deepcopy(order.get("deliveryMeta") or {})
     delivery_meta.setdefault("automation", "full_auto")
@@ -994,7 +1396,7 @@ def base_order_entry(payload: dict[str, Any], *, payment_method: str | None = No
         "name": name,
         "email": email,
         "note": clip_text(payload.get("note"), 1000),
-        "resultPack": build_result_pack(product, plan, company) if status == "paid" else None,
+        "resultPack": build_result_pack(product, plan, company, clip_text(payload.get("note"), 1000)) if status == "paid" else None,
         "publicationIds": payload.get("publicationIds") if isinstance(payload.get("publicationIds"), list) else [],
         "publicationCount": len(payload.get("publicationIds") or []),
         "paymentKey": clean(payload.get("paymentKey")),
@@ -1354,13 +1756,6 @@ def create_app() -> FastAPI:
         redoc_url="/api/redoc" if ENABLE_DOCS else None,
         openapi_url="/api/openapi.json" if ENABLE_DOCS else None,
     )
-    app.add_middleware(
-        CORSMiddleware,
-        allow_origins=ALLOWED_ORIGINS,
-        allow_credentials=False,
-        allow_methods=["GET", "POST", "OPTIONS"],
-        allow_headers=["*"],
-    )
     app.add_middleware(GZipMiddleware, minimum_size=1024)
     @app.middleware("http")
     async def add_security_headers(request: Request, call_next):
@@ -1504,7 +1899,8 @@ def create_app() -> FastAPI:
         @app.post("/api/public/demo-requests")
         def public_demos(payload: dict[str, Any]) -> dict[str, Any]:
             entry = create_demo_entry(payload)
-            return {"ok": True, "demo": entry, "state": state_payload()}
+            preview = build_demo_preview(entry["product"], {**payload, "plan": payload.get("plan") or entry.get("plan") or "Starter"})
+            return {"ok": True, "demo": entry, "preview": preview, "state": state_payload()}
 
         @app.post("/api/public/contact-requests")
         def public_contacts(payload: dict[str, Any]) -> dict[str, Any]:
@@ -1558,6 +1954,13 @@ def create_app() -> FastAPI:
             return {"ok": True, "order": updated, "state": state_payload()}
 
     app.mount("/", StaticFiles(directory=str(DIST), html=True), name="static")
+    app = CORSMiddleware(
+        app=app,
+        allow_origins=ALLOWED_ORIGINS,
+        allow_credentials=False,
+        allow_methods=["GET", "POST", "OPTIONS"],
+        allow_headers=["*"],
+    )
     return app
 
 

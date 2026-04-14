@@ -72,12 +72,14 @@ def main() -> int:
     parser.add_argument('--base-url', default=os.getenv('NV0_BASE_URL', 'http://127.0.0.1:8000'))
     parser.add_argument('--retention', type=int, default=int(os.getenv('NV0_BACKUP_RETENTION', '28') or '28'))
     parser.add_argument('--prefix', default=os.getenv('NV0_BACKUP_PREFIX', 'nv0-backup'))
+    parser.add_argument('--admin-token', default=os.getenv('NV0_ADMIN_TOKEN', ''))
+    parser.add_argument('--passphrase', default=os.getenv('NV0_BACKUP_PASSPHRASE', ''))
     parser.add_argument('--passphrase-env', default='NV0_BACKUP_PASSPHRASE')
     parser.add_argument('--allow-plaintext', action='store_true')
     args = parser.parse_args()
 
     base = str(args.base_url).rstrip('/')
-    token = os.getenv('NV0_ADMIN_TOKEN', '')
+    token = args.admin_token or os.getenv('NV0_ADMIN_TOKEN', '')
     output_dir = Path(args.output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
     stamp = now_stamp()
@@ -103,7 +105,7 @@ def main() -> int:
             tar.add(payload_file, arcname='export.json')
             tar.add(manifest_file, arcname='manifest.json')
 
-        passphrase = os.getenv(args.passphrase_env, '')
+        passphrase = args.passphrase or os.getenv(args.passphrase_env, '')
         if not passphrase and not args.allow_plaintext:
             raise SystemExit('backup encryption passphrase is required unless --allow-plaintext is used explicitly')
         if passphrase:

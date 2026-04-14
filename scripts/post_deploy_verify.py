@@ -75,14 +75,14 @@ def main() -> int:
     pages = [
         ('/', 'id="quick-demo-result"'),
         ('/products/', 'id="product-grid"'),
-        ('/pricing/', '가격, 범위, 1회 결제형 전달물을 한 번에 비교하고 바로 시작할 수 있습니다'),
-        ('/docs/', '문서 센터'),
+        ('/pricing/', 'data-page="pricing"'),
+        ('/docs/', 'data-page="docs"'),
         ('/board/', 'id="public-board-grid"'),
         ('/demo/', 'id="demo-form"'),
         ('/checkout/', 'id="checkout-form"'),
         ('/portal/', 'id="portal-lookup-form"'),
-        ('/engine/', '공통 엔진'),
-        ('/admin/', '관리자 허브'),
+        ('/engine/', 'data-page="engine"'),
+        ('/admin/', 'data-page="admin"'),
     ]
     for path, needle in pages:
         status, body, _ = fetch('GET', base_url + path)
@@ -96,11 +96,11 @@ def main() -> int:
             (f'/products/{product}/', 'id="product-module-grid"'),
             (f'/products/{product}/', 'id="product-overview-folds"'),
             (f'/products/{product}/demo/', 'id="product-demo-form"'),
-            (f'/products/{product}/plans/', '플랜'),
-            (f'/products/{product}/delivery/', '제공 흐름'),
-            (f'/products/{product}/faq/', 'FAQ'),
+            (f'/products/{product}/plans/', 'data-page="product-plans"'),
+            (f'/products/{product}/delivery/', 'data-page="product-delivery"'),
+            (f'/products/{product}/faq/', 'data-page="product-faq"'),
             (f'/products/{product}/board/', 'id="product-board-grid"'),
-            (f'/docs/{product}/', '시작 안내'),
+            (f'/docs/{product}/', 'data-page="docs-detail"'),
         ]
         seen = set()
         for path, needle in targets:

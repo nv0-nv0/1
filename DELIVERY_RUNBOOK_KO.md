@@ -4,7 +4,7 @@
 1. `.env.example`를 복사해 실제 환경변수 입력
 2. `NV0_BOARD_ONLY_MODE=0` 확인
 3. `NV0_TOSS_MOCK=1`로 먼저 스테이징 점검 (기본 권장값)
-4. `PYTHONPATH=./runtime_vendor python3 tests/test_all.py` 실행
+4. `PYTHONPATH=./runtime_vendor python3 scripts/package_completion_gate.py` 실행
 5. `PYTHONPATH=./runtime_vendor python3 scripts/create_delivery_package.py`로 납품 패키지 생성
 
 ## 2. Coolify/컨테이너 운영 기본값
@@ -19,6 +19,10 @@
 - `NV0_BOARD_ONLY_MODE=0`
 - `NV0_PAYMENT_PROVIDER=toss`
 - `NV0_STRICT_STARTUP=1` (운영 기본값, 필수값이 비면 즉시 실패)
+- `UVICORN_PROXY_HEADERS=1`
+- `FORWARDED_ALLOW_IPS=신뢰 프록시 IP/CIDR 또는 *`
+- `UVICORN_SERVER_HEADER=0`
+- `UVICORN_DATE_HEADER=0`
 
 테스트 결제:
 - `NV0_TOSS_MOCK=1` (기본 권장값)
@@ -33,8 +37,8 @@
 ```bash
 PYTHONPATH=./runtime_vendor python3 scripts/preflight_env.py
 PYTHONPATH=./runtime_vendor python3 build.py
-PYTHONPATH=./runtime_vendor python3 tests/test_all.py
-PYTHONPATH=./runtime_vendor python3 tests/packaging_runtime_check.py
+PYTHONPATH=./runtime_vendor python3 scripts/package_completion_gate.py
+PYTHONPATH=./runtime_vendor python3 scripts/deployment_consistency_check.py
 ```
 
 ## 4. 배포 직후 스모크 테스트
@@ -71,7 +75,7 @@ PYTHONPATH=./runtime_vendor python3 scripts/backup_state.py --base-url https://y
 
 verify-only 복구 검증:
 ```bash
-PYTHONPATH=./runtime_vendor python3 scripts/restore_state.py --file /path/to/backup.tar.gz.enc --passphrase 'YOUR_BACKUP_PASSPHRASE' --verify-only
+PYTHONPATH=./runtime_vendor python3 scripts/restore_state.py /path/to/backup.tar.gz.enc --passphrase 'YOUR_BACKUP_PASSPHRASE' --verify-only
 ```
 
 ## 7. 문제가 생기면 먼저 볼 것
@@ -89,3 +93,15 @@ PYTHONPATH=./runtime_vendor python3 scripts/restore_state.py --file /path/to/bac
 - `SHA256SUMS.txt`
 - 본 런북
 - README / 통합 맵 / 감사 보고서(필요 시 생성) / 테스트 세트
+
+## 패키지 완료 게이트
+```bash
+PYTHONPATH=./runtime_vendor python3 scripts/package_completion_gate.py
+```
+이 스크립트는 문법 검사, full 모드 빌드/실행/스모크/배포 검증, board-only 모드 빌드/실행/스모크/감사, 최종 full 복원까지 한 번에 수행합니다.
+
+
+## 추가 검증 스크립트
+- `scripts/api_safety_regression.py` : 관리자 보호, 잘못된 입력, 중복 결제 승인, 웹훅 중복, 본문 크기 제한 회귀 검증
+- `scripts/board_mode_regression.py` : board-only 모드에서 허용/차단 페이지와 API가 기대대로 동작하는지 검증
+- `scripts/deployment_consistency_check.py` : compose, Dockerfile, env 예시, 런북/README 참조 스크립트 일치성 검증

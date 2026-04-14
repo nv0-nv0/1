@@ -99,6 +99,8 @@ def main() -> int:
     parser.add_argument('backup')
     parser.add_argument('--base-url', default=os.getenv('NV0_BASE_URL', 'http://127.0.0.1:8000'))
     parser.add_argument('--replace', action='store_true', default=True)
+    parser.add_argument('--admin-token', default=os.getenv('NV0_ADMIN_TOKEN', ''))
+    parser.add_argument('--passphrase', default=os.getenv('NV0_BACKUP_PASSPHRASE', ''))
     parser.add_argument('--passphrase-env', default='NV0_BACKUP_PASSPHRASE')
     parser.add_argument('--verify-only', action='store_true')
     args = parser.parse_args()
@@ -107,7 +109,7 @@ def main() -> int:
     if not backup_path.exists():
         raise SystemExit(f'backup not found: {backup_path}')
 
-    passphrase = os.getenv(args.passphrase_env, '')
+    passphrase = args.passphrase or os.getenv(args.passphrase_env, '')
     parsed = parse_backup(backup_path, passphrase)
     if args.verify_only:
         print(json.dumps({'ok': True, 'verified': True, 'manifest': parsed['manifest']}, ensure_ascii=False))
@@ -117,7 +119,7 @@ def main() -> int:
     body = json.dumps({'replace': args.replace, 'state': payload.get('state', payload)}).encode('utf-8')
     req = Request(str(args.base_url).rstrip('/') + '/api/admin/import', data=body, method='POST')
     req.add_header('Content-Type', 'application/json')
-    token = os.getenv('NV0_ADMIN_TOKEN', '')
+    token = args.admin_token or os.getenv('NV0_ADMIN_TOKEN', '')
     if token:
         req.add_header('X-Admin-Token', token)
     with urlopen(req, timeout=30) as res:

@@ -11,6 +11,11 @@ ROOT = Path(__file__).resolve().parents[1]
 DIST = ROOT / 'dist'
 SERVER = ROOT / 'server_app.py'
 TESTS = ROOT / 'tests'
+SCRIPT_TEST_NAMES = {
+    'package_completion_gate.py', 'post_deploy_verify.py', 'preflight_env.py', 'product_runtime_e2e.py',
+    'result_quality_gate.py', 'smoke_release.py', 'api_safety_regression.py', 'board_mode_regression.py',
+    'deployment_consistency_check.py',
+}
 ROUTE_RE = re.compile(r"@app\.(get|post)\([\"']([^\"']+)[\"']")
 UNVERIFIED = [
     '실제 Toss 실결제',
@@ -47,8 +52,11 @@ def load_active_routes(mode: str) -> list[tuple[str, str]]:
     mod = importlib.import_module('server_app')
     mod = importlib.reload(mod)
     app = mod.create_app()
+    route_source = app
+    while not hasattr(route_source, 'routes') and hasattr(route_source, 'app'):
+        route_source = route_source.app
     active: list[tuple[str, str]] = []
-    for route in app.routes:
+    for route in route_source.routes:
         methods = getattr(route, 'methods', None)
         path = getattr(route, 'path', '')
         if not methods or path == '/openapi.json':
@@ -73,6 +81,7 @@ def main() -> None:
     declared = load_declared_routes()
     active = load_active_routes(args.mode)
     tests = sorted(TESTS.glob('*.py')) + sorted(TESTS.glob('*.js'))
+    validation_scripts = [ROOT / 'scripts' / name for name in sorted(SCRIPT_TEST_NAMES) if (ROOT / 'scripts' / name).exists()]
     todo_count = count_todo_like()
     dormant = [item for item in declared if item not in active]
 
@@ -84,7 +93,7 @@ def main() -> None:
     lines.append(f'- 활성 API route 수: {len(active)}')
     lines.append(f'- 소스상 선언 route 수: {len(declared)}')
     lines.append(f'- 현재 모드 기준 비활성 route 수: {len(dormant)}')
-    lines.append(f'- 테스트 스크립트 수: {len(tests)}')
+    lines.append(f'- 테스트/검증 스크립트 수: {len(tests) + len(validation_scripts)}')
     lines.append(f'- 소스 TODO/FIXME/XXX 표기 수: {todo_count}')
     lines.append('')
     lines.append('## 2. 페이지 목록')
@@ -102,9 +111,11 @@ def main() -> None:
     else:
         lines.append('- 없음')
     lines.append('')
-    lines.append('## 5. 테스트 목록')
+    lines.append('## 5. 테스트 및 검증 목록')
     for path in tests:
-        lines.append(f'- {path.name}')
+        lines.append(f'- tests/{path.name}')
+    for path in validation_scripts:
+        lines.append(f'- scripts/{path.name}')
     lines.append('')
     lines.append('## 6. 외부 환경이 필요한 최종 확인')
     for idx, item in enumerate(UNVERIFIED, start=1):
@@ -125,7 +136,7 @@ def main() -> None:
     print(f'active_api_routes={len(active)}')
     print(f'declared_routes={len(declared)}')
     print(f'dormant_routes={len(dormant)}')
-    print(f'tests={len(tests)}')
+    print(f'tests={len(tests) + len(validation_scripts)}')
     print(f'unverified={len(UNVERIFIED)}')
     print(f'todo_markers={todo_count}')
 

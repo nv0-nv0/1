@@ -194,6 +194,86 @@ def product_fit_cards_markup(products: list[dict], prefix: str) -> str:
     )
 
 
+
+
+def architecture_list_markup(values: list[str]) -> str:
+    return ''.join(f'<li>{escape(item)}</li>' for item in values if item)
+
+
+def architecture_sections_markup(product: dict) -> str:
+    architecture = product.get('architecture') or {}
+    if not architecture:
+        return '<div class="empty-box">아직 정리된 설계 기준이 없습니다.</div>'
+    sections = [
+        ('입력 기준', architecture.get('input_contract', [])),
+        ('엔진 구조', architecture.get('engine_layers', [])),
+        ('결과 계약', architecture.get('output_contract', [])),
+        ('품질 게이트', architecture.get('quality_gates', [])),
+        ('성능 설계 기준', architecture.get('performance_targets', [])),
+        ('실패 대응', architecture.get('failure_controls', [])),
+        ('확장 경로', architecture.get('expansion_paths', [])),
+    ]
+    cards = []
+    for title, values in sections:
+        if not values:
+            continue
+        cards.append(f'<article class="story-card"><span class="tag">{escape(title)}</span><ul class="clean">{architecture_list_markup(values)}</ul></article>')
+    summary = architecture.get('summary', '')
+    summary_html = f'<p style="margin-bottom:16px">{escape(summary)}</p>' if summary else ''
+    return summary_html + f'<div class="story-grid">{"".join(cards)}</div>'
+
+def architecture_scorecards_markup(product: dict) -> str:
+    architecture = product.get('architecture') or {}
+    cards = [
+        ('입력 명확성', len(architecture.get('input_contract', [])), '처음에 받아야 할 정보 범위를 먼저 좁혀 재작업을 줄입니다.'),
+        ('엔진 계층', len(architecture.get('engine_layers', [])), '자동 처리와 검토 단계를 섞지 않고 분리해 품질을 지킵니다.'),
+        ('품질 게이트', len(architecture.get('quality_gates', [])), '결과를 내보내기 전 반드시 걸러야 하는 조건을 둡니다.'),
+        ('실패 대응', len(architecture.get('failure_controls', [])), '예외 상황을 감추지 않고 다른 경로로 전환합니다.'),
+    ]
+    return ''.join(
+        f'<article class="admin-card"><span class="tag">{escape(title)}</span><h3>{value}</h3><p>{escape(body)}</p></article>'
+        for title, value, body in cards
+    )
+
+
+def architecture_focus_markup(product: dict) -> str:
+    architecture = product.get('architecture') or {}
+    highlights = [
+        ('성능 목표', (architecture.get('performance_targets') or ['지금 가장 먼저 보여야 할 결과를 앞세워 읽는 시간을 줄입니다.'])[0]),
+        ('실패 대응', (architecture.get('failure_controls') or ['애매한 판단은 자동 확정 대신 검토 필요 상태로 남깁니다.'])[0]),
+        ('확장 경로', (architecture.get('expansion_paths') or ['핵심 구조를 흔들지 않고 필요한 기능만 단계적으로 붙일 수 있게 설계합니다.'])[0]),
+    ]
+    return ''.join(
+        f'<article class="story-card"><span class="tag">{escape(title)}</span><p>{escape(body)}</p></article>'
+        for title, body in highlights
+    )
+
+
+def architecture_matrix_markup(products: list[dict], prefix: str) -> str:
+    cards = []
+    for product in products:
+        architecture = product.get('architecture') or {}
+        performance = (architecture.get('performance_targets') or ['핵심 판단이 먼저 보이도록 구성했습니다.'])[0]
+        failure = (architecture.get('failure_controls') or ['예외 상황은 다른 경로로 분기합니다.'])[0]
+        outputs = len(product.get('outputs', []))
+        quality = len(architecture.get('quality_gates', []))
+        cards.append(
+            f'<article class="story-card {escape(product["theme"])}">'
+            f'<span class="tag theme-chip">{escape(product["label"])}</span>'
+            f'<h3>{escape(product["name"])}</h3>'
+            f'<p>{escape(architecture.get("summary") or product.get("summary", ""))}</p>'
+            f'<div class="admin-grid" style="margin-top:14px">'
+            f'<article class="admin-card"><span class="tag">입력 기준</span><h3>{len(architecture.get("input_contract", []))}</h3><p>처음에 고정하는 정보 항목 수</p></article>'
+            f'<article class="admin-card"><span class="tag">결과물</span><h3>{outputs}</h3><p>기본 제공되는 핵심 전달물 수</p></article>'
+            f'<article class="admin-card"><span class="tag">품질 게이트</span><h3>{quality}</h3><p>출력 전 반드시 확인하는 기준 수</p></article>'
+            f'</div>'
+            f'<ul class="clean" style="margin-top:14px"><li>{escape(performance)}</li><li>{escape(failure)}</li></ul>'
+            f'<div class="small-actions"><a href="{prefix}products/{escape(product["key"])}/index.html">제품 상세</a><a href="{prefix}products/{escape(product["key"])}/demo/index.html">즉시 데모</a></div>'
+            f'</article>'
+        )
+    return ''.join(cards)
+
+
 def product_value_list(product: dict, key: str) -> str:
     return ''.join(f'<li>{escape(item)}</li>' for item in product.get(key, []))
 
@@ -322,7 +402,7 @@ def build_company_page(data: dict) -> str:
             <div class="crumbs"><a href="{prefix}index.html">HOME</a><span class="sep">/</span><span>회사</span></div>
             <span class="kicker">Company</span>
             <h1>{escape(company_profile.get('headline', ''))}</h1>
-            <p class="lead">공개 사이트와 운영 허브를 섞지 않고, 고객이 이해하기 쉬운 구조로 먼저 보여주기 위해 회사를 공통 엔진 사이트로 운영합니다. 제품은 모듈처럼 붙이고 빼되, 가격과 제공 흐름은 같은 기준으로 관리합니다.</p>
+            <p class="lead">처음 보시는 분에게는 이해하기 쉬운 화면이, 운영자에게는 관리하기 쉬운 구조가 필요합니다. 그래서 공개 사이트는 더 단순하게, 운영 허브는 더 분명하게 나누고, 제품은 모듈처럼 붙이되 가격과 제공 흐름은 같은 기준으로 관리합니다.</p>
             <div class="actions">
               <a class="button" href="{prefix}products/index.html">제품 모듈 보기</a>
               <a class="button secondary" href="{prefix}engine/index.html">공통 엔진 보기</a>
@@ -331,7 +411,7 @@ def build_company_page(data: dict) -> str:
           </div>
           <div class="card accent">
             <span class="tag" style="background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.12);color:#fff">운영 원칙</span>
-            <h3 style="font-size:1.72rem;margin:16px 0 10px">고객은 단순하게, 운영은 통제 가능하게</h3>
+            <h3 style="font-size:1.72rem;margin:16px 0 10px">고객은 편하게, 운영은 흔들리지 않게</h3>
             <ul class="clean inverse-list">{principles}</ul>
           </div>
         </div>
@@ -375,16 +455,16 @@ def build_products_page(data: dict) -> str:
           <div class="card strong">
             <div class="crumbs"><a href="{prefix}index.html">HOME</a><span class="sep">/</span><span>제품</span></div>
             <span class="kicker">Products</span>
-            <h1>제품 이름보다 지금 막힌 문제를 먼저 보고 고르세요</h1>
-            <p class="lead">각 제품은 한 화면에 다 몰아넣지 않고 요약·즉시 데모·플랜·전달물·FAQ·게시판으로 나눴습니다. 빠르게 판단하고 깊게 보고 싶을 때만 다음 모듈로 들어가면 됩니다.</p>
+            <h1>제품 이름보다, 지금 해결하고 싶은 일을 먼저 고르세요</h1>
+            <p class="lead">처음에는 요약만 보고, 마음이 맞을 때만 데모, 플랜, 전달물, FAQ로 더 깊게 들어가실 수 있게 나눴습니다. 접힌 화면에서는 핵심만 빠르게, 펼친 화면에서는 실제 판단에 필요한 정보를 충분히 확인하실 수 있습니다.</p>
             <div class="actions"><a class="button" href="{prefix}solutions/index.html">문제별 시작</a><a class="button secondary" href="{prefix}pricing/index.html">가격 비교</a><a class="button ghost" href="{prefix}demo/index.html">공통 데모</a></div>
           </div>
           <div class="card accent">
             <span class="tag" style="background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.12);color:#fff">선택 기준</span>
-            <h3 style="font-size:1.72rem;margin:16px 0 10px">3분 안에 선택할 수 있게 줄였습니다</h3>
+            <h3 style="font-size:1.72rem;margin:16px 0 10px">짧게 보고도 결정이 쉬워지게 만들었습니다</h3>
             <div class="accordion-stack">
-              <details class="fold-card light-open" open><summary><strong>빠르게 고르기</strong><span>문제별 시작 → 즉시 데모 → 플랜 보기 순서면 충분합니다.</span></summary><div><p>제품명을 모르더라도 문제 기준으로 먼저 고르고, 데모로 방향을 본 뒤 플랜만 확인하면 시작할 수 있게 구성했습니다.</p></div></details>
-              <details class="fold-card light-open"><summary><strong>깊게 검토하기</strong><span>문서와 FAQ, 전달물은 별도 모듈로 분리했습니다.</span></summary><div><p>준비물·전달물·정책은 별도 페이지로 분리해 제품 개요 화면이 불필요하게 길어지지 않도록 정리했습니다.</p></div></details>
+              <details class="fold-card light-open" open><summary><strong>빠르게 고르기</strong><span>문제별 시작 → 즉시 데모 → 플랜 보기 순서면 충분합니다.</span></summary><div><p>처음부터 많은 정보를 읽지 않으셔도 됩니다. 문제를 고르고, 짧은 미리보기로 방향을 확인한 뒤, 플랜과 전달물만 보셔도 시작 여부를 판단하실 수 있게 구성했습니다.</p></div></details>
+              <details class="fold-card light-open"><summary><strong>깊게 검토하기</strong><span>문서와 FAQ, 전달물은 별도 모듈로 분리했습니다.</span></summary><div><p>자세한 준비물, 전달물, 정책은 따로 분리해 두었습니다. 그래서 개요 화면은 덜 복잡하고, 필요할 때는 오히려 더 깊고 실용적인 정보를 편하게 확인하실 수 있습니다.</p></div></details>
             </div>
           </div>
         </div>
@@ -404,14 +484,15 @@ def build_engine_page(data: dict) -> str:
           <div class="card strong">
             <div class="crumbs"><a href="{prefix}index.html">HOME</a><span class="sep">/</span><span>공통 엔진</span></div>
             <span class="kicker">Common engine</span>
-            <h1>공통 엔진 하나로 저장, 결제, 제공, 포털, 운영을 묶습니다</h1>
-            <p class="lead">새 제품을 추가해도 결제와 포털, 관리자 흐름이 흔들리지 않도록 공통 엔진이 기록과 운영을 담당합니다. 고객은 공개 사이트에서 필요한 제품 모듈만 보고, 운영자는 관리자 허브에서 상태와 자동발행만 관리합니다.</p>
+            <h1>공통 엔진 하나로 신청부터 결과 확인까지 같은 기준으로 이어집니다</h1>
+            <p class="lead">제품이 늘어나도 신청, 결제, 제공, 포털, 관리자 흐름이 흔들리지 않도록 공통 엔진이 기록과 운영을 맡습니다. 고객은 필요한 제품만 편하게 보고, 운영자는 같은 기준으로 상태와 자동화를 관리할 수 있습니다.</p>
             <div class="actions"><a class="button" href="{prefix}products/index.html">제품 모듈 보기</a><a class="button secondary" href="{prefix}pricing/index.html">가격 기준</a><a class="button ghost" href="{prefix}admin/index.html">관리자 허브</a></div>
           </div>
-          <div class="card accent"><span class="tag" style="background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.12);color:#fff">엔진 계층</span><h3 style="font-size:1.72rem;margin:16px 0 10px">제품이 늘어나도 공통 부분은 그대로 유지합니다</h3><p>{escape(data['engine'].get('headline', ''))}</p><div class="inline-list">{engine_layers_markup(data)}</div></div>
+          <div class="card accent"><span class="tag" style="background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.12);color:#fff">엔진 계층</span><h3 style="font-size:1.72rem;margin:16px 0 10px">제품이 달라도 기본 경험은 같게 유지합니다</h3><p>{escape(data['engine'].get('headline', ''))}</p><div class="inline-list">{engine_layers_markup(data)}</div></div>
         </div>
       </section>
       <section class="section compact"><div class="container accordion-stack"><details class="fold-card" open><summary><strong>핵심 엔진 흐름</strong><span>문제 선택부터 관리자 허브까지 같은 기록선으로 이어집니다.</span></summary><div><div class="timeline">{timeline_markup(data)}</div></div></details><details class="fold-card"><summary><strong>왜 공통 엔진으로 운영하는가</strong><span>가격, 기록, 포털, 상태 변경을 같은 기준으로 관리합니다.</span></summary><div><div class="support-grid">{support_cards_markup()}</div></div></details></div></section>
+      <section class="section compact"><div class="container"><div class="section-head"><div><h2>제품 품질·성능 구조 비교</h2></div><p>네 제품 모두 다른 문제를 해결하지만, 입력 기준·품질 게이트·실패 대응을 같은 방식으로 설계해 운영 부담을 낮추고 판단 속도를 높였습니다.</p></div><div class="story-grid">{architecture_matrix_markup(data['products'], prefix)}</div></div></section>
     </main>
     ''')
     return doc(brand, f'공통 엔진 | {brand["name"]}', '신청부터 제공까지 묶는 공용 엔진 소개', 'engine', body, depth=1, page_key='engine', page_path='/engine/index.html')
@@ -427,11 +508,11 @@ def build_solutions_page(data: dict) -> str:
           <div class="card strong">
             <div class="crumbs"><a href="{prefix}index.html">HOME</a><span class="sep">/</span><span>문제별 시작</span></div>
             <span class="kicker">Solutions</span>
-            <h1>어떤 제품인지보다 지금 막힌 장면부터 고르게 만들었습니다</h1>
-            <p class="lead">전환이 막혔는지, 준비 문서가 흔들리는지, 지원사업 제출이 급한지, 초안 이후 승인과 최종본 정리가 느린지를 먼저 고르면 맞는 제품 모듈로 바로 이동합니다.</p>
+            <h1>어떤 제품이냐보다, 지금 가장 시급한 장면부터 고를 수 있게 만들었습니다</h1>
+            <p class="lead">처음 오셨다면 제품 이름을 모두 기억하실 필요가 없습니다. 지금 가장 답답한 장면이 전환인지, 서류와 안내인지, 지원사업 준비인지, 최종본 정리인지부터 고르시면 그다음 경로를 더 짧고 분명하게 안내해 드립니다.</p>
             <div class="actions"><a class="button" href="{prefix}products/index.html">전체 제품 보기</a><a class="button secondary" href="{prefix}demo/index.html">공통 데모</a><a class="button ghost" href="{prefix}contact/index.html">예외 문의</a></div>
           </div>
-          <div class="card accent"><span class="tag" style="background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.12);color:#fff">추천 경로</span><h3 style="font-size:1.72rem;margin:16px 0 10px">문제 선택 → 제품 모듈 → 데모 → 플랜</h3><p>첫 방문자가 어디부터 눌러야 하는지 헷갈리지 않도록, 제품명을 몰라도 문제 기준으로 바로 들어갈 수 있게 설계했습니다.</p></div>
+          <div class="card accent"><span class="tag" style="background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.12);color:#fff">추천 경로</span><h3 style="font-size:1.72rem;margin:16px 0 10px">처음에는 가볍게, 결정은 충분히</h3><p>먼저 문제를 고르고, 30초 미리보기로 방향을 본 뒤, 마음이 맞을 때만 데모와 플랜을 확인하실 수 있게 설계했습니다. 서두르지 않아도 이해가 빨라지는 흐름을 목표로 했습니다.</p></div>
         </div>
       </section>
       <section class="section compact"><div class="container"><div class="story-grid">{product_fit_cards_markup(products, prefix)}</div></div></section>
@@ -444,17 +525,19 @@ def build_product_page(data: dict, product: dict) -> str:
     prefix = rel_prefix(2)
     selected_plan = next((plan['name'] for plan in product.get('plans', []) if plan.get('recommended')), (product.get('plans') or [{}])[0].get('name', 'Starter'))
     quick_links = [
-        ('즉시 데모', f'{prefix}products/{product["key"]}/demo/index.html', '버튼 한 번으로 바로 미리봅니다'),
-        ('플랜', f'{prefix}products/{product["key"]}/plans/index.html', '가격과 포함 범위를 확인합니다'),
-        ('전달물', f'{prefix}products/{product["key"]}/delivery/index.html', '무엇을 받는지 확인합니다'),
-        ('FAQ', f'{prefix}products/{product["key"]}/faq/index.html', '반복 질문만 먼저 봅니다'),
-        ('게시판', f'{prefix}products/{product["key"]}/board/index.html', '관련 공개 글과 사례를 읽습니다'),
-        ('문서', f'{prefix}docs/{product["key"]}/index.html', '준비물과 기준을 먼저 봅니다'),
+        ('즉시 데모', f'{prefix}products/{product["key"]}/demo/index.html', '가볍게 미리보고 방향을 확인합니다'),
+        ('플랜', f'{prefix}products/{product["key"]}/plans/index.html', '가격과 포함 범위를 차분히 비교합니다'),
+        ('전달물', f'{prefix}products/{product["key"]}/delivery/index.html', '무엇을 받게 되는지 먼저 확인합니다'),
+        ('FAQ', f'{prefix}products/{product["key"]}/faq/index.html', '많이 묻는 내용을 먼저 살펴봅니다'),
+        ('게시판', f'{prefix}products/{product["key"]}/board/index.html', '도움 되는 글과 사례를 읽어봅니다'),
+        ('문서', f'{prefix}docs/{product["key"]}/index.html', '준비물과 기준을 정리해서 봅니다'),
     ]
     quick_markup = ''.join(f'<a class="quick-link-card" href="{href}"><strong>{label}</strong><span>{body}</span></a>' for label, href, body in quick_links)
     fit_markup = product_value_list(product, 'fit_for') or product_value_list(product, 'value_points')
-    not_for_markup = ''.join(f'<li>{escape(item)}</li>' for item in product.get('not_for', [])) or '<li>범위가 크게 다른 경우는 예외 문의에서 확인해 주세요.</li>'
+    not_for_markup = ''.join(f'<li>{escape(item)}</li>' for item in product.get('not_for', [])) or '<li>범위가 크게 다른 경우는 예외 문의에서 더 정확히 안내해 드립니다.</li>'
     sample_markup = ''.join(f'<li>{escape(item)}</li>' for item in product.get('samples', [])) or product_value_list(product, 'outputs')
+    outputs_markup = product_value_list(product, 'outputs')
+    workflow_preview = ' → '.join(product.get('workflow', [])[:2]) if product.get('workflow') else '준비 확인 → 실행 → 결과 확인'
     body = dedent(f'''    <main>
       <section class="section">
         <div class="container page-hero">
@@ -472,7 +555,8 @@ def build_product_page(data: dict, product: dict) -> str:
           </div>
           <div class="card theme-panel">
             <span class="tag" style="background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.12);color:#fff">추천 시작점</span>
-            <h3 style="font-size:1.75rem;margin:16px 0 10px">먼저 30초 미리보기로 방향을 확인하세요</h3>
+            <h3 style="font-size:1.75rem;margin:16px 0 10px">먼저 30초 미리보기로 방향을 확인해 보세요</h3>
+            <p style="margin-bottom:16px">처음에는 많이 입력하지 않으셔도 됩니다. 가장 가까운 시나리오를 눌러 보고, 느낌이 맞을 때만 데모 저장이나 플랜 비교로 넘어가시면 됩니다.</p>
             <div class="quick-demo-grid">{''.join(f'<button class="quick-demo-button" type="button" data-quick-demo="{escape(product["key"])}" data-quick-scenario="{idx}">{escape((item if isinstance(item, str) else str(item))[:30])}</button>' for idx, item in enumerate(product.get('demo_scenarios', [])[:4]))}</div>
             <div class="result-box" id="quick-demo-result" role="status" aria-live="polite"></div>
             <div class="notice notice-light"><strong>추천 플랜</strong><br><span>{escape(selected_plan)} · {' · '.join(f"{plan['name']} {plan['price']}" for plan in product.get('plans', []))}</span></div>
@@ -481,19 +565,24 @@ def build_product_page(data: dict, product: dict) -> str:
       </section>
       <section class="section compact">
         <div class="container">
-          <div class="section-head"><div><h2>이 제품에서 바로 갈 수 있는 모듈</h2></div><p>개요 화면은 핵심 판단만 맡고, 실제 입력과 결제는 별도 모듈에서 이어집니다.</p></div>
+          <div class="section-head"><div><h2>이 제품에서 바로 이어서 볼 수 있는 메뉴</h2></div><p>개요 화면은 판단을 돕는 역할만 맡고, 자세한 입력과 확인은 필요한 모듈에서 이어지도록 나눴습니다.</p></div>
           <div class="product-module-grid" id="product-module-grid">{quick_markup}</div>
         </div>
       </section>
       <section class="section compact">
         <div class="container accordion-stack" id="product-overview-folds">
-          <details class="fold-card" open><summary><strong>이 제품이 맞는 상황</strong><span>{escape(product['problem'])}</span></summary><div><ul class="clean">{fit_markup}</ul></div></details>
-          <details class="fold-card"><summary><strong>이 제품이 안 맞는 상황</strong><span>범위를 빨리 걸러 불필요한 문의를 줄입니다.</span></summary><div><ul class="clean">{not_for_markup}</ul></div></details>
-          <details class="fold-card"><summary><strong>핵심 가치</strong><span>접힘 상태에서는 한 줄, 펼치면 세부 포인트를 봅니다.</span></summary><div><ul class="clean">{product_value_list(product, 'value_points')}</ul></div></details>
-          <details class="fold-card"><summary><strong>샘플로 먼저 보는 것</strong><span>데모와 전달물 페이지에서 확인할 핵심 예시입니다.</span></summary><div><ul class="clean">{sample_markup}</ul><div class="small-actions" style="margin-top:14px"><a href="{prefix}products/{escape(product['key'])}/delivery/index.html">전달물 전체 보기</a></div></div></details>
+          <details class="fold-card" open><summary><strong>이 제품이 특히 잘 맞는 상황</strong><span>{escape(product['problem'])}</span></summary><div><p>아래 항목과 현재 상황이 비슷하다면, 이 제품으로 시작하셨을 때 가장 빠르게 효과를 체감하실 가능성이 높습니다.</p><ul class="clean">{fit_markup}</ul></div></details>
+          <details class="fold-card"><summary><strong>이 경우에는 다른 경로가 더 빠를 수 있습니다</strong><span>범위를 먼저 걸러 불필요한 문의와 재작업을 줄입니다.</span></summary><div><p>모든 문제를 한 제품으로 해결하는 것보다, 지금 상황에 맞는 경로를 고르는 것이 더 중요합니다. 아래 경우에 해당하면 다른 제품이나 예외 문의가 더 적합할 수 있습니다.</p><ul class="clean">{not_for_markup}</ul></div></details>
+          <details class="fold-card"><summary><strong>왜 이 제품이 도움이 되는지 핵심만 보면</strong><span>접힌 상태에서는 짧게, 펼치면 실제 이점까지 자세히 볼 수 있습니다.</span></summary><div><p id="product-pricing-basis">{escape(product.get('pricing_basis',''))}</p><ul class="clean">{product_value_list(product, 'value_points')}</ul></div></details>
+          <details class="fold-card"><summary><strong>품질과 성능을 위해 구조부터 어떻게 설계했는지</strong><span>{escape((product.get('architecture') or {}).get('summary', '입력 기준부터 품질 게이트까지 한 번에 봅니다.'))}</span></summary><div>{architecture_sections_markup(product)}</div></details>
+          <details class="fold-card"><summary><strong>품질·성능 핵심만 먼저 보면</strong><span>입력, 검수, 실패 대응을 얼마나 촘촘하게 잡았는지 짧게 확인할 수 있습니다.</span></summary><div><p>처음에는 긴 설명보다 구조적 안정성이 어느 정도인지부터 확인하시는 편이 빠릅니다. 아래 카드는 이 제품이 얼마나 적은 입력으로 시작하고, 얼마나 분명한 검수 기준과 예외 대응을 두는지 요약해 보여줍니다.</p><div class="admin-grid">{architecture_scorecards_markup(product)}</div><div class="story-grid" style="margin-top:16px">{architecture_focus_markup(product)}</div></div></details>
+          <details class="fold-card"><summary><strong>무엇을 어떻게 받게 되는지</strong><span>{escape(workflow_preview)}</span></summary><div><p>진행이 시작되면 아래 흐름에 맞춰 준비와 실행, 결과 확인이 이어집니다. 처음 진행하시는 분도 중간에 막히지 않도록 실제 작업 순서를 함께 보여드립니다.</p><ol class="flow-list" id="product-workflow"></ol><div class="module-layout" style="margin-top:16px"><article class="card"><span class="tag theme-chip">받는 결과</span><ul class="clean" id="product-outputs">{outputs_markup}</ul></article><article class="card"><span class="tag theme-chip">샘플로 먼저 보기 좋은 것</span><ul class="clean">{sample_markup}</ul></article></div></div></details>
+          <details class="fold-card"><summary><strong>필요할 때만 붙이면 좋은 확장 서비스</strong><span>핵심 제품 하나에 꼭 필요한 것만 더해 운영 부담을 줄입니다.</span></summary><div><p>모든 기능을 한꺼번에 추가하기보다, 지금 상황에 맞는 서비스만 골라 붙이는 편이 더 효율적입니다. 아래 연결 모듈은 이 제품과 함께 검토하기 좋은 항목입니다.</p><div class="admin-grid" id="product-service-stats"></div><div class="accordion-stack" id="product-service-catalog"></div><div class="small-actions" style="margin-top:14px"><a href="{prefix}service/index.html">전체 확장 서비스 180개 보기</a></div></div></details>
+          <details class="fold-card"><summary><strong>함께 보면 판단이 쉬운 제품</strong><span>비슷한 문제를 다른 방식으로 풀어야 할 때 비교가 쉬워집니다.</span></summary><div><div class="story-grid" id="product-related-modules"></div></div></details>
+          <details class="fold-card"><summary><strong>자주 묻는 질문 먼저 보기</strong><span>결정 전에 가장 많이 궁금해하시는 내용을 먼저 모았습니다.</span></summary><div><div class="faq-grid" id="product-faq"></div></div></details>
         </div>
       </section>
-      <section class="section compact" id="board"><div class="container"><div class="section-head"><div><h2>{escape(product['name'])} 게시판 미리보기</h2></div><p>상세 읽기용 글은 게시판 전체 페이지로 분리하고, 이 화면에는 미리보기만 남겼습니다.</p></div><div class="board-grid" id="product-board-grid"></div><div class="small-actions" style="margin-top:18px"><a href="{prefix}products/{escape(product['key'])}/board/index.html">게시판 전체 보기</a></div><div id="product-post-detail"></div></div></section>
+      <section class="section compact" id="board"><div class="container"><div class="section-head"><div><h2>{escape(product['name'])} 게시판 미리보기</h2></div><p>상세한 글은 게시판 전체 페이지에서 충분히 읽으실 수 있고, 이 화면에는 판단에 도움이 되는 미리보기만 남겨 과밀을 줄였습니다.</p></div><div class="board-grid" id="product-board-grid"></div><div class="small-actions" style="margin-top:18px"><a href="{prefix}products/{escape(product['key'])}/board/index.html">게시판 전체 보기</a></div><div id="product-post-detail"></div></div></section>
     </main>
     ''')
     return doc(brand, f'{product["name"]} | {brand["name"]}', product['summary'], product['theme'], body, depth=2, page_key='product', product_key=product['key'], page_path=f'/products/{product["key"]}/index.html')
@@ -508,10 +597,10 @@ def build_board_page(data: dict) -> str:
             <div class="crumbs"><a href="{prefix}index.html">HOME</a><span class="sep">/</span><span>게시판</span></div>
             <span class="kicker">Board</span>
             <h1>게시판은 읽기 전용 허브로 두고 운영 기능은 분리했습니다</h1>
-            <p class="lead">공개 화면에서는 글 목록과 상세만 보고, 실제 생성·재발행·상태 변경은 관리자 허브에서만 다루도록 정리했습니다. 글을 읽은 뒤 바로 제품 모듈과 데모, 플랜으로 이어질 수 있게 연결했습니다.</p>
+            <p class="lead">공개 화면에서는 글을 편하게 읽고 다음 행동을 고를 수 있게 했고, 실제 생성·재발행·상태 변경은 관리자 허브에서만 다루도록 분리했습니다. 글을 읽은 뒤 바로 제품 모듈, 데모, 플랜으로 자연스럽게 이어질 수 있습니다.</p>
             <div class="actions"><a class="button secondary" href="{prefix}products/index.html">제품 보기</a><a class="button ghost" href="{prefix}docs/index.html">문서 보기</a></div>
           </div>
-          <div class="card accent"><span class="tag" style="background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.12);color:#fff">읽기 모드</span><h3 style="font-size:1.72rem;margin:16px 0 10px">구매 전 참고용 글과 다음 행동만 남겼습니다</h3><p>읽고 공감한 뒤 제품 요약, 데모, 플랜으로 넘어갈 수 있는 허브 역할만 하도록 공개 화면을 단순화했습니다.</p></div>
+          <div class="card accent"><span class="tag" style="background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.12);color:#fff">읽기 모드</span><h3 style="font-size:1.72rem;margin:16px 0 10px">읽고 이해한 뒤 바로 다음 단계로 넘어갈 수 있습니다</h3><p>읽기 자체가 목적이 아니라 판단에 도움이 되도록 구성했습니다. 내용을 이해한 뒤 곧바로 제품 요약, 데모, 플랜으로 이어갈 수 있게 공개 화면을 단순화했습니다.</p></div>
         </div>
       </section>
       <section class="section compact"><div class="container"><div class="board-grid" id="public-board-grid"></div><div id="public-post-detail"></div></div></section>
@@ -557,14 +646,14 @@ def build_404_page(data: dict) -> str:
           <div class="card strong">
             <span class="kicker">404</span>
             <h1>찾으시는 페이지가 보이지 않습니다</h1>
-            <p class="lead">주소가 바뀌었거나 게시판 글 또는 제품 링크가 이동했을 수 있습니다. 아래 바로가기로 회사 소개, 제품, 가격, 고객 포털을 다시 확인해 보세요.</p>
+            <p class="lead">주소가 바뀌었거나 게시판 글, 제품 링크가 이동했을 수 있습니다. 당황하지 않으셔도 괜찮습니다. 아래 바로가기로 회사 소개, 제품, 가격, 고객 포털을 다시 편하게 확인하실 수 있습니다.</p>
             <div class="actions">
               <a class="button" href="./index.html">홈으로 이동</a>
               <a class="button secondary" href="./products/index.html">제품 보기</a>
               <a class="button ghost" href="./board/index.html">게시판 보기</a>
             </div>
           </div>
-          <div class="card accent"><span class="tag" style="background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.12);color:#fff">바로 찾기</span><h3 style="font-size:1.72rem;margin:16px 0 10px">가격, 문서, 포털로도 바로 이동할 수 있습니다</h3><p>검토 중이라면 가격과 문서, 결제 이후라면 고객 포털에서 정상작동 상태부터 확인하시면 됩니다.</p><div class="small-actions"><a href="./pricing/index.html">가격</a><a href="./docs/index.html">문서</a><a href="./portal/index.html">포털</a></div></div>
+          <div class="card accent"><span class="tag" style="background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.12);color:#fff">바로 찾기</span><h3 style="font-size:1.72rem;margin:16px 0 10px">가격, 문서, 포털로도 바로 이어서 확인하실 수 있습니다</h3><p>아직 검토 중이라면 가격과 문서부터, 이미 진행하셨다면 고객 포털에서 제공 상태부터 확인하시면 가장 빠릅니다.</p><div class="small-actions"><a href="./pricing/index.html">가격</a><a href="./docs/index.html">문서</a><a href="./portal/index.html">포털</a></div></div>
         </div>
       </section>
     </main>
