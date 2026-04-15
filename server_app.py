@@ -162,9 +162,13 @@ VERIDION_SCAN_MAX_DISCOVERED = max(8, int(os.getenv("NV0_VERIDION_SCAN_MAX_DISCO
 VERIDION_SCAN_MAX_DEPTH = max(1, int(os.getenv("NV0_VERIDION_SCAN_MAX_DEPTH", "2") or "2"))
 VERIDION_SCAN_TIMEOUT = max(2.0, float(os.getenv("NV0_VERIDION_SCAN_TIMEOUT", "4.5") or "4.5"))
 VERIDION_SCAN_CACHE_TTL_SECONDS = max(60, int(os.getenv("NV0_VERIDION_SCAN_CACHE_TTL_SECONDS", "1800") or "1800"))
+ANALYSIS_CACHE_TTL_SECONDS = max(60, int(os.getenv("NV0_ANALYSIS_CACHE_TTL_SECONDS", "1800") or "1800"))
+IDEMPOTENCY_TTL_SECONDS = max(60, int(os.getenv("NV0_IDEMPOTENCY_TTL_SECONDS", "900") or "900"))
 ALLOW_LOCAL_SCAN = os.getenv("NV0_ALLOW_LOCAL_SCAN", "0").lower() in {"1", "true", "yes", "on"}
 _VERIDION_SCAN_CACHE: dict[str, tuple[float, dict[str, Any]]] = {}
 _VERIDION_SCAN_CACHE_LOCK = threading.Lock()
+_ANALYSIS_CACHE: dict[str, tuple[float, dict[str, Any]]] = {}
+_ANALYSIS_CACHE_LOCK = threading.Lock()
 
 
 def invalidate_cache(*record_types: str) -> None:
@@ -287,6 +291,147 @@ def normalize_code(value: Any) -> str:
 
 def clip_text(value: Any, limit: int) -> str:
     return clean(value)[: max(0, int(limit))]
+
+
+def normalize_for_cache(value: Any) -> Any:
+    if isinstance(value, dict):
+        normalized: dict[str, Any] = {}
+        for key in sorted(value):
+            if str(key).startswith('_'):
+                continue
+            item = normalize_for_cache(value[key])
+            if item in ({}, [], '', None):
+                continue
+            normalized[str(key)] = item
+        return normalized
+    if isinstance(value, (list, tuple, set)):
+        items = [normalize_for_cache(item) for item in value]
+        return [item for item in items if item not in ({}, [], '', None)]
+    if isinstance(value, bool):
+        return value
+    if value is None:
+        return None
+    if isinstance(value, (int, float)):
+        return value
+    return clean(value)
+
+
+def payload_digest(namespace: str, payload: Any) -> str:
+    raw = json.dumps({'ns': namespace, 'payload': normalize_for_cache(payload)}, ensure_ascii=False, sort_keys=True, separators=(',', ':')).encode('utf-8')
+    return hashlib.sha256(raw).hexdigest()
+
+
+def find_recent_record_by_fingerprint(record_type: str, fingerprint: str, *, ttl_seconds: int = IDEMPOTENCY_TTL_SECONDS, allowed_statuses: set[str] | None = None) -> dict[str, Any] | None:
+    target = clean(fingerprint)
+    if not target:
+        return None
+    now = datetime.now(timezone.utc)
+    for item in load_records(record_type):
+        if clean(item.get('fingerprint')) != target:
+            continue
+        if allowed_statuses is not None:
+            status = clean(item.get('paymentStatus') or item.get('status'))
+            if status not in allowed_statuses:
+                continue
+        created = parse_iso(clean(item.get('updatedAt')) or clean(item.get('createdAt')))
+        if created is None or (now - created).total_seconds() <= max(1, int(ttl_seconds)):
+            return item
+    return None
+
+
+def analysis_cache_key(kind: str, payload: dict[str, Any]) -> str:
+    return payload_digest(f'analysis:{clean(kind).lower()}', payload)
+
+
+def read_cached_analysis(kind: str, payload: dict[str, Any]) -> dict[str, Any] | None:
+    cache_key = analysis_cache_key(kind, payload)
+    with _ANALYSIS_CACHE_LOCK:
+        entry = _ANALYSIS_CACHE.get(cache_key)
+        if not entry:
+            return None
+        expires_at, report = entry
+        if time.time() >= expires_at:
+            _ANALYSIS_CACHE.pop(cache_key, None)
+            return None
+        return deepcopy(report)
+
+
+def write_cached_analysis(kind: str, payload: dict[str, Any], report: dict[str, Any]) -> None:
+    with _ANALYSIS_CACHE_LOCK:
+        _ANALYSIS_CACHE[analysis_cache_key(kind, payload)] = (time.time() + ANALYSIS_CACHE_TTL_SECONDS, deepcopy(report))
+
+
+def build_result_pack_artifact_manifest(pack: dict[str, Any]) -> list[dict[str, Any]]:
+    outputs = pack.get('outputs') or []
+    issuance = pack.get('issuanceBundle') or []
+    delivery_assets = pack.get('deliveryAssets') or []
+    return [
+        {'key': 'executive-summary', 'label': '핵심 요약', 'ready': len(clean(pack.get('executiveSummary'))) >= 40, 'count': 1 if clean(pack.get('executiveSummary')) else 0},
+        {'key': 'outputs', 'label': '세부 결과물', 'ready': bool(outputs), 'count': len(outputs)},
+        {'key': 'issuance-bundle', 'label': '발행 자산', 'ready': bool(issuance), 'count': len(issuance)},
+        {'key': 'delivery-assets', 'label': '전달 자산', 'ready': bool(delivery_assets), 'count': len(delivery_assets)},
+        {'key': 'priority-sequence', 'label': '우선순위', 'ready': bool(pack.get('prioritySequence')), 'count': len(pack.get('prioritySequence') or [])},
+        {'key': 'expert-notes', 'label': '전문가 노트', 'ready': bool(pack.get('expertNotes')), 'count': len(pack.get('expertNotes') or [])},
+    ]
+
+
+def build_result_pack_quality_validation(pack: dict[str, Any]) -> dict[str, Any]:
+    outputs = pack.get('outputs') or []
+    issuance = pack.get('issuanceBundle') or []
+    delivery_assets = pack.get('deliveryAssets') or []
+    scorecard = pack.get('scorecard') or {}
+    gates = [
+        {'label': '핵심 요약', 'ok': len(clean(pack.get('executiveSummary'))) >= 40, 'detail': '결제 후 즉시 읽을 요약이 충분한지 확인합니다.'},
+        {'label': '세부 결과물', 'ok': len(outputs) >= 3, 'detail': '실행용 결과물 3건 이상을 확인합니다.'},
+        {'label': '발행 자산', 'ok': len(issuance) >= 3, 'detail': '발행 자산 번들이 3건 이상인지 확인합니다.'},
+        {'label': '전달 자산', 'ok': len(delivery_assets) >= 3, 'detail': '전달/공유 자산이 3건 이상인지 확인합니다.'},
+        {'label': '품질 점수', 'ok': int(scorecard.get('earned') or 0) == int(scorecard.get('total') or 100), 'detail': '품질 점수카드가 만점 기준인지 확인합니다.'},
+        {'label': '다음 행동', 'ok': len(pack.get('prioritySequence') or []) >= 3, 'detail': '즉시 움직일 우선순위가 3개 이상인지 확인합니다.'},
+    ]
+    passed = all(item['ok'] for item in gates)
+    return {'passed': passed, 'grade': 'A+' if passed else 'review', 'gates': gates, 'summary': '결과물, 발행, 전달, 품질 게이트가 모두 채워졌습니다.' if passed else '발행 전 재검토가 필요한 항목이 남아 있습니다.'}
+
+
+def enrich_result_pack(pack: dict[str, Any], order: dict[str, Any] | None = None) -> dict[str, Any]:
+    enriched = deepcopy(pack)
+    order = deepcopy(order or {})
+    manifest = build_result_pack_artifact_manifest(enriched)
+    validation = build_result_pack_quality_validation(enriched)
+    publication_ids = [clean(item) for item in (order.get('publicationIds') or []) if clean(item)]
+    order_code = clean(order.get('code')) or clean((enriched.get('linkedReport') or {}).get('code'))
+    bundle_hash = payload_digest('result-pack', {
+        'title': enriched.get('title'), 'summary': enriched.get('summary'), 'outputs': enriched.get('outputs') or [],
+        'issuanceBundle': enriched.get('issuanceBundle') or [], 'deliveryAssets': enriched.get('deliveryAssets') or [],
+        'linkedReport': enriched.get('linkedReport') or {}, 'orderCode': order_code, 'publicationIds': publication_ids,
+    })
+    enriched['resultPackVersion'] = '2026.04.v2'
+    enriched['artifactManifest'] = manifest
+    enriched['qualityValidation'] = validation
+    enriched['issuanceReadiness'] = {
+        'status': 'ready' if validation.get('passed') else 'review',
+        'reportCode': order_code,
+        'bundleHash': bundle_hash,
+        'publicationCount': len(publication_ids),
+        'generatedAt': clean(enriched.get('generatedAt')) or now_iso(),
+        'summary': '결과 요약, 실행 자료, 발행 자산, 전달 자산이 같은 코드 기준으로 묶였습니다.' if validation.get('passed') else '발행본 핵심 요소 중 일부가 부족합니다.',
+    }
+    enriched['supportGuide'] = {
+        'portalLookup': '결제 이메일과 조회 코드로 포털에서 다시 확인할 수 있습니다.',
+        'reissuePolicy': '같은 주문 코드 기준으로 재발행과 후속 보강을 이어갈 수 있습니다.',
+        'qaPolicy': '핵심 요약, 세부 결과물, 발행 자산, 전달 자산, 우선순위를 함께 검증합니다.',
+    }
+    enriched['recheckPlan'] = [
+        {'step': '핵심 요약 재검토', 'detail': '실제 사용자가 바로 이해하는지 핵심 요약과 우선순위를 다시 읽습니다.'},
+        {'step': '세부 결과물 적용 확인', 'detail': '체크리스트, 규칙표, 문장 세트가 현업에 바로 맞는지 적용 후 다시 비교합니다.'},
+        {'step': '포털/재발행 연결 확인', 'detail': '조회 코드, 발행 자산, 후속 재발행이 같은 흐름으로 이어지는지 확인합니다.'},
+    ]
+    enriched['stabilityGuards'] = [
+        '동일 입력은 짧은 시간 안에 중복 발행하지 않도록 잠급니다.',
+        '결과물 무결성 해시와 품질 게이트를 함께 남깁니다.',
+        '포털 조회와 발행 자산은 같은 조회 코드 기준으로 연결합니다.',
+    ]
+    enriched['resultPackDigest'] = bundle_hash
+    return enriched
 
 
 def collect_text_items(*values: Any, limit: int = 20) -> list[str]:
@@ -2949,12 +3094,12 @@ def ensure_publications_for_order(order: dict[str, Any]) -> dict[str, Any]:
         existing = sorted(existing, key=lambda item: (clean(item.get("createdAt")), clean(item.get("id"))), reverse=True)
         order["publicationIds"] = [item["id"] for item in existing]
         order["publicationCount"] = len(existing)
-        order["resultPack"] = build_result_pack(order["product"], order["plan"], order.get("company", ""), order.get("note", ""), order)
+        order["resultPack"] = enrich_result_pack(build_result_pack(order["product"], order["plan"], order.get("company", ""), order.get("note", ""), order), order)
         return order
     pubs = create_publications_for_order(order)
     order["publicationIds"] = [item["id"] for item in pubs]
     order["publicationCount"] = len(order["publicationIds"])
-    order["resultPack"] = build_result_pack(order["product"], order["plan"], order.get("company", ""), order.get("note", ""), order)
+    order["resultPack"] = enrich_result_pack(build_result_pack(order["product"], order["plan"], order.get("company", ""), order.get("note", ""), order), order)
     return order
 
 
@@ -2963,10 +3108,13 @@ def finalize_paid_order(order: dict[str, Any]) -> dict[str, Any]:
     order["status"] = "delivered"
     order["resultPack"] = build_result_pack(order["product"], order["plan"], order.get("company", ""), order.get("note", ""), order)
     order = ensure_publications_for_order(order)
+    order["resultPack"] = enrich_result_pack(order.get("resultPack") or {}, order)
     delivery_meta = deepcopy(order.get("deliveryMeta") or {})
     delivery_meta.setdefault("automation", "full_auto")
     delivery_meta.setdefault("deliveredAt", now_iso())
     delivery_meta["publicationCount"] = len(order.get("publicationIds") or [])
+    delivery_meta['resultHash'] = clean((order.get('resultPack') or {}).get('resultPackDigest'))
+    delivery_meta['qualityPassed'] = bool(((order.get('resultPack') or {}).get('qualityValidation') or {}).get('passed'))
     order["deliveryMeta"] = delivery_meta
     return order
 
@@ -2979,6 +3127,22 @@ def create_demo_entry(payload: dict[str, Any]) -> dict[str, Any]:
     email = normalize_email(payload.get("email"))
     if not name or not company or not validate_email(email):
         raise HTTPException(status_code=400, detail="데모 신청 필수값이 누락되었습니다.")
+    fingerprint = payload_digest('demo', {
+        'product': product,
+        'company': company,
+        'name': name,
+        'email': email,
+        'team': clip_text(payload.get('team'), 120),
+        'need': clip_text(payload.get('need'), 500),
+        'keywords': clip_text(payload.get('keywords'), 240),
+        'plan': clip_text(payload.get('plan'), 80),
+        'reportId': clean(payload.get('reportId')),
+        'reportCode': normalize_code(payload.get('reportCode')),
+    })
+    if not (payload.get("id") and payload.get("code")):
+        existing = find_recent_record_by_fingerprint('demos', fingerprint)
+        if existing:
+            return existing
     if payload.get("id") and payload.get("code"):
         entry = deepcopy(payload)
     else:
@@ -3000,6 +3164,7 @@ def create_demo_entry(payload: dict[str, Any]) -> dict[str, Any]:
             "updatedAt": now_iso(),
         }
     entry.setdefault("productName", product_name(product))
+    entry['fingerprint'] = fingerprint
     return upsert_record("demos", entry)
 
 
@@ -3012,6 +3177,11 @@ def create_contact_entry(payload: dict[str, Any]) -> dict[str, Any]:
     issue = clip_text(payload.get("issue"), 500)
     if not company or not issue or not validate_email(email):
         raise HTTPException(status_code=400, detail="문의 필수값이 누락되었습니다.")
+    fingerprint = payload_digest('contact', {'product': product, 'company': company, 'name': name, 'email': email, 'issue': issue})
+    if not (payload.get("id") and payload.get("code")):
+        existing = find_recent_record_by_fingerprint('contacts', fingerprint)
+        if existing:
+            return existing
     if payload.get("id") and payload.get("code"):
         entry = deepcopy(payload)
     else:
@@ -3028,6 +3198,7 @@ def create_contact_entry(payload: dict[str, Any]) -> dict[str, Any]:
             "updatedAt": now_iso(),
         }
     entry.setdefault("productName", product_name(product))
+    entry['fingerprint'] = fingerprint
     return upsert_record("contacts", entry)
 
 
@@ -3105,7 +3276,23 @@ def reserve_toss_order(payload: dict[str, Any]) -> dict[str, Any]:
         raise HTTPException(status_code=503, detail='현재 Toss 결제가 비활성화되어 있습니다.')
     if not NV0_TOSS_MOCK and (not NV0_TOSS_CLIENT_KEY or not NV0_TOSS_SECRET_KEY):
         raise HTTPException(status_code=503, detail='결제 설정이 아직 완료되지 않았습니다. 운영자에게 Toss 키 설정을 확인해 달라고 요청해 주세요.')
+    reserve_fingerprint = payload_digest('reserve-order', {
+        'product': clean(payload.get('product')),
+        'plan': clean(payload.get('plan') or 'Starter'),
+        'company': clip_text(payload.get('company'), 160),
+        'name': clip_text(payload.get('name'), 120),
+        'email': normalize_email(payload.get('email')),
+        'note': clip_text(payload.get('note'), 1000),
+        'reportId': clean(payload.get('reportId')),
+        'reportCode': normalize_code(payload.get('reportCode')),
+        'billing': clean(payload.get('billing') or 'one-time'),
+        'paymentMethod': 'toss',
+    })
+    existing = find_recent_record_by_fingerprint('orders', reserve_fingerprint, allowed_statuses={'ready', 'pending', 'paid'})
+    if existing:
+        return existing
     order = base_order_entry(payload, payment_method="toss", payment_status="ready")
+    order['fingerprint'] = reserve_fingerprint
     with order_lock(order["id"]):
         stored = get_record("orders", order["id"])
         if stored and clean(stored.get("paymentStatus")) in {"ready", "pending", "paid"}:
@@ -3596,18 +3783,30 @@ def create_app() -> FastAPI:
 
         @app.post("/api/public/clearport/analyze")
         def public_clearport_analyze(payload: dict[str, Any]) -> dict[str, Any]:
+            cached = read_cached_analysis('clearport', payload)
+            if cached:
+                return {"ok": True, "report": build_clearport_public_report(cached), "preview": build_clearport_demo_preview(cached, clip_text(payload.get('company'), 160) or '샘플 회사'), "cached": True, "state": state_payload()}
             report = build_clearport_report(payload)
-            return {"ok": True, "report": build_clearport_public_report(report), "preview": build_clearport_demo_preview(report, clip_text(payload.get('company'), 160) or '샘플 회사'), "state": state_payload()}
+            write_cached_analysis('clearport', payload, report)
+            return {"ok": True, "report": build_clearport_public_report(report), "preview": build_clearport_demo_preview(report, clip_text(payload.get('company'), 160) or '샘플 회사'), "cached": False, "state": state_payload()}
 
         @app.post("/api/public/grantops/analyze")
         def public_grantops_analyze(payload: dict[str, Any]) -> dict[str, Any]:
+            cached = read_cached_analysis('grantops', payload)
+            if cached:
+                return {"ok": True, "report": build_grantops_public_report(cached), "preview": build_grantops_demo_preview(cached, clip_text(payload.get('company'), 160) or '샘플 회사'), "cached": True, "state": state_payload()}
             report = build_grantops_report(payload)
-            return {"ok": True, "report": build_grantops_public_report(report), "preview": build_grantops_demo_preview(report, clip_text(payload.get('company'), 160) or '샘플 회사'), "state": state_payload()}
+            write_cached_analysis('grantops', payload, report)
+            return {"ok": True, "report": build_grantops_public_report(report), "preview": build_grantops_demo_preview(report, clip_text(payload.get('company'), 160) or '샘플 회사'), "cached": False, "state": state_payload()}
 
         @app.post("/api/public/draftforge/analyze")
         def public_draftforge_analyze(payload: dict[str, Any]) -> dict[str, Any]:
+            cached = read_cached_analysis('draftforge', payload)
+            if cached:
+                return {"ok": True, "report": build_draftforge_public_report(cached), "preview": build_draftforge_demo_preview(cached, clip_text(payload.get('company'), 160) or '샘플 회사'), "cached": True, "state": state_payload()}
             report = build_draftforge_report(payload)
-            return {"ok": True, "report": build_draftforge_public_report(report), "preview": build_draftforge_demo_preview(report, clip_text(payload.get('company'), 160) or '샘플 회사'), "state": state_payload()}
+            write_cached_analysis('draftforge', payload, report)
+            return {"ok": True, "report": build_draftforge_public_report(report), "preview": build_draftforge_demo_preview(report, clip_text(payload.get('company'), 160) or '샘플 회사'), "cached": False, "state": state_payload()}
 
         @app.post("/api/public/demo-requests")
         def public_demos(payload: dict[str, Any]) -> dict[str, Any]:

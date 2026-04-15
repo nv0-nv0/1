@@ -702,3 +702,12 @@ input, select, textarea, button {
   .demo-form-grid, .demo-check-grid, .product-overview-grid, .demo-kpi-grid, .demo-alert-grid, .demo-copy-grid, .demo-task-grid { grid-template-columns: 1fr; }
   .demo-table-row { grid-template-columns: 1fr; }
 }
+
+
+.consent-panel{margin-top:16px;padding:16px 18px;border:1px solid rgba(15,23,42,.12);border-radius:18px;background:#f8fafc;display:grid;gap:10px}
+.consent-copy p{margin:8px 0 0;color:var(--muted);font-size:.96rem;line-height:1.65}
+.consent-check{display:flex;gap:10px;align-items:flex-start;font-weight:600;color:var(--ink)}
+.consent-check input{margin-top:3px}
+.policy-meta-box .small-actions a,.policy-meta-box a{word-break:break-all}
+.quick-demo-button{line-height:1.35}
+.notice[data-plan-summary],#checkout-plan-summary,#product-checkout-plan-summary{margin-top:16px}

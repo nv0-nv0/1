@@ -37,11 +37,32 @@ def page_url(path: str) -> str:
     return brand['domain'].rstrip('/') + clean
 
 
+def build_page_schema(title: str, description: str, page_path: str, page_key: str, product_key: str | None = None) -> str:
+    canonical = page_url(page_path)
+    schema = {
+        '@context': 'https://schema.org',
+        '@type': 'Product' if page_key == 'product' else 'WebPage',
+        'name': title.split('|')[0].strip(),
+        'description': description,
+        'url': canonical,
+        'inLanguage': 'ko-KR',
+        'isPartOf': {'@type': 'WebSite', 'name': brand.get('name', 'NV0'), 'url': brand.get('domain', '').rstrip('/') + '/'},
+    }
+    if page_key == 'product' and product_key:
+        schema['sku'] = product_key
+        schema['brand'] = {'@type': 'Brand', 'name': brand.get('name', 'NV0')}
+        schema['category'] = 'Automation SaaS'
+    return json.dumps(schema, ensure_ascii=False, separators=(',', ':'))
+
 def doc(title: str, description: str, body_class: str, body: str, depth: int = 0, page_key: str | None = None, product_key: str | None = None, page_path: str = '/'):
     prefix = rel_prefix(depth)
-    attrs = [f'class="{body_class}"', f'data-page="{page_key or body_class}"']
+    resolved_key = page_key or body_class
+    attrs = [f'class="{body_class}"', f'data-page="{resolved_key}"']
     if product_key:
         attrs.append(f'data-product="{product_key}"')
+    canonical = page_url(page_path)
+    og_type = 'product' if resolved_key == 'product' else 'website'
+    schema_json = build_page_schema(title, description, page_path, resolved_key, product_key)
     return f'''<!doctype html>
 <html lang="ko">
 <head>
@@ -52,8 +73,20 @@ def doc(title: str, description: str, body_class: str, body: str, depth: int = 0
   <meta name="color-scheme" content="light">
   <title>{escape(title)}</title>
   <meta name="description" content="{escape(description)}">
-  <link rel="canonical" href="{escape(page_url(page_path))}">
+  <meta name="robots" content="index,follow,max-image-preview:large,max-snippet:-1,max-video-preview:-1">
+  <meta property="og:locale" content="ko_KR">
+  <meta property="og:site_name" content="{escape(brand.get('name', 'NV0'))}">
+  <meta property="og:type" content="{og_type}">
+  <meta property="og:title" content="{escape(title)}">
+  <meta property="og:description" content="{escape(description)}">
+  <meta property="og:url" content="{escape(canonical)}">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="{escape(title)}">
+  <meta name="twitter:description" content="{escape(description)}">
+  <link rel="canonical" href="{escape(canonical)}">
+  <link rel="icon" href="{prefix}assets/favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="{prefix}assets/site.css">
+  <script type="application/ld+json">{schema_json}</script>
   <script src="{prefix}assets/site-data.js"></script>
   <script defer src="{prefix}assets/site.js"></script>
 </head>
@@ -360,6 +393,8 @@ def product_page(product: dict) -> str:
                     <div><label>긴급도</label><select name="urgency"><option value="">선택</option><option>일반</option><option>이번 주 안</option><option>오늘 필요</option></select></div>
                     <div><label>추가 요청</label><input name="note" placeholder="예: 꼭 포함할 기준이나 원하는 결과" autocomplete="off"></div>
                   </div>
+                  <div class="consent-panel"><div class="consent-copy"><strong>개인정보 수집·이용 안내</strong><p>입력하신 정보는 제품별 주문 등록, 결제 준비, 결과 제공을 위해 사용합니다. 자세한 내용은 <a href="../../legal/privacy/index.html">개인정보처리방침</a>에서 확인하실 수 있습니다.</p></div><label class="consent-check"><input type="checkbox" name="privacyConsent" value="yes" required data-consent-required="1"> <span>개인정보 수집·이용에 동의합니다.</span></label><small data-consent-message>동의 후에만 주문과 결제를 진행할 수 있습니다.</small></div>
+                  <div class="notice" id="product-checkout-plan-summary" data-plan-summary="product" aria-live="polite">선택한 제품과 플랜 요약이 여기에 표시됩니다.</div>
                   <div class="actions"><button class="button" type="submit">이 내용으로 결제 진행하기</button><a class="button secondary" href="#delivery">전달 범위 먼저 보기</a></div>
                   <p class="micro-copy">데모에서 입력한 기본 정보는 결제 단계로 자연스럽게 이어질 수 있습니다.</p>
                 </form>

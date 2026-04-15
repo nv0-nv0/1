@@ -512,7 +512,7 @@
     const email = info.contact_email || config.brand?.contact_email || 'ct@nv0.kr';
     const operator = info.operator_name || config.brand?.name || 'NV0';
     const notice = info.support_notice || '공개 사이트는 이해와 선택을 돕고, 관리자 메뉴는 운영과 자동화 설정을 담당합니다.';
-    footer.innerHTML = `<div class="container footer-grid"><div><div class="brand"><span class="brand-mark">N0</span><span class="brand-copy"><strong>${config.brand?.name || 'NV0'}</strong><span>처음 방문한 분도 제품을 더 쉽게 이해하고 결정할 수 있게 정리했습니다.</span></span></div><small style="margin-top:14px">공개 화면은 제품 이해와 구매 판단에 집중하고, 내부 운영 기능은 분리해 고객이 더 쉽게 보게 만들었습니다.</small></div><div><strong>빠른 이동</strong><small><a href="${base}products/index.html">제품</a><br><a href="${base}solutions/index.html">문제별 시작</a><br><a href="${base}pricing/index.html">가격</a><br><a href="${base}docs/index.html">문서 센터</a><br><a href="${base}service/index.html">확장 서비스</a><br><a href="${base}faq/index.html">FAQ</a></small></div><div><strong>안내/정책</strong><small>운영명: ${esc(operator)}<br><a href="mailto:${email}">${esc(email)}</a><br>${esc(notice)}<br><a href="${base}portal/index.html">고객 포털</a><br><a href="${base}contact/index.html">추가 확인</a><br><a href="${base}legal/privacy/index.html">개인정보처리방침</a><br><a href="${base}legal/terms/index.html">이용약관</a><br><a href="${base}legal/refund/index.html">환불 정책</a></small></div></div>`;
+    footer.innerHTML = `<div class="container footer-grid"><div><div class="brand"><span class="brand-mark">N0</span><span class="brand-copy"><strong>${config.brand?.name || 'NV0'}</strong><span>처음 방문한 분도 제품을 더 쉽게 이해하고 결정할 수 있게 정리했습니다.</span></span></div><small style="margin-top:14px">공개 화면은 제품 이해와 구매 판단에 집중하고, 내부 운영 기능은 분리해 고객이 더 쉽게 보게 만들었습니다.</small></div><div><strong>빠른 이동</strong><small><a href="${base}products/index.html">제품</a><br><a href="${base}solutions/index.html">문제별 시작</a><br><a href="${base}pricing/index.html">가격</a><br><a href="${base}docs/index.html">문서 센터</a><br><a href="${base}service/index.html">확장 서비스</a><br><a href="${base}faq/index.html">FAQ</a></small></div><div><strong>안내/정책</strong><small>운영명: ${esc(operator)}<br><a href="mailto:${email}">${esc(email)}</a><br>${esc(notice)}<br>시행일 2026-04-15 · 최종 개정일 2026-04-15<br><a href="${base}portal/index.html">고객 포털</a><br><a href="${base}contact/index.html">추가 확인</a><br><a href="${base}legal/privacy/index.html">개인정보처리방침</a><br><a href="${base}legal/terms/index.html">이용약관</a><br><a href="${base}legal/refund/index.html">환불 정책</a><br><a href="${base}legal/cookies/index.html">쿠키 및 저장 안내</a></small></div></div>`;
   }
   function currencyPlan(productKey) { const target = products[productKey]; return target ? target.plans.map((item) => `${item.name} ${item.price}`).join(' · ') : 'Starter · Growth · Scale'; }
   function buildHomeProducts() { const root = document.getElementById('product-grid'); if (!root) return; root.innerHTML = Object.values(products).map((item) => `<article class="card product-card strong ${item.theme}"><span class="tag theme-chip">${item.label}</span><h3>${item.name}</h3><p>${item.headline}</p><ul class="clean">${item.value_points.slice(0,3).map((text) => `<li>${text}</li>`).join('')}</ul><div class="muted-box" style="margin-top:18px">시작가: ${item.plans[0]?.price || '-'} · ${esc(item.pricing_basis || '')}</div><div class="actions"><a class="button" href="${base}products/${item.key}/demo/index.html">샘플 결과</a><a class="button secondary" href="${base}products/${item.key}/plans/index.html">플랜 보기</a><a class="button ghost" href="${base}products/${item.key}/index.html">제품 소개 보기</a></div></article>`).join(''); }
@@ -892,6 +892,44 @@
     }); });
   }
 
-  document.addEventListener('DOMContentLoaded', async () => { await loadSystemConfig(); if ((pageKey === 'checkout' || pageKey === 'product') && paymentRuntime()?.enabled && !paymentRuntime()?.mock) await loadTossScript(); const stateSynced = await syncRemoteState(); if (!stateSynced) { const boardSynced = await loadBoardFeed(); if (!boardSynced) ensureSeedData(); } else if (!read(STORE.publications).length) { const boardSynced = await loadBoardFeed(); if (!boardSynced) ensureSeedData(); } else { ensureSeedData(); } renderHeader(); bindAdminEntry(); renderFooter(); buildHomeProducts(); buildModuleMatrix(); fillProductSlots(); buildPlans(); setPrefills(); renderPublicBoard(); renderProductBoard(); renderLiveStats(); renderWorkspaceCards(); renderProductServices(); renderServiceCatalog(); bindProductDemoForm(); await bindProductCheckoutForm(); bindDemoForm(); bindCheckoutForm(); bindContactForm(); bindPortalLookup(); bindAdminTokenControls(); bindQuickDemoButtons(); await bindPaymentResultPages(); await bootstrapAdminGate(); renderAdminSummary(); bindAdminActions(); });
+  function bindConsentGuard(form){
+    if (!form || form.dataset.consentBound === '1') return;
+    form.dataset.consentBound = '1';
+    const checkbox = form.querySelector('[data-consent-required="1"]');
+    if (!checkbox) return;
+    const buttons = Array.from(form.querySelectorAll('button[type="submit"], input[type="submit"]'));
+    const message = form.querySelector('[data-consent-message]');
+    const sync = () => {
+      const checked = Boolean(checkbox.checked);
+      buttons.forEach((button) => { button.disabled = !checked; button.setAttribute('aria-disabled', checked ? 'false' : 'true'); });
+      if (message) message.textContent = checked ? '동의가 확인되었습니다. 저장·문의·결제를 진행할 수 있습니다.' : '동의 후에만 저장·문의·결제를 진행할 수 있습니다.';
+    };
+    checkbox.addEventListener('change', sync);
+    form.addEventListener('submit', (event) => {
+      if (checkbox.checked) return;
+      event.preventDefault();
+      if (message) message.textContent = '개인정보 수집·이용 동의가 필요합니다.';
+      checkbox.focus();
+    }, true);
+    sync();
+  }
+  function attachConsentGuards(){
+    ['demo-form','checkout-form','contact-form','product-demo-form','product-checkout-form'].forEach((id) => bindConsentGuard(document.getElementById(id)));
+  }
+  function updatePlanSummary(form, summaryId){
+    const summary = document.getElementById(summaryId);
+    if (!form || !summary) return;
+    const productKey = clean(form.elements?.product?.value || product?.key || body?.dataset?.product || '');
+    const planName = clean(form.elements?.plan?.value || 'Starter');
+    const note = clean(form.elements?.note?.value || form.elements?.context?.value || '');
+    summary.innerHTML = `<strong>현재 선택 요약</strong><br>${esc(productName(productKey))} · ${esc(planName)} · ${esc(planPrice(productKey, planName))}${note ? `<br><span>${esc(note)}</span>` : ''}${planNote(productKey, planName) ? `<br><small>${esc(planNote(productKey, planName))}</small>` : ''}`;
+  }
+  function bindPlanSummaries(){
+    const checkoutForm = document.getElementById('checkout-form');
+    if (checkoutForm) { const sync = () => updatePlanSummary(checkoutForm, 'checkout-plan-summary'); checkoutForm.addEventListener('change', sync); checkoutForm.addEventListener('input', sync); sync(); }
+    const productCheckoutForm = document.getElementById('product-checkout-form');
+    if (productCheckoutForm) { const sync = () => updatePlanSummary(productCheckoutForm, 'product-checkout-plan-summary'); productCheckoutForm.addEventListener('change', sync); productCheckoutForm.addEventListener('input', sync); sync(); }
+  }
+  document.addEventListener('DOMContentLoaded', async () => { await loadSystemConfig(); if ((pageKey === 'checkout' || pageKey === 'product') && paymentRuntime()?.enabled && !paymentRuntime()?.mock) await loadTossScript(); const stateSynced = await syncRemoteState(); if (!stateSynced) { const boardSynced = await loadBoardFeed(); if (!boardSynced) ensureSeedData(); } else if (!read(STORE.publications).length) { const boardSynced = await loadBoardFeed(); if (!boardSynced) ensureSeedData(); } else { ensureSeedData(); } renderHeader(); bindAdminEntry(); renderFooter(); buildHomeProducts(); buildModuleMatrix(); fillProductSlots(); buildPlans(); setPrefills(); renderPublicBoard(); renderProductBoard(); renderLiveStats(); renderWorkspaceCards(); renderProductServices(); renderServiceCatalog(); bindProductDemoForm(); await bindProductCheckoutForm(); bindDemoForm(); bindCheckoutForm(); bindContactForm(); bindPortalLookup(); bindAdminTokenControls(); bindQuickDemoButtons(); attachConsentGuards(); bindPlanSummaries(); await bindPaymentResultPages(); await bootstrapAdminGate(); renderAdminSummary(); bindAdminActions(); });
   window.NV0App = { read, write, lookupOrder, createOrder, createDemo, createContact, createLookup, ensureSeedData, renderAdminSummary, advanceOrder, toggleOrderPayment, republishOrder, validateEmail, validateProduct, validatePlan, setAdminToken, getAdminToken, loadSystemConfig, publicBoardHref, productBoardHref, portalHref };
 })();

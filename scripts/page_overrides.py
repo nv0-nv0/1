@@ -5,6 +5,9 @@ from pathlib import Path
 from html import escape
 from textwrap import dedent
 
+POLICY_EFFECTIVE_DATE = '2026-04-15'
+POLICY_UPDATED_DATE = '2026-04-15'
+
 
 def ensure_dir(path: Path):
     path.mkdir(parents=True, exist_ok=True)
@@ -610,27 +613,27 @@ def build_board_page(data: dict) -> str:
 
 def build_terms_page(data: dict) -> str:
     brand = data['brand']
-    prefix = rel_prefix(2)
-    body = dedent(f'''
-    <main>
+    email = escape(brand.get('contact_email', ''))
+    body = dedent(f'''    <main>
       <section class="section">
         <div class="container page-hero">
           <div class="card strong">
-            <div class="crumbs"><a href="{prefix}index.html">HOME</a><span class="sep">/</span><a href="{prefix}company/index.html">회사</a><span class="sep">/</span><span>이용약관</span></div>
+            <div class="crumbs"><a href="../../index.html">HOME</a><span class="sep">/</span><span>이용약관</span></div>
             <span class="kicker">Terms</span>
             <h1>서비스 이용 전에 확인하실 핵심 약관을 정리했습니다</h1>
-            <p class="lead">NV0는 회사형 메인과 제품별 실행 흐름을 함께 운영합니다. 이용약관은 공개 페이지, 결제 흐름, 정상작동 및 발행 제공 포털 이용 기준을 한 화면에 모아두었습니다.</p>
+            <p class="lead">NV0는 회사형 메인과 제품별 실행 흐름을 함께 운영합니다. 이용약관은 공개 페이지, 결제 흐름, 고객 포털 이용 기준을 한 화면에 모아두었습니다.</p>
+            <div class="notice policy-meta-box"><strong>시행일</strong> {POLICY_EFFECTIVE_DATE}<br><strong>최종 개정일</strong> {POLICY_UPDATED_DATE}<br><strong>문의</strong> <a href="mailto:{email}">{email}</a></div>
           </div>
-          <div class="card accent"><span class="tag" style="background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.12);color:#fff">적용 범위</span><h3 style="font-size:1.72rem;margin:16px 0 10px">공개 페이지, 자동발행게시판, 제품 설명, 데모 시연, 결제, 정상작동 및 발행 제공, 포털 확인</h3><p>약관은 NV0가 제공하는 공개 웹사이트와 제품별 결제·자동 제공·포털 확인 흐름 전체에 적용됩니다.</p></div>
+          <div class="card accent"><span class="tag" style="background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.12);color:#fff">적용 범위</span><h3 style="font-size:1.72rem;margin:16px 0 10px">공개 페이지, 자동발행게시판, 제품 설명, 데모 시연, 결제, 발행 제공, 포털 확인</h3><p>약관은 NV0가 제공하는 공개 웹사이트와 제품별 결제·자동 제공·포털 확인 흐름 전체에 적용됩니다.</p></div>
         </div>
       </section>
       <section class="section compact"><div class="container"><div class="story-grid">
         <article class="story-card"><span class="tag">1</span><h3>서비스 성격</h3><p>NV0는 공용 엔진 위에 제품 모듈을 결합해 자동발행게시판, 설명, 데모 시연, 결제, 발행 제공을 연결하는 서비스형 운영 구조를 제공합니다.</p></article>
-        <article class="story-card"><span class="tag">2</span><h3>결제와 자동 제공</h3><p>플랜, 범위, 결제 방식은 각 제품 페이지와 결제 화면과 제품 설명에 표시된 조건을 기준으로 합니다. Toss 결제는 전자동 외부 결제창으로 이어지며, 기업 정산이 필요할 때에도 동일한 결과 기준을 맞춘 뒤 별도 문의로 이어집니다.</p></article>
-        <article class="story-card"><span class="tag">3</span><h3>결과 자료 제공</h3><p>결제 완료 또는 별도 범위 확정 후에는 제품 특성에 맞는 정상작동 설정, 발행 제공 자료, 공개 글, 고객 포털 확인 정보가 제공될 수 있습니다.</p></article>
+        <article class="story-card"><span class="tag">2</span><h3>결제와 자동 제공</h3><p>플랜, 범위, 결제 방식은 각 제품 페이지와 결제 화면에 표시된 조건을 기준으로 합니다. Toss 결제는 외부 결제창으로 이어지며, 기업 정산이 필요할 때에도 동일한 결과 기준을 맞춘 뒤 별도 문의로 이어집니다.</p></article>
+        <article class="story-card"><span class="tag">3</span><h3>결과 자료 제공</h3><p>결제 완료 또는 별도 범위 확정 후에는 제품 특성에 맞는 발행 제공 자료, 공개 글, 고객 포털 확인 정보가 제공될 수 있습니다.</p></article>
         <article class="story-card"><span class="tag">4</span><h3>고객 책임</h3><p>고객은 결제 또는 문의 과정에서 제공하는 회사 정보, 이메일, 참고 자료가 자신에게 제공 권한이 있는 내용인지 확인해야 합니다.</p></article>
         <article class="story-card"><span class="tag">5</span><h3>콘텐츠와 자료</h3><p>제품 결과물과 공개 글, 체크리스트는 입력된 정보와 제품 규칙을 바탕으로 생성되며, 최종 적용 전에 고객이 검토해야 합니다.</p></article>
-        <article class="story-card"><span class="tag">6</span><h3>문의 창구</h3><p>약관, 결제, 범위, 결과 자료와 관련한 문의는 공개 문의 폼 또는 {escape(brand.get('contact_email',''))}로 접수할 수 있습니다. 결제 이후에는 같은 조회 코드 기준으로 진행 안내를 이어받을 수 있습니다.</p></article>
+        <article class="story-card"><span class="tag">6</span><h3>환불과 예외</h3><p>환불, 일정, 세금계산서, 예외 범위는 결제 전 정책 및 문의 절차를 따릅니다. 맞춤형 결과물이 일부 제공된 경우에는 진행분 정산 기준이 적용될 수 있습니다.</p></article>
       </div></div></section>
     </main>
     ''')
@@ -668,11 +671,11 @@ def robots_txt() -> str:
 def sitemap_xml(data: dict) -> str:
     brand = data['brand']
     paths = [
-        '/', '/company/', '/engine/', '/products/', '/solutions/', '/pricing/', '/demo/', '/checkout/', '/board/', '/docs/', '/cases/', '/faq/', '/guides/', '/resources/', '/service/', '/portal/', '/contact/', '/onboarding/', '/legal/privacy/', '/legal/refund/', '/legal/terms/',
+        '/', '/company/', '/engine/', '/products/', '/solutions/', '/pricing/', '/demo/', '/checkout/', '/board/', '/docs/', '/cases/', '/faq/', '/guides/', '/resources/', '/service/', '/portal/', '/contact/', '/onboarding/', '/legal/privacy/', '/legal/refund/', '/legal/terms/', '/legal/cookies/',
     ]
     for product in data.get('products', []):
         key = product['key']
-        paths.extend([f'/products/{key}/', f'/products/{key}/board/', f'/docs/{key}/'])
+        paths.extend([f'/products/{key}/', f'/products/{key}/demo/', f'/products/{key}/plans/', f'/products/{key}/delivery/', f'/products/{key}/faq/', f'/products/{key}/board/', f'/docs/{key}/'])
     unique = []
     seen = set()
     for path in paths:
@@ -687,7 +690,7 @@ def security_txt(data: dict) -> str:
     brand = data['brand']
     domain = brand['domain'].rstrip('/')
     email = brand.get('contact_email', '')
-    return f'Contact: mailto:{email}\nPolicy: {domain}/legal/privacy/\nCanonical: {domain}/.well-known/security.txt\nPreferred-Languages: ko, en\n'
+    return f'Contact: mailto:{email}\nPolicy: {domain}/legal/privacy/\nCanonical: {domain}/.well-known/security.txt\nExpires: 2027-04-15T00:00:00.000Z\nPreferred-Languages: ko, en\n'
 
 
 def favicon_svg(data: dict) -> str:

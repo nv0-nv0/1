@@ -105,6 +105,7 @@ def verify_mode(mode: str, port: int) -> None:
         run([sys.executable, 'scripts/product_runtime_e2e.py', '--base-url', env['NV0_BASE_URL']], env=env)
         run([sys.executable, 'scripts/veridion_runtime_regression.py', '--base-url', env['NV0_BASE_URL']], env=env)
         run([sys.executable, 'scripts/product_surface_regression.py', '--base-url', env['NV0_BASE_URL']], env=env)
+        run([sys.executable, 'scripts/runtime_hardening_regression.py', '--base-url', env['NV0_BASE_URL']], env=env)
         run([sys.executable, 'scripts/result_quality_gate.py', '--base-url', env['NV0_BASE_URL']], env=env)
         run([sys.executable, 'scripts/automation_runtime_regression.py', '--base-url', env['NV0_BASE_URL']], env=env)
         run([sys.executable, 'scripts/api_safety_regression.py', '--base-url', env['NV0_BASE_URL'], '--admin-token', env['NV0_ADMIN_TOKEN']], env=env)
