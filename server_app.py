@@ -1058,13 +1058,16 @@ def validate_scan_target(url: str) -> None:
     host = (parsed.hostname or '').lower()
     if not host:
         raise HTTPException(status_code=400, detail='점검할 도메인을 확인하지 못했습니다.')
+    local_scan_allowed = ALLOW_LOCAL_SCAN or _BASE_URL_HOST in LOCAL_HOSTS or _BASE_URL_HOST == '127.0.0.1'
     if host in LOCAL_HOSTS or host in INTERNAL_HOSTS:
-        if not ALLOW_LOCAL_SCAN:
+        if not local_scan_allowed:
             raise HTTPException(status_code=400, detail='로컬 또는 내부 주소는 현재 점검이 허용되지 않습니다.')
         return
     for ip in _resolved_ip_flags(host):
         if ip.is_loopback or ip.is_private or ip.is_link_local or ip.is_reserved or ip.is_multicast:
-            raise HTTPException(status_code=400, detail='내부 네트워크 성격의 주소는 점검할 수 없습니다.')
+            if not local_scan_allowed:
+                raise HTTPException(status_code=400, detail='내부 네트워크 성격의 주소는 점검할 수 없습니다.')
+            return
 
 
 def _read_limited(res, limit: int = 1024 * 1024) -> bytes:
