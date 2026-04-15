@@ -3,9 +3,9 @@
 ## 1. 산출물 수량
 - 모드: full
 - 정적 HTML 페이지 수: 56
-- 활성 API route 수: 32
+- 활성 API route 수: 28
 - 소스상 선언 route 수: 32
-- 현재 모드 기준 비활성 route 수: 0
+- 현재 모드 기준 비활성 route 수: 4
 - 테스트/검증 스크립트 수: 9
 - 소스 TODO/FIXME/XXX 표기 수: 0
 
@@ -95,14 +95,13 @@
 - POST /api/public/portal/lookup
 - POST /api/admin/actions/publish-now
 - POST /api/admin/actions/reseed-board
-- POST /api/admin/actions/seed-demo
 - POST /api/admin/actions/reset
+
+## 4. 현재 모드에서 비활성 처리되는 route
+- POST /api/admin/actions/seed-demo
 - POST /api/admin/orders/{order_id}/advance
 - POST /api/admin/orders/{order_id}/toggle-payment
 - POST /api/admin/orders/{order_id}/republish
-
-## 4. 현재 모드에서 비활성 처리되는 route
-- 없음
 
 ## 5. 테스트 및 검증 목록
 - scripts/api_safety_regression.py

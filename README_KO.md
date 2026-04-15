@@ -128,24 +128,25 @@ uvicorn server_app:app --host 127.0.0.1 --port 8000
 - `NV0_HSTS_ENABLED=1`
 
 ## 테스트
-이 프로젝트에는 두 가지 패키지가 있습니다.
+현재 납품본은 `tests/` 디렉터리 대신 `scripts/` 아래 검증 스크립트로 전역 점검을 수행합니다.
 
-- **deploy 패키지**: 실배포용. `tests/`가 포함되지 않습니다.
-- **full/audit 패키지**: 검증·감사용. `tests/`가 포함됩니다.
-
-full/audit 패키지에서 전체 검증:
+전체 검증:
 ```bash
-PYTHONPATH=./runtime_vendor:./tests python3 tests/test_all.py
-PYTHONPATH=./runtime_vendor:./tests python3 tests/packaging_runtime_check.py
+PYTHONPATH=./runtime_vendor python3 scripts/package_completion_gate.py
 ```
 
-full/audit 패키지에서 개별 검증:
+개별 검증:
 ```bash
-PYTHONPATH=./runtime_vendor:./tests python3 tests/full_api_e2e_check.py
-PYTHONPATH=./runtime_vendor:./tests python3 tests/board_only_scope_check.py
-PYTHONPATH=./runtime_vendor:./tests python3 tests/packaging_runtime_check.py
-PYTHONPATH=./runtime_vendor:./tests python3 tests/robustness_check.py
-PYTHONPATH=./runtime_vendor python3 scripts/full_audit.py
+PYTHONPATH=./runtime_vendor python3 scripts/preflight_env.py
+PYTHONPATH=./runtime_vendor python3 scripts/smoke_release.py --base-url http://127.0.0.1:8000 --mode full
+PYTHONPATH=./runtime_vendor python3 scripts/post_deploy_verify.py --base-url http://127.0.0.1:8000 --admin-token "로컬_관리자_토큰"
+PYTHONPATH=./runtime_vendor python3 scripts/product_runtime_e2e.py --base-url http://127.0.0.1:8000
+PYTHONPATH=./runtime_vendor python3 scripts/veridion_runtime_regression.py --base-url http://127.0.0.1:8000
+PYTHONPATH=./runtime_vendor python3 scripts/result_quality_gate.py --base-url http://127.0.0.1:8000
+PYTHONPATH=./runtime_vendor python3 scripts/api_safety_regression.py --base-url http://127.0.0.1:8000 --admin-token "로컬_관리자_토큰"
+PYTHONPATH=./runtime_vendor python3 scripts/board_mode_regression.py --base-url http://127.0.0.1:8000 --admin-token "로컬_관리자_토큰"
+PYTHONPATH=./runtime_vendor python3 scripts/full_audit.py --mode full
+PYTHONPATH=./runtime_vendor python3 scripts/full_audit.py --mode board
 ```
 
 실배포용 deploy 패키지에서 가능한 검증:
@@ -215,7 +216,7 @@ PYTHONPATH=./runtime_vendor python3 scripts/create_delivery_package.py --mode de
 - `AUDIT_REPORT_KO.md` : `scripts/full_audit.py` 실행 시 생성되는 감사 요약
 - `DELIVERY_RUNBOOK_KO.md` : 실배포/복구/검증 절차
 - `COOLIFY_APP_DEPLOYMENT_KO.md` : Coolify Application(Dockerfile) 배포 경로와 롤링 업데이트 대응
-- `tests/` : full/audit 패키지에만 포함되는 로컬/패키징 검증용 테스트 세트
+- `scripts/` : 빌드·스모크·결제·보안·게시판·감사·Veridion 전용 회귀 검증 스크립트 세트
 
 ## 패키지 완료 게이트
 ```bash

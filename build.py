@@ -101,30 +101,30 @@ def home_page() -> str:
                 <h1>{escape(brand['hero_title'])}</h1>
                 <p class="lead">{escape(brand['hero_description'])}</p>
                 <div class="actions">
-                  <a class="button" href="./products/index.html">제품별 실제 데모 보기</a>
-                  <a class="button secondary" href="./products/{escape(representative['key'])}/index.html#demo">대표 데모 바로 실행</a>
-                  <a class="button ghost" href="./company/index.html">운영 방식 보기</a>
+                  <a class="button" href="./products/index.html">제품 비교하고 결과 먼저 보기</a>
+                  <a class="button secondary" href="./products/{escape(representative['key'])}/index.html#demo">가장 많이 찾는 데모 바로 보기</a>
+                  <a class="button ghost" href="./company/index.html">왜 잘 팔리게 보이는지 보기</a>
                 </div>
                 <div class="live-strip" id="live-stats"></div>
               </div>
               <div class="showcase-grid">
                 <article class="card accent">
-                  <span class="tag" style="background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.12);color:#fff">무엇이 다른가</span>
-                  <h3 style="font-size:1.75rem;margin:16px 0 10px">설명보다 시연이 먼저인 제품 구조</h3>
-                  <p>각 제품 페이지에서 실제 입력값을 넣고 결과를 바로 볼 수 있습니다. 제품 정의, 데모, 결과물, 결제 후 전달 범위가 한 흐름으로 이어집니다.</p>
+                  <span class="tag" style="background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.12);color:#fff">왜 더 쉽게 팔리는가</span>
+                  <h3 style="font-size:1.75rem;margin:16px 0 10px">소개보다 결과 확인이 먼저인 판매형 구성</h3>
+                  <p>각 제품 페이지에서 실제 입력 예시와 결과 미리보기를 먼저 확인할 수 있습니다. 마음에 들면 가격, 전달 범위, 결제까지 자연스럽게 이어집니다.</p>
                   <div class="inline-list"><span>실제 입력</span><span>즉시 결과</span><span>결제 후 전달물</span></div>
                 </article>
                 <article class="card strong">
-                  <span class="tag">어떻게 보나</span>
-                  <h3>지금 막힌 업무를 기준으로 바로 고르세요</h3>
-                  <p class="lead" style="font-size:1rem">준법 점검, 서류 정리, 지원사업 제출, 콘텐츠 최종화. 무엇을 사야 하는지보다 어떤 일이 막혔는지부터 보고 해당 데모로 바로 들어갈 수 있게 구성했습니다.</p>
+                  <span class="tag">어떻게 고르면 되나</span>
+                  <h3>지금 가장 시급한 문제부터 골라 바로 확인하세요</h3>
+                  <p class="lead" style="font-size:1rem">사이트 점검, 서류 정리, 제출 준비, 콘텐츠 마감처럼 지금 바로 손봐야 하는 일부터 고르면 됩니다. 제품명이 낯설어도 내 문제에 맞는 결과부터 먼저 확인할 수 있습니다.</p>
                   <div class="badge-row"><span class="badge">문제 선택</span><span class="badge">데모 실행</span><span class="badge">결과 검토</span><span class="badge">결제/전달</span></div>
                 </article>
               </div>
             </div>
           </section>
           <section class="section compact"><div class="container"><div class="section-head"><div><h2>{escape(company_profile.get('headline', 'NV0 소개'))}</h2></div><p>{escape(company_profile.get('summary', ''))}</p></div><div class="timeline">{timeline_markup()}</div></div></section>
-          <section class="section"><div class="container"><div class="section-head"><div><h2>지금 바로 돌려볼 수 있는 4개 업무 데모</h2></div><p>각 카드는 제품 소개만 하지 않습니다. 어떤 문제를 해결하는지, 데모에서 무엇을 보여주는지, 결제 후 무엇을 받는지를 한 번에 볼 수 있게 다시 구성했습니다.</p></div><div class="product-grid" id="product-grid"></div></div></section>
+          <section class="section"><div class="container"><div class="section-head"><div><h2>지금 바로 확인할 수 있는 4개 실행형 제품</h2></div><p>각 카드는 제품 설명만 늘어놓지 않습니다. 어떤 팀에게 맞는지, 어떤 결과를 기대할 수 있는지, 결제 후 무엇을 받는지 한 번에 보이게 정리했습니다.</p></div><div class="product-grid" id="product-grid"></div></div></section>
         </main>
         '''),
         page_key='home',
@@ -168,10 +168,10 @@ def products_page() -> str:
             <div class="card strong">
               <div class="crumbs"><a href="{prefix}index.html">HOME</a><span class="sep">/</span><span>제품</span></div>
               <span class="kicker">Products</span>
-              <h1>막힌 업무를 기준으로 바로 데모를 실행해 보세요</h1>
-              <p class="lead">각 제품 상세에는 실제 입력과 결과를 보여주는 데모가 들어 있습니다. 소개 텍스트보다 먼저, 이 제품이 정말 내가 필요한 결과를 내는지 직접 확인할 수 있습니다.</p>
+              <h1>우리 팀에 맞는 제품을 문제 기준으로 바로 고르세요</h1>
+              <p class="lead">각 제품 상세에서 실제 입력 예시와 결과 미리보기를 먼저 보실 수 있습니다. 긴 설명을 읽기 전에 나에게 맞는지부터 빠르게 판단할 수 있습니다.</p>
             </div>
-            <div class="card accent"><span class="tag" style="background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.12);color:#fff">공통 흐름</span><h3 style="font-size:1.72rem;margin:16px 0 10px">문제 선택 → 데모 실행 → 결과 검토 → 결제 → 전달</h3><p>읽기용 소개 페이지가 아니라 실제 업무 흐름에 맞춰 판단할 수 있도록 다시 설계했습니다.</p></div>
+            <div class="card accent"><span class="tag" style="background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.12);color:#fff">공통 흐름</span><h3 style="font-size:1.72rem;margin:16px 0 10px">문제 확인 → 결과 미리보기 → 가격 검토 → 결제 → 전달</h3><p>소개만 읽고 끝나는 페이지가 아니라, 구매 판단과 다음 행동이 자연스럽게 이어지도록 다시 정리했습니다.</p></div>
           </div>
         </section>
         <section class="section compact"><div class="container"><div class="product-grid" id="product-grid"></div></div></section>
@@ -181,7 +181,7 @@ def products_page() -> str:
 def board_page() -> str:
     prefix = rel_prefix(1)
     return doc(f"콘텐츠 허브 | {brand['name']}", '전체 제품 콘텐츠 허브', 'board', dedent(f"""
-        <main><section class="section"><div class="container page-hero"><div class="card strong"><div class="crumbs"><a href="{prefix}index.html">HOME</a><span class="sep">/</span><span>콘텐츠 허브</span></div><span class="kicker">콘텐츠 허브</span><h1>제품과 관련된 글과 사례를 한곳에서 볼 수 있습니다</h1><p class="lead">각 제품에 연결된 글을 먼저 읽고, 필요하면 바로 제품 설명·실제 데모·결제로 이어질 수 있게 구성했습니다.</p><div class="actions"><a class="button secondary" href="{prefix}products/index.html">제품 목록</a><a class="button" href="{prefix}products/veridion/index.html#board">대표 제품 글 먼저 보기</a></div></div><div class="card accent"><span class="tag" style="background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.12);color:#fff">읽고 판단하기</span><h3 style="font-size:1.72rem;margin:16px 0 10px">필요한 글을 먼저 읽고, 맞으면 바로 데모로 넘어가면 됩니다</h3><p>게시판은 홍보 문장 모음이 아니라 제품을 이해하는 데 도움이 되는 글 허브로 작동합니다. 읽은 뒤 바로 제품 설명과 데모, 결제 단계로 이어질 수 있습니다.</p></div></div></section><section class="section compact"><div class="container"><div class="board-grid" id="public-board-grid"></div><div id="public-post-detail"></div></div></section></main>
+        <main><section class="section"><div class="container page-hero"><div class="card strong"><div class="crumbs"><a href="{prefix}index.html">HOME</a><span class="sep">/</span><span>콘텐츠 허브</span></div><span class="kicker">콘텐츠 허브</span><h1>제품 이해를 돕는 글과 사례를 한곳에서 볼 수 있습니다</h1><p class="lead">처음 보는 분도 제품이 왜 필요한지 쉽게 이해하도록 글과 사례를 모았습니다. 읽다가 바로 제품 설명, 데모, 가격 확인으로 이어질 수 있습니다.</p><div class="actions"><a class="button secondary" href="{prefix}products/index.html">제품 목록</a><a class="button" href="{prefix}products/veridion/index.html#board">대표 제품 글 먼저 보기</a></div></div><div class="card accent"><span class="tag" style="background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.12);color:#fff">읽고 판단하기</span><h3 style="font-size:1.72rem;margin:16px 0 10px">먼저 읽어보고 마음에 들면 바로 제품 확인으로 넘어가면 됩니다</h3><p>게시판은 내부 운영 기록이 아니라 구매 판단을 돕는 콘텐츠 허브입니다. 읽은 뒤 바로 제품 확인과 데모, 가격 검토로 이어질 수 있습니다.</p></div></div></section><section class="section compact"><div class="container"><div class="board-grid" id="public-board-grid"></div><div id="public-post-detail"></div></div></section></main>
     """), depth=1, page_key='board', page_path='/board/index.html')
 
 
@@ -189,7 +189,7 @@ def demo_page() -> str:
     prefix = rel_prefix(1)
     options = ''.join(f'<option value="{escape(item["key"])}">{escape(item["name"])} · {escape(item["headline"])}' '</option>' for item in products)
     return doc(f"빠른 체험 | {brand['name']}", '제품 빠른 체험', 'demo', dedent(f'''
-        <main><section class="section"><div class="container form-shell"><article class="card strong"><div class="crumbs"><a href="{prefix}index.html">HOME</a><span class="sep">/</span><span>데모</span></div><span class="kicker">Quick demo</span><h1>관심 있는 제품을 골라 바로 샘플 결과를 확인해 보세요</h1><p class="lead">샘플 결과를 바로 확인하면서 데모 신청 정보도 함께 저장됩니다. 마음에 들면 같은 흐름으로 제품 상세에서 데모 시연과 결제까지 이어가실 수 있습니다.</p><form id="demo-form"><div class="form-grid"><div><label>제품</label><select name="product" data-prefill="product" required>{options}</select></div><div><label>회사명</label><input name="company" placeholder="회사명" autocomplete="organization" required></div><div><label>담당자명</label><input name="name" placeholder="담당자명" autocomplete="name" required></div><div><label>이메일</label><input name="email" type="email" placeholder="email@company.com" autocomplete="email" inputmode="email" required></div><div><label>연락처</label><input name="phone" placeholder="예: 010-1234-5678" inputmode="tel" autocomplete="tel"></div><div><label>팀 규모</label><input name="team" placeholder="예: 3인 운영팀" autocomplete="organization-title"></div><div><label>목표</label><input name="goal" placeholder="예: 첫 화면에서 바로 이해되게" required></div><div><label>핵심 키워드</label><input name="keywords" placeholder="예: 신뢰, CTA, 전환"></div><div><label>참고 링크</label><input name="link" placeholder="예: https://example.com" inputmode="url" autocomplete="url"></div><div><label>긴급도</label><select name="urgency"><option value="">선택</option><option>일반</option><option>이번 주 안</option><option>오늘 필요</option></select></div></div><div class="actions"><button class="button" type="submit">무료 샘플과 데모 시연 자료 받기</button></div></form><div class="result-box" id="demo-result" role="status" aria-live="polite"></div></article><article class="card"><span class="tag">바로가기</span><h3>마음에 드는 제품으로 바로 이어서 검토하세요</h3><div class="story-grid" id="module-matrix"></div></article></div></section></main>
+        <main><section class="section"><div class="container form-shell"><article class="card strong"><div class="crumbs"><a href="{prefix}index.html">HOME</a><span class="sep">/</span><span>데모</span></div><span class="kicker">Quick demo</span><h1>관심 있는 제품을 골라 샘플 결과를 먼저 확인해 보세요</h1><p class="lead">샘플 결과를 먼저 보고 맞는 제품인지 판단하실 수 있습니다. 필요하시면 이어서 제품 상세, 가격, 결제까지 같은 흐름으로 진행하실 수 있습니다.</p><form id="demo-form"><div class="form-grid"><div><label>제품</label><select name="product" data-prefill="product" required>{options}</select></div><div><label>회사명</label><input name="company" placeholder="회사명" autocomplete="organization" required></div><div><label>담당자명</label><input name="name" placeholder="담당자명" autocomplete="name" required></div><div><label>이메일</label><input name="email" type="email" placeholder="email@company.com" autocomplete="email" inputmode="email" required></div><div><label>연락처</label><input name="phone" placeholder="예: 010-1234-5678" inputmode="tel" autocomplete="tel"></div><div><label>팀 규모</label><input name="team" placeholder="예: 3인 운영팀" autocomplete="organization-title"></div><div><label>목표</label><input name="goal" placeholder="예: 첫 화면에서 바로 이해되게" required></div><div><label>핵심 키워드</label><input name="keywords" placeholder="예: 신뢰, CTA, 전환"></div><div><label>참고 링크</label><input name="link" placeholder="예: https://example.com" inputmode="url" autocomplete="url"></div><div><label>긴급도</label><select name="urgency"><option value="">선택</option><option>일반</option><option>이번 주 안</option><option>오늘 필요</option></select></div></div><div class="actions"><button class="button" type="submit">샘플 결과 확인하고 저장하기</button></div></form><div class="result-box" id="demo-result" role="status" aria-live="polite"></div></article><article class="card"><span class="tag">바로가기</span><h3>맞는 제품을 골라 바로 이어서 확인하세요</h3><div class="story-grid" id="module-matrix"></div></article></div></section></main>
     '''), depth=1, page_key='demo', page_path='/demo/index.html')
 
 
@@ -197,7 +197,7 @@ def checkout_page() -> str:
     prefix = rel_prefix(1)
     options = ''.join(f'<option value="{escape(item["key"])}">{escape(item["name"])} · {escape(item["plans"][0]["price"])}부터' '</option>' for item in products)
     return doc(f"결제 | {brand['name']}", '제품 결제 및 결제 진입', 'checkout', dedent(f'''
-        <main><section class="section"><div class="container form-shell"><article class="card strong"><div class="crumbs"><a href="{prefix}index.html">HOME</a><span class="sep">/</span><span>결제</span></div><span class="kicker">Checkout</span><h1>선택한 제품을 바로 결제하고 결과 전달 상태까지 확인할 수 있습니다</h1><p class="lead">플랜을 고르고 1회 결제 버튼을 누르면 외부 결제창으로 이동합니다. 결제 완료 뒤에는 전달 자료와 공개 콘텐츠를 바로 확인할 수 있습니다.</p><form id="checkout-form"><div class="form-grid"><div><label>제품</label><select name="product" data-prefill="product" required>{options}</select></div><div><label>플랜</label><select name="plan" data-prefill="plan" required><option value="Starter">Starter</option><option value="Growth">Growth</option><option value="Scale">Scale</option></select></div><div><label>결제 유형</label><select name="billing"><option value="one-time">1회 결제형</option></select></div><div><label>결제 방식</label><select name="paymentMethod" required><option value="toss">Toss 결제</option></select></div><div><label>회사명</label><input name="company" placeholder="회사명" autocomplete="organization" required></div><div><label>담당자명</label><input name="name" placeholder="담당자명" autocomplete="name" required></div><div><label>이메일</label><input name="email" type="email" placeholder="email@company.com" autocomplete="email" inputmode="email" required></div><div><label>연락처</label><input name="phone" placeholder="예: 010-1234-5678" inputmode="tel" autocomplete="tel"></div><div><label>참고 링크</label><input name="link" placeholder="예: https://example.com" inputmode="url" autocomplete="url"></div><div><label>긴급도</label><select name="urgency"><option value="">선택</option><option>일반</option><option>이번 주 안</option><option>오늘 필요</option></select></div><div><label>희망 회신 시간</label><input name="reply_time" placeholder="예: 평일 오후 2시 이후"></div><div><label>추가 요청</label><input name="note" placeholder="예: 원하는 톤, 꼭 포함할 내용" autocomplete="off"></div></div><div class="actions"><button class="button" type="submit">결제 계속하기</button></div><p class="micro-copy">결제 전 더 확인할 내용이 있으면 <a href="{prefix}legal/terms/index.html">이용약관</a>, <a href="{prefix}legal/refund/index.html">환불정책</a>, <a href="{prefix}contact/index.html">추가 확인</a>을 먼저 확인해 주세요.</p></form><div class="result-box" id="checkout-result" role="status" aria-live="polite"></div></article><article class="card accent"><span class="tag" style="background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.12);color:#fff">결제 안내</span><h3 style="font-size:1.72rem;margin:16px 0 10px">결제가 끝나면 확인과 전달 흐름이 바로 이어집니다</h3><ul class="clean inverse-list"><li>플랜 확인</li><li>결제 진행</li><li>결제 완료 확인</li><li>결과물 준비</li><li>전달 상태 확인</li></ul></article></div></section></main>
+        <main><section class="section"><div class="container form-shell"><article class="card strong"><div class="crumbs"><a href="{prefix}index.html">HOME</a><span class="sep">/</span><span>결제</span></div><span class="kicker">Checkout</span><h1>선택한 제품을 바로 결제하고 전달 상태까지 확인하실 수 있습니다</h1><p class="lead">플랜을 고른 뒤 결제를 진행하시면 전달 자료 준비와 확인 흐름이 바로 이어집니다. 결제 후에는 결과 상태와 관련 자료를 고객 포털에서 확인하실 수 있습니다.</p><form id="checkout-form"><div class="form-grid"><div><label>제품</label><select name="product" data-prefill="product" required>{options}</select></div><div><label>플랜</label><select name="plan" data-prefill="plan" required><option value="Starter">Starter</option><option value="Growth">Growth</option><option value="Scale">Scale</option></select></div><div><label>결제 유형</label><select name="billing"><option value="one-time">1회 결제형</option></select></div><div><label>결제 방식</label><select name="paymentMethod" required><option value="toss">Toss 결제</option></select></div><div><label>회사명</label><input name="company" placeholder="회사명" autocomplete="organization" required></div><div><label>담당자명</label><input name="name" placeholder="담당자명" autocomplete="name" required></div><div><label>이메일</label><input name="email" type="email" placeholder="email@company.com" autocomplete="email" inputmode="email" required></div><div><label>연락처</label><input name="phone" placeholder="예: 010-1234-5678" inputmode="tel" autocomplete="tel"></div><div><label>참고 링크</label><input name="link" placeholder="예: https://example.com" inputmode="url" autocomplete="url"></div><div><label>긴급도</label><select name="urgency"><option value="">선택</option><option>일반</option><option>이번 주 안</option><option>오늘 필요</option></select></div><div><label>희망 회신 시간</label><input name="reply_time" placeholder="예: 평일 오후 2시 이후"></div><div><label>추가 요청</label><input name="note" placeholder="예: 원하는 톤, 꼭 포함할 내용" autocomplete="off"></div></div><div class="actions"><button class="button" type="submit">이 내용으로 결제 진행하기</button></div><p class="micro-copy">결제 전 더 확인할 내용이 있으면 <a href="{prefix}legal/terms/index.html">이용약관</a>, <a href="{prefix}legal/refund/index.html">환불정책</a>, <a href="{prefix}contact/index.html">추가 확인</a>을 먼저 확인해 주세요.</p></form><div class="result-box" id="checkout-result" role="status" aria-live="polite"></div></article><article class="card accent"><span class="tag" style="background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.12);color:#fff">결제 안내</span><h3 style="font-size:1.72rem;margin:16px 0 10px">결제가 끝나면 확인과 전달 흐름이 바로 이어집니다</h3><ul class="clean inverse-list"><li>플랜 확인</li><li>결제 진행</li><li>결제 완료 확인</li><li>결과물 준비</li><li>전달 상태 확인</li></ul></article></div></section></main>
     '''), depth=1, page_key='checkout', page_path='/checkout/index.html')
 
 
@@ -205,14 +205,14 @@ def contact_page() -> str:
     prefix = rel_prefix(1)
     options = ''.join(f'<option value="{escape(item["key"])}">{escape(item["name"])}' '</option>' for item in products)
     return doc(f"추가 확인 | {brand['name']}", '추가 확인', 'contact', dedent(f'''
-        <main><section class="section"><div class="container form-shell"><article class="card strong"><div class="crumbs"><a href="{prefix}index.html">HOME</a><span class="sep">/</span><span>추가 확인</span></div><span class="kicker">Contact</span><h1>페이지에서 바로 판단하기 어려운 조건만 따로 남겨 주세요</h1><p class="lead">가격, 결과물, 적용 범위처럼 화면만 보고 결정하기 어려운 내용만 이 폼으로 보내실 수 있습니다. 일반적인 비교와 데모는 제품 페이지에서 바로 진행하시면 됩니다.</p><form id="contact-form"><div class="form-grid"><div><label>관심 제품</label><select name="product" data-prefill="product" required><option value="">선택</option>{options}</select></div><div><label>회사명</label><input name="company" placeholder="회사명" autocomplete="organization" required></div><div><label>담당자명</label><input name="name" placeholder="담당자명" autocomplete="name" required></div><div><label>이메일</label><input name="email" type="email" placeholder="email@company.com" autocomplete="email" inputmode="email" required></div><div><label>연락처</label><input name="phone" placeholder="예: 010-1234-5678" inputmode="tel" autocomplete="tel"></div><div><label>참고 링크</label><input name="link" placeholder="예: https://example.com" inputmode="url" autocomplete="url"></div><div><label>긴급도</label><select name="urgency"><option value="">선택</option><option>일반</option><option>이번 주 안</option><option>오늘 필요</option></select></div><div><label>희망 회신 시간</label><input name="reply_time" placeholder="예: 평일 오전 10시~12시"></div><div><label>확인 내용</label><input name="issue" placeholder="예: 가격, 결과물, 적용 범위, 정산 방식" required></div></div><div class="actions"><button class="button" type="submit">추가 확인 요청 보내기</button></div><p class="micro-copy">예외 조건만 짧게 남겨 주시면 됩니다. 일반적인 비교와 데모는 각 제품 상세에서 바로 진행하실 수 있습니다.</p></form><div class="result-box" id="contact-result" role="status" aria-live="polite"></div></article><article class="card"><span class="tag">안내</span><p>회사 소개는 회사 메뉴에서, 실제 데모 시연과 결제는 제품 메뉴에서, 자동 흐름에 없는 예외 조건만 이 페이지에서 남기실 수 있습니다.</p></article></div></section></main>
+        <main><section class="section"><div class="container form-shell"><article class="card strong"><div class="crumbs"><a href="{prefix}index.html">HOME</a><span class="sep">/</span><span>추가 확인</span></div><span class="kicker">Contact</span><h1>페이지에서 바로 판단하기 어려운 조건만 남겨 주세요</h1><p class="lead">가격, 결과물, 적용 범위처럼 추가 설명이 필요한 조건만 남겨 주세요. 일반적인 비교와 데모는 제품 페이지에서 바로 확인하실 수 있습니다.</p><form id="contact-form"><div class="form-grid"><div><label>관심 제품</label><select name="product" data-prefill="product" required><option value="">선택</option>{options}</select></div><div><label>회사명</label><input name="company" placeholder="회사명" autocomplete="organization" required></div><div><label>담당자명</label><input name="name" placeholder="담당자명" autocomplete="name" required></div><div><label>이메일</label><input name="email" type="email" placeholder="email@company.com" autocomplete="email" inputmode="email" required></div><div><label>연락처</label><input name="phone" placeholder="예: 010-1234-5678" inputmode="tel" autocomplete="tel"></div><div><label>참고 링크</label><input name="link" placeholder="예: https://example.com" inputmode="url" autocomplete="url"></div><div><label>긴급도</label><select name="urgency"><option value="">선택</option><option>일반</option><option>이번 주 안</option><option>오늘 필요</option></select></div><div><label>희망 회신 시간</label><input name="reply_time" placeholder="예: 평일 오전 10시~12시"></div><div><label>확인 내용</label><input name="issue" placeholder="예: 가격, 결과물, 적용 범위, 정산 방식" required></div></div><div class="actions"><button class="button" type="submit">조건 확인 요청 보내기</button></div><p class="micro-copy">특수 조건만 짧게 남겨 주시면 됩니다. 일반적인 비교와 데모는 각 제품 상세에서 바로 진행하실 수 있습니다.</p></form><div class="result-box" id="contact-result" role="status" aria-live="polite"></div></article><article class="card"><span class="tag">안내</span><p>회사 소개는 회사 메뉴에서, 실제 데모 시연과 결제는 제품 메뉴에서, 자동 흐름에 없는 예외 조건만 이 페이지에서 남기실 수 있습니다.</p></article></div></section></main>
     '''), depth=1, page_key='contact', page_path='/contact/index.html')
 
 
 def portal_page() -> str:
     prefix = rel_prefix(1)
     return doc(f"고객 포털 | {brand['name']}", '고객 조회 포털', 'portal', dedent(f'''
-        <main><section class="section"><div class="container form-shell"><article class="card strong"><div class="crumbs"><a href="{prefix}index.html">HOME</a><span class="sep">/</span><span>고객 포털</span></div><span class="kicker">결과 확인</span><h1>결제 후 전달 상태와 자료를 바로 확인해 보세요</h1><p class="lead">이메일과 조회 코드만 입력하면 결제 이후의 전달 상태와 결과 자료를 바로 확인할 수 있습니다. 결제 방식과 관계없이 같은 조회 코드 기준으로 확인합니다.</p><form id="portal-lookup-form"><div class="form-grid"><div><label>이메일</label><input name="email" type="email" placeholder="email@company.com" autocomplete="email" inputmode="email" required></div><div><label>조회 코드</label><input name="code" placeholder="예: NV0-2026-VER-001" autocapitalize="characters" autocomplete="off" required></div></div><div class="actions"><button class="button" type="submit">결과 전달 확인</button></div><p class="micro-copy">조회 코드는 결제 완료 또는 추가 확인 접수 이후 안내 메일로 전달됩니다.</p></form><div class="result-box" id="portal-result" role="status" aria-live="polite"></div></article><article class="card"><span class="tag">확인 결과</span><h3>결과 전달 상태와 전달 자료가 여기에 표시됩니다</h3><div class="mock-progress" id="portal-mock"><div class="mock-step"><strong>확인 전</strong><span>결제 후 받은 이메일과 조회 코드를 입력하면 바로 확인하실 수 있습니다.</span></div></div></article></div></section></main>
+        <main><section class="section"><div class="container form-shell"><article class="card strong"><div class="crumbs"><a href="{prefix}index.html">HOME</a><span class="sep">/</span><span>고객 포털</span></div><span class="kicker">결과 확인</span><h1>결제 후 전달 상태와 자료를 바로 확인해 보세요</h1><p class="lead">이메일과 조회 코드만 입력하면 결제 이후의 진행 상태와 결과 자료를 바로 확인할 수 있습니다. 같은 조회 코드 기준으로 간편하게 다시 찾을 수 있습니다.</p><form id="portal-lookup-form"><div class="form-grid"><div><label>이메일</label><input name="email" type="email" placeholder="email@company.com" autocomplete="email" inputmode="email" required></div><div><label>조회 코드</label><input name="code" placeholder="예: NV0-2026-VER-001" autocapitalize="characters" autocomplete="off" required></div></div><div class="actions"><button class="button" type="submit">전달 상태 확인하기</button></div><p class="micro-copy">조회 코드는 결제 완료 또는 별도 안내 후 메일로 전달됩니다.</p></form><div class="result-box" id="portal-result" role="status" aria-live="polite"></div></article><article class="card"><span class="tag">확인 결과</span><h3>전달 상태와 자료가 여기에 표시됩니다</h3><div class="mock-progress" id="portal-mock"><div class="mock-step"><strong>확인 전</strong><span>결제 후 받은 이메일과 조회 코드를 입력하면 바로 확인하실 수 있습니다.</span></div></div></article></div></section></main>
     '''), depth=1, page_key='portal', page_path='/portal/index.html')
 
 
@@ -226,7 +226,7 @@ def admin_page() -> str:
                 <div class="crumbs"><a href="{prefix}index.html">HOME</a><span class="sep">/</span><span>관리자 허브</span></div>
                 <span class="kicker">Admin hub</span>
                 <h1>관리 기능은 관리자 허브로만 모으고, 공개 화면에서는 감췄습니다</h1>
-                <p class="lead">비밀키가 있어야 운영 화면을 열 수 있습니다. 자동발행 설정, 결제 상태, 공개 글 재발행, 샘플 데이터, 포털 확인 연결을 모두 이 화면에서 관리합니다.</p>
+                <p class="lead">비밀키가 있어야 운영 화면을 열 수 있습니다. 주문·결제·전달·포털 연결은 자동으로 이어지며, 이 화면에서는 자동화 상태 확인과 운영 안전성 점검만 합니다.</p>
                 <div class="result-box admin-gate" id="admin-gate-result">관리자 비밀키를 입력하면 운영 메뉴가 열립니다.</div>
                 <div class="auth-inline admin-auth-inline">
                   <input id="admin-token-input" placeholder="관리자 비밀키" autocomplete="off" spellcheck="false">
@@ -236,8 +236,8 @@ def admin_page() -> str:
               </div>
               <div class="card accent">
                 <span class="tag" style="background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.12);color:#fff">운영 원칙</span>
-                <h3 style="font-size:1.72rem;margin:16px 0 10px">공개 화면은 단순하게, 운영 기능은 이곳으로</h3>
-                <p>고객이 보는 화면에서는 판매와 이해에 필요한 것만 남기고, 자동발행 재설정과 데이터 조작은 관리자 허브에서만 다룹니다.</p>
+                <h3 style="font-size:1.72rem;margin:16px 0 10px">공개 화면은 판매에 집중하고, 운영 화면은 자동화 상태만 확인</h3>
+                <p>고객이 보는 화면에서는 데모와 결제만 남기고, 관리자 화면에서는 자동 처리 여부와 장애 징후만 확인합니다.</p>
               </div>
             </div>
           </section>
@@ -252,11 +252,7 @@ def admin_page() -> str:
                   <a href="#admin-requests-section">요청</a>
                   <a href="#admin-publications-section">공개 글</a>
                 </nav>
-                <div class="toolbar">
-                  <button class="button" data-admin-action="seed-demo">샘플 데이터 생성</button>
-                  <button class="button secondary" data-admin-action="reset-all">엔진 데이터 초기화</button>
-                </div>
-                <div class="result-box" id="admin-action-result"></div>
+                <div class="result-box" id="admin-action-result">수동 보정 버튼은 기본 비활성화 상태입니다. 주문·결제·전달·콘텐츠 연결은 자동 흐름으로만 동작합니다.</div>
               </aside>
               <div class="admin-main-stack">
                 <section id="admin-overview" class="admin-section"><div class="admin-grid" id="admin-summary"></div></section>
@@ -274,14 +270,14 @@ def admin_page() -> str:
 def toss_success_page() -> str:
     prefix = rel_prefix(3)
     return doc(f"결제 승인 | {brand['name']}", 'Toss 결제 승인 처리', 'payment-success', dedent(f'''
-        <main><section class="section"><div class="container form-shell"><article class="card strong"><div class="crumbs"><a href="{prefix}index.html">HOME</a><span class="sep">/</span><span>결제 승인</span></div><span class="kicker">결제 완료</span><h1>결제가 완료되면 결과 전달 확인 화면으로 바로 이어집니다</h1><p class="lead">결제 승인 정보를 확인한 뒤, 전달 자료와 관련 콘텐츠를 바로 볼 수 있도록 안내합니다.</p><div class="result-box" id="payment-success-result" style="display:block">결제 정보를 확인하고 있습니다.</div><div class="actions"><a class="button secondary" href="{prefix}portal/index.html">결과 전달 확인</a><a class="button ghost" href="{prefix}products/index.html">다른 제품 보기</a></div></article></div></section></main>
+        <main><section class="section"><div class="container form-shell"><article class="card strong"><div class="crumbs"><a href="{prefix}index.html">HOME</a><span class="sep">/</span><span>결제 승인</span></div><span class="kicker">결제 완료</span><h1>결제가 완료되면 전달 상태 확인하기 화면으로 바로 이어집니다</h1><p class="lead">결제 승인 정보를 확인한 뒤, 전달 자료와 관련 안내를 바로 보실 수 있게 연결합니다.</p><div class="result-box" id="payment-success-result" style="display:block">결제 정보를 확인하고 있습니다.</div><div class="actions"><a class="button secondary" href="{prefix}portal/index.html">전달 상태 확인하기</a><a class="button ghost" href="{prefix}products/index.html">다른 제품 둘러보기</a></div></article></div></section></main>
     '''), depth=3, page_key='payment-success', page_path='/payments/toss/success/index.html')
 
 
 def toss_fail_page() -> str:
     prefix = rel_prefix(3)
     return doc(f"결제 실패 | {brand['name']}", 'Toss 결제 실패 안내', 'payment-fail', dedent(f'''
-        <main><section class="section"><div class="container form-shell"><article class="card strong"><div class="crumbs"><a href="{prefix}index.html">HOME</a><span class="sep">/</span><span>결제 실패</span></div><span class="kicker">Toss fail</span><h1>결제가 완료되지 않았습니다</h1><p class="lead">잠시 후 다시 결제하시거나, 자동 흐름에 없는 예외 조건만 추가 확인으로 남겨주세요.</p><div class="result-box" id="payment-fail-result" style="display:block">실패 정보를 확인하고 있습니다.</div><div class="actions"><a class="button" href="{prefix}checkout/index.html">다시 시작하기</a><a class="button ghost" href="{prefix}contact/index.html">추가 확인 남기기</a></div></article></div></section></main>
+        <main><section class="section"><div class="container form-shell"><article class="card strong"><div class="crumbs"><a href="{prefix}index.html">HOME</a><span class="sep">/</span><span>결제 실패</span></div><span class="kicker">Toss fail</span><h1>결제가 아직 완료되지 않았습니다</h1><p class="lead">잠시 후 다시 결제하시거나, 추가 설명이 필요한 조건만 남겨 주세요.</p><div class="result-box" id="payment-fail-result" style="display:block">실패 정보를 확인하고 있습니다.</div><div class="actions"><a class="button" href="{prefix}checkout/index.html">결제 다시 시도하기</a><a class="button ghost" href="{prefix}contact/index.html">조건 확인 남기기</a></div></article></div></section></main>
     '''), depth=3, page_key='payment-fail', page_path='/payments/toss/fail/index.html')
 
 
@@ -317,10 +313,10 @@ def product_page(product: dict) -> str:
 
           <section class="section compact" id="intro">
             <div class="container">
-              <div class="section-head"><div><h2>이 제품이 하는 일</h2></div><p>길게 설명하지 않고, 실제로 어떤 판단과 결과를 만들어 주는지 기준으로 정리했습니다.</p></div>
+              <div class="section-head"><div><h2>이 제품으로 바로 바뀌는 것</h2></div><p>긴 설명보다 실제로 어떤 결과를 기대할 수 있는지 기준으로 정리했습니다.</p></div>
               <div class="story-grid product-overview-grid">
-                <article class="story-card"><span class="tag theme-chip">해결하는 문제</span><h3>지금 가장 먼저 정리해야 하는 것</h3><p data-fill="product-problem"></p></article>
-                <article class="story-card"><span class="tag theme-chip">핵심 가치</span><h3>도입하면 바로 달라지는 점</h3><ul class="clean" id="product-values"></ul></article>
+                <article class="story-card"><span class="tag theme-chip">해결하는 문제</span><h3>지금 가장 먼저 해결할 문제</h3><p data-fill="product-problem"></p></article>
+                <article class="story-card"><span class="tag theme-chip">핵심 가치</span><h3>도입하면 바로 체감되는 변화</h3><ul class="clean" id="product-values"></ul></article>
                 <article class="story-card"><span class="tag theme-chip">결과물</span><h3>결제 후 받는 자료</h3><ul class="clean" id="product-outputs"></ul></article>
               </div>
             </div>
@@ -330,14 +326,14 @@ def product_page(product: dict) -> str:
             <div class="container module-layout demo-layout">
               <article class="card strong demo-main-card">
                 <span class="tag theme-chip">실제 데모</span>
-                <h3>입력하면 바로 결과가 나오는 형태로 다시 만들었습니다</h3>
-                <p class="lead demo-intro-copy">소개용 문장이 아니라, 이 제품이 어떤 입력을 받고 어떤 결과를 반환하는지 바로 확인할 수 있습니다. 저장이 필요하면 회사명과 이메일을 같이 남길 수 있습니다.</p>
+                <h3>입력하면 어떤 결과가 나오는지 바로 보이게 만들었습니다</h3>
+                <p class="lead demo-intro-copy">소개 문장보다, 어떤 입력을 넣었을 때 어떤 결과가 나오는지를 먼저 확인하실 수 있습니다. 저장이 필요할 때만 회사명과 이메일을 남기시면 됩니다.</p>
                 <div id="product-demo-shell"></div>
                 <div class="result-box" id="product-demo-result" role="status" aria-live="polite"></div>
               </article>
               <article class="card demo-side-card">
                 <span class="tag">데모에서 확인되는 것</span>
-                <h3>실제 제품 구조와 맞는 결과만 보여줍니다</h3>
+                <h3>실제 구매 판단에 도움이 되는 결과만 보여드립니다</h3>
                 <ul class="clean" id="product-demo-scenarios"></ul>
                 <div class="notice notice-light"><strong>가격 기준</strong><br><span data-fill="product-pricing"></span></div>
                 <div class="notice"><strong>가격 판단 기준</strong><br><span id="product-pricing-basis"></span></div>
@@ -349,7 +345,7 @@ def product_page(product: dict) -> str:
             <div class="container module-layout">
               <article class="card strong">
                 <span class="tag theme-chip">플랜/결제</span>
-                <h3>데모로 방향을 잡은 뒤 바로 이어서 결제할 수 있습니다</h3>
+                <h3>데모로 맞는지 확인한 뒤 바로 결제할 수 있습니다</h3>
                 <form id="product-checkout-form" class="stack-form">
                   <input type="hidden" name="product" value="{escape(product['key'])}">
                   <div class="form-grid">
@@ -364,8 +360,8 @@ def product_page(product: dict) -> str:
                     <div><label>긴급도</label><select name="urgency"><option value="">선택</option><option>일반</option><option>이번 주 안</option><option>오늘 필요</option></select></div>
                     <div><label>추가 요청</label><input name="note" placeholder="예: 꼭 포함할 기준이나 원하는 결과" autocomplete="off"></div>
                   </div>
-                  <div class="actions"><button class="button" type="submit">결제 계속하기</button><a class="button secondary" href="#delivery">전달 범위 먼저 보기</a></div>
-                  <p class="micro-copy">데모에서 입력한 회사명과 이메일은 결제 폼에 자동으로 이어질 수 있습니다.</p>
+                  <div class="actions"><button class="button" type="submit">이 내용으로 결제 진행하기</button><a class="button secondary" href="#delivery">전달 범위 먼저 보기</a></div>
+                  <p class="micro-copy">데모에서 입력한 기본 정보는 결제 단계로 자연스럽게 이어질 수 있습니다.</p>
                 </form>
                 <div class="result-box" id="product-checkout-result" role="status" aria-live="polite"></div>
               </article>
@@ -377,29 +373,29 @@ def product_page(product: dict) -> str:
             <div class="container module-layout">
               <article class="card strong">
                 <span class="tag theme-chip">결제 후 전달 범위</span>
-                <h3>샘플 결과에서 본 구조가 실제 전달 자료로 이어집니다</h3>
+                <h3>샘플 결과에서 본 흐름이 실제 전달 자료로 이어집니다</h3>
                 <ol class="flow-list" id="product-workflow"></ol>
                 <div class="notice">결제 후에는 결과 요약, 실행 자료, 조회 코드가 연결된 확인 흐름까지 한 번에 이어집니다.</div>
               </article>
               <article class="card strong">
                 <span class="tag theme-chip">함께 보면 좋은 제품</span>
-                <h3>같은 문제 축에서 이어서 검토할 수 있는 모듈</h3>
+                <h3>비슷한 고민이 있다면 함께 보기 좋은 제품</h3>
                 <div class="story-grid" id="product-related-modules"></div>
               </article>
             </div>
           </section>
 
           <section class="section compact" id="board">
-            <div class="container"><div class="section-head"><div><h2>{escape(product['name'])} 관련 글</h2></div><p>이 제품이 필요한 상황을 더 읽어보고 싶다면 아래 글을 참고하세요. 다만 핵심은 글보다 위 데모입니다.</p></div><div class="board-grid" id="product-board-grid"></div><div id="product-post-detail"></div></div>
+            <div class="container"><div class="section-head"><div><h2>{escape(product['name'])} 관련 글</h2></div><p>이 제품이 필요한 상황을 더 읽어보고 싶다면 아래 글을 참고해 주세요. 다만 가장 빠른 판단은 위 데모에서 하실 수 있습니다.</p></div><div class="board-grid" id="product-board-grid"></div><div id="product-post-detail"></div></div>
           </section>
 
-          <section class="section compact" id="faq"><div class="container"><div class="section-head"><div><h2>자주 묻는 질문</h2></div><p>소개보다 시연이 먼저여야 하지만, 결제 전에 자주 나오는 질문도 함께 정리했습니다.</p></div><div class="faq-grid" id="product-faq"></div></div></section>
+          <section class="section compact" id="faq"><div class="container"><div class="section-head"><div><h2>자주 묻는 질문</h2></div><p>결제 전에 자주 나오는 질문을 한곳에 모아두었습니다.</p></div><div class="faq-grid" id="product-faq"></div></div></section>
         </main>
     '''), depth=2, page_key='product', product_key=product['key'], page_path=f'/products/{product["key"]}/index.html')
 
 def product_board_page(product: dict) -> str:
     return doc(f"{product['name']} 게시판 | {brand['name']}", f"{product['name']} 콘텐츠 허브", product['theme'], dedent(f'''
-        <main><section class="section"><div class="container page-hero"><div class="card strong"><div class="crumbs"><a href="../../../index.html">HOME</a><span class="sep">/</span><a href="../../../products/index.html">제품</a><span class="sep">/</span><a href="../../{escape(product['key'])}/index.html">{escape(product['name'])}</a><span class="sep">/</span><span>게시판</span></div><span class="tag theme-chip">관련 글 모음</span><h1>{escape(product['name'])} 콘텐츠 허브</h1><p class="lead">이 제품과 관련된 글을 먼저 읽고, 바로 제품 설명·실제 데모·결제로 이어질 수 있게 구성했습니다.</p><div class="actions"><a class="button" href="../../{escape(product['key'])}/index.html#demo">데모 시연</a><a class="button secondary" href="../../{escape(product['key'])}/index.html#intro">제품 설명 보기</a><a class="button ghost" href="../../{escape(product['key'])}/index.html#order">결제 진행</a></div></div><div class="card theme-panel"><span class="tag" style="background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.12);color:#fff">게시판 안내</span><h3 style="font-size:1.7rem;margin:16px 0 10px">제품을 보기 전에 먼저 둘러보기 좋은 글을 보여드립니다</h3><p>{escape(product['summary'])}</p></div></div></section><section class="section compact"><div class="container"><div class="board-grid" id="product-board-grid"></div><div id="product-post-detail"></div></div></section></main>
+        <main><section class="section"><div class="container page-hero"><div class="card strong"><div class="crumbs"><a href="../../../index.html">HOME</a><span class="sep">/</span><a href="../../../products/index.html">제품</a><span class="sep">/</span><a href="../../{escape(product['key'])}/index.html">{escape(product['name'])}</a><span class="sep">/</span><span>게시판</span></div><span class="tag theme-chip">관련 글 모음</span><h1>{escape(product['name'])} 콘텐츠 허브</h1><p class="lead">이 제품과 관련된 글을 먼저 읽고, 바로 제품 설명·실제 데모·결제로 이어질 수 있게 구성했습니다.</p><div class="actions"><a class="button" href="../../{escape(product['key'])}/index.html#demo">데모 시연</a><a class="button secondary" href="../../{escape(product['key'])}/index.html#intro">제품 설명 보기</a><a class="button ghost" href="../../{escape(product['key'])}/index.html#order">결제 진행</a></div></div><div class="card theme-panel"><span class="tag" style="background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.12);color:#fff">게시판 안내</span><h3 style="font-size:1.7rem;margin:16px 0 10px">구매 전 가볍게 읽어보기 좋은 글을 모아두었습니다</h3><p>{escape(product['summary'])}</p></div></div></section><section class="section compact"><div class="container"><div class="board-grid" id="product-board-grid"></div><div id="product-post-detail"></div></div></section></main>
     '''), depth=3, page_key='product-board', product_key=product['key'], page_path=f'/products/{product["key"]}/board/index.html')
 
 

@@ -4,6 +4,7 @@ import json
 import os
 import shutil
 import signal
+import socket
 import subprocess
 import sys
 import tempfile
@@ -39,6 +40,15 @@ def wait_health(base_url: str, timeout: float = 25.0) -> None:
     raise RuntimeError(f'health check timeout for {base_url}: {last_error or "unknown error"}')
 
 
+
+def find_free_port(preferred: int) -> int:
+    for port in range(preferred, preferred + 50):
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+            sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            if sock.connect_ex(('127.0.0.1', port)) != 0:
+                return port
+    raise RuntimeError(f'no free port available near {preferred}')
+
 def start_server(mode: str, port: int) -> subprocess.Popen[str]:
     env = os.environ.copy()
     env['PYTHONPATH'] = str(RUNTIME_VENDOR)
@@ -51,6 +61,7 @@ def start_server(mode: str, port: int) -> subprocess.Popen[str]:
     env['NV0_ENABLE_DOCS'] = '0'
     env['FORWARDED_ALLOW_IPS'] = '127.0.0.1'
     env['NV0_TOSS_MOCK'] = '1'
+    env['NV0_ALLOW_LOCAL_SCAN'] = '1'
     env['NV0_BOARD_ONLY_MODE'] = '1' if mode == 'board' else '0'
     proc = subprocess.Popen(
         [sys.executable, 'start_server.py'],
@@ -83,6 +94,7 @@ def verify_mode(mode: str, port: int) -> None:
         'NV0_ADMIN_TOKEN': 'nv0-local-admin-token-1234567890',
         'NV0_BACKUP_PASSPHRASE': 'nv0-local-backup-passphrase-1234567890',
         'NV0_TOSS_MOCK': '1',
+        'NV0_ALLOW_LOCAL_SCAN': '1',
         'FORWARDED_ALLOW_IPS': '127.0.0.1',
         'NV0_BOARD_ONLY_MODE': '1' if mode == 'board' else '0',
     }
@@ -91,7 +103,10 @@ def verify_mode(mode: str, port: int) -> None:
     if mode == 'full':
         run([sys.executable, 'scripts/post_deploy_verify.py', '--base-url', env['NV0_BASE_URL'], '--admin-token', env['NV0_ADMIN_TOKEN'], '--skip-www-redirect'], env=env)
         run([sys.executable, 'scripts/product_runtime_e2e.py', '--base-url', env['NV0_BASE_URL']], env=env)
+        run([sys.executable, 'scripts/veridion_runtime_regression.py', '--base-url', env['NV0_BASE_URL']], env=env)
+        run([sys.executable, 'scripts/product_surface_regression.py', '--base-url', env['NV0_BASE_URL']], env=env)
         run([sys.executable, 'scripts/result_quality_gate.py', '--base-url', env['NV0_BASE_URL']], env=env)
+        run([sys.executable, 'scripts/automation_runtime_regression.py', '--base-url', env['NV0_BASE_URL']], env=env)
         run([sys.executable, 'scripts/api_safety_regression.py', '--base-url', env['NV0_BASE_URL'], '--admin-token', env['NV0_ADMIN_TOKEN']], env=env)
         run([sys.executable, 'scripts/deployment_consistency_check.py'], env=env)
     if mode == 'board':
@@ -104,16 +119,18 @@ def main() -> int:
     run(['node', '--check', 'src/assets/site.js'])
 
     run([sys.executable, 'build.py'], env={'NV0_BOARD_ONLY_MODE': '0'})
-    full_proc = start_server('full', 8010)
+    full_port = find_free_port(8010)
+    full_proc = start_server('full', full_port)
     try:
-        verify_mode('full', 8010)
+        verify_mode('full', full_port)
     finally:
         stop_server(full_proc)
 
     run([sys.executable, 'build.py'], env={'NV0_BOARD_ONLY_MODE': '1'})
-    board_proc = start_server('board', 8011)
+    board_port = find_free_port(8011)
+    board_proc = start_server('board', board_port)
     try:
-        verify_mode('board', 8011)
+        verify_mode('board', board_port)
     finally:
         stop_server(board_proc)
 
