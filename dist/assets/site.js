@@ -487,7 +487,7 @@
     return item;
   }
   function currentMainSection(){
-    return pageKey === 'home' ? 'home' : pageKey === 'board' ? 'board' : pageKey === 'company' ? 'company' : pageKey === 'auth' ? 'auth' : (path.includes('/products/') || pageKey === 'pricing') ? 'productHub' : '';
+    return pageKey === 'home' ? 'home' : pageKey === 'board' ? 'board' : pageKey === 'company' ? 'company' : pageKey === 'auth' ? 'auth' : (path.includes('/products/') || path.includes('/modules/') || pageKey === 'pricing' || pageKey === 'modules') ? 'productHub' : '';
   }
   function renderNavLinks(linkClass=''){
     return navItems.map(([label, href, key]) => `<a href="${href}" class="${linkClass} ${currentMainSection() === key ? 'active' : ''}">${label}</a>`).join('');
@@ -501,13 +501,15 @@
     header.innerHTML = `<button class="admin-fab" type="button" data-admin-entry="1" title="권한 확인 후 관리자 메뉴로 들어갑니다">관계자</button><div class="container nav-wrap"><div class="nav-left"><button class="mobile-nav-toggle" type="button" aria-expanded="false" aria-controls="mobile-drawer" data-nav-toggle="1">메뉴</button><a class="brand" href="${base}index.html"><span class="brand-mark">V</span><span class="brand-copy"><strong>Veridion</strong><span>온라인 개인사업자용 법률·규제 리스크 방어막</span></span></a></div><nav class="nav-links">${renderNavLinks('top-link')}</nav></div><div class="container subnav"><span class="subnav-label">제품</span>${quickLinks}</div>`;
   }
   function renderSidebar(){
-    if (document.getElementById('side-nav-shell')) return;
-    const shell = document.createElement('aside');
-    shell.id = 'side-nav-shell';
-    shell.className = 'side-nav-shell';
+    let shell = document.getElementById('side-nav-shell');
+    if (!shell) {
+      shell = document.createElement('aside');
+      shell.id = 'side-nav-shell';
+      shell.className = 'side-nav-shell';
+      document.body.prepend(shell);
+    }
     shell.innerHTML = `<div class="side-nav-card"><button class="side-admin-button" type="button" data-admin-entry="1">관계자</button><a class="side-brand" href="${base}index.html"><span class="brand-mark">V</span><span><strong>Veridion</strong><small>리스크 점검 · 발행 · 이력 관리</small></span></a><nav class="side-nav-links"><div class="side-group"><span class="side-group-title">메인 메뉴</span>${renderNavLinks('side-link')}</div><div class="side-group"><span class="side-group-title">제품</span>${renderProductSubLinks('side-sublink')}<a href="${base}products/veridion/demo/index.html" class="side-sublink ${path.includes('/products/veridion/demo/') ? 'active' : ''}">즉시 시연</a></div></nav></div>`;
     document.body.classList.add('with-side-nav');
-    document.body.prepend(shell);
     if (!document.getElementById('mobile-nav-backdrop')) {
       const backdrop = document.createElement('button');
       backdrop.type = 'button';
@@ -516,13 +518,14 @@
       backdrop.setAttribute('aria-hidden', 'true');
       document.body.appendChild(backdrop);
     }
-    if (!document.getElementById('mobile-drawer')) {
-      const drawer = document.createElement('aside');
+    let drawer = document.getElementById('mobile-drawer');
+    if (!drawer) {
+      drawer = document.createElement('aside');
       drawer.id = 'mobile-drawer';
       drawer.className = 'mobile-drawer';
-      drawer.innerHTML = `<div class="mobile-drawer-card"><div class="mobile-drawer-top"><strong>메뉴</strong><button class="mobile-nav-close" type="button" data-nav-close="1">닫기</button></div><button class="side-admin-button" type="button" data-admin-entry="1">관계자</button><nav class="side-nav-links"><div class="side-group"><span class="side-group-title">메인 메뉴</span>${renderNavLinks('side-link')}</div><div class="side-group"><span class="side-group-title">제품</span>${renderProductSubLinks('side-sublink')}<a href="${base}products/veridion/demo/index.html" class="side-sublink ${path.includes('/products/veridion/demo/') ? 'active' : ''}">즉시 시연</a></div></nav></div>`;
       document.body.appendChild(drawer);
     }
+    drawer.innerHTML = `<div class="mobile-drawer-card"><div class="mobile-drawer-top"><strong>메뉴</strong><button class="mobile-nav-close" type="button" data-nav-close="1">닫기</button></div><button class="side-admin-button" type="button" data-admin-entry="1">관계자</button><nav class="side-nav-links"><div class="side-group"><span class="side-group-title">메인 메뉴</span>${renderNavLinks('side-link')}</div><div class="side-group"><span class="side-group-title">제품</span>${renderProductSubLinks('side-sublink')}<a href="${base}products/veridion/demo/index.html" class="side-sublink ${path.includes('/products/veridion/demo/') ? 'active' : ''}">즉시 시연</a></div></nav></div>`;
   }
   function bindNavChrome(){
     const body = document.body;
@@ -713,7 +716,7 @@
   function republishOrder(orderId){ const orders = read(STORE.orders); const order = orders.find((item) => item.id === orderId); if (!order) throw new Error('결제 접수를 찾지 못했습니다.'); const extra = createPublicationsForOrder(order); return updateItem(STORE.orders, orderId, (item) => ({...item, publicationIds: [...(item.publicationIds || []), ...extra.map((p) => p.id)], publicationCount: (item.publicationCount || 0) + extra.length, updatedAt: stamp()})); }
   function lookupOrder(email, code){ const orders = read(STORE.orders); if (code) { const exact = orders.find((item) => String(item.code).toLowerCase() === String(code).toLowerCase()); if (exact && (!email || String(exact.email).toLowerCase() === String(email).toLowerCase())) return exact; } if (email) return orders.find((item) => String(item.email).toLowerCase() === String(email).toLowerCase()) || null; return null; }
   function renderPublicationDetail(targetId, items){ const root = document.getElementById(targetId); if (!root) return; const params = new URLSearchParams(location.search); const postId = params.get('post'); const item = items.find((entry) => entry.id === postId) || items[0]; if (!item) { root.innerHTML = '<div class="empty-box">지금 표시할 글이 없습니다. 목록에서 다른 글을 선택하시거나 제품 상세로 이동해 주세요.</div>'; return; } const detailProduct = products[item.product] || null; const portalLink = item.code ? `${base}portal/index.html?code=${encodeURIComponent(item.code)}` : `${base}portal/index.html`; root.innerHTML = `<article class="post-detail"><span class="tag">${esc(item.productName || productName(item.product))}</span><h3>${esc(item.title)}</h3><p>${esc(item.summary)}</p><div class="kv"><div class="row"><strong>게시 시각</strong><span>${formatDate(item.createdAt)}</span></div><div class="row"><strong>조회 코드</strong><span>${esc(item.code || '기본 안내')}</span></div><div class="row"><strong>글 유형</strong><span>${esc(item.source || 'board')}</span></div><div class="row"><strong>본문</strong><span>${esc(item.body || item.summary).split('\n').join('<br>')}</span></div></div><div class="small-actions">${boardCtaMarkup(item)}<a href="${detailProduct ? `${base}products/${item.product}/index.html` : `${base}products/index.html`}">자세히 보기</a><a href="${base}products/${item.product}/board/index.html?post=${item.id}">같은 제품 글 더 보기</a><a href="${portalLink}">제공 상태 확인</a></div></article>`; }
-  function renderPublicBoard() { const root = document.getElementById('public-board-grid'); if (!root) return; ensureSeedData(); const items = read(STORE.publications).sort((a,b) => (a.createdAt < b.createdAt ? 1 : -1)); if (!items.length) { root.innerHTML = '<div class="empty-box">아직 공개된 글이 없습니다. 조금 뒤 다시 확인하시거나 제품 상세에서 먼저 방향을 살펴보실 수 있습니다.</div>'; return; } root.innerHTML = items.slice(0, 12).map((item, idx) => `<article class="board-card board-card-blog"><span class="tag">관련 글 ${idx + 1}</span><h3>${esc(item.title)}</h3><p>${esc(item.summary)}</p><div class="board-meta"><span>${esc(item.productName || productName(item.product))}</span><span>${esc(String(item.readMinutes || 3))}분 읽기</span><span>${esc(item.format || 'ai-hybrid-blog')}</span></div><div class="small-actions">${boardCtaMarkup(item)}<a href="${publicBoardHref(item.id)}">블로그 글 보기</a><a href="${base}products/${item.product}/index.html">제품 상세</a></div></article>`).join(''); renderPublicationDetail('public-post-detail', items); }
+  function renderPublicBoard() { const root = document.getElementById('public-board-grid'); if (!root) return; ensureSeedData(); const items = read(STORE.publications).filter((item) => item.product === 'veridion').sort((a,b) => (a.createdAt < b.createdAt ? 1 : -1)); if (!items.length) { root.innerHTML = '<div class="empty-box">아직 공개된 글이 없습니다. 조금 뒤 다시 확인하시거나 제품 상세에서 먼저 방향을 살펴보실 수 있습니다.</div>'; return; } root.innerHTML = items.slice(0, 12).map((item, idx) => `<article class="board-card board-card-blog"><span class="tag">Veridion 관련 글 ${idx + 1}</span><h3>${esc(item.title)}</h3><p>${esc(item.summary)}</p><div class="board-meta"><span>${esc(item.productName || productName(item.product))}</span><span>${esc(String(item.readMinutes || 3))}분 읽기</span><span>${esc(item.format || 'ai-hybrid-blog')}</span></div><div class="small-actions">${boardCtaMarkup(item)}<a href="${publicBoardHref(item.id)}">블로그 글 보기</a><a href="${base}products/veridion/index.html">제품 상세</a></div></article>`).join(''); renderPublicationDetail('public-post-detail', items); }
   function renderProductBoard() { const root = document.getElementById('product-board-grid'); if (!root || !product) return; ensureSeedData(); const dynamic = read(STORE.publications).filter((item) => item.product === product.key); const automation = product.board_automation || {}; const seedCards = (automation.topics || []).map((topic, idx) => buildPublicationRecord({ product: product.key, title: topic.title, summary: topic.summary, source:'topic-seed', code:'', createdAt: stamp(), ctaLabel: topic.ctaText || automation.cta_label || '제품 보기', ctaHref: buildCtaHref(automation.cta_href, product.key), topicSummary: topic.summary, id:`topic-${idx}` })); const items = [...dynamic, ...seedCards].sort((a,b)=>a.createdAt < b.createdAt ? 1 : -1); root.innerHTML = items.slice(0, 12).map((item, idx) => `<article class="board-card board-card-blog"><span class="tag">${product.name} 관련 글 ${idx + 1}</span><h3>${esc(item.title)}</h3><p>${esc(item.summary)}</p><div class="board-meta"><span>${esc(String(item.readMinutes || 3))}분 읽기</span><span>${esc(item.format || 'ai-hybrid-blog')}</span></div><div class="small-actions">${boardCtaMarkup(item)}<a href="${productBoardHref(product.key, item.id)}">블로그 글 보기</a><a href="${base}products/${product.key}/index.html#order">결제 진행</a></div></article>`).join(''); renderPublicationDetail('product-post-detail', items); }
   async function loadBoardFeed(){ const url = config.integration?.board_feed_endpoint; if (!url) return false; try { const res = await fetch(url, { headers: { 'Accept':'application/json' } }); if (!res.ok) return false; const payload = await res.json(); if (Array.isArray(payload?.items)) write(STORE.publications, payload.items); return Array.isArray(payload?.items); } catch { return false; } }
   function setPrefills(){ const params = new URLSearchParams(location.search); const productField = document.querySelector('input[name="product"], select[name="product"]'); if (productField && params.get('product')) productField.value = params.get('product'); const planField = document.querySelector('select[name="plan"][data-prefill="plan"]'); if (planField && params.get('plan')) planField.value = params.get('plan'); if (product?.key) { const report = getLastProductReport(product.key); if (report) applyProductReportToCheckout(product.key, report, report); } }
@@ -904,33 +907,43 @@
   function buildHomeProducts() {
     const root = document.getElementById('product-grid');
     if (!root) return;
-    root.innerHTML = Object.values(products).map((item) => `
-      <article class="card product-card strong ${item.theme}">
-        <span class="tag theme-chip">${esc(item.label)}</span>
-        <h3>${esc(item.name)}</h3>
-        <p>${esc(item.problem || item.headline || '')}</p>
-        <ul class="clean">${(item.value_points || []).slice(0, 3).map((text) => `<li>${esc(text)}</li>`).join('')}</ul>
-        <div class="muted-box" style="margin-top:18px">${esc(item.pricing_basis || '')}</div>
+    const focus = products.veridion || Object.values(products)[0];
+    if (!focus) { root.innerHTML = '<div class="empty-box">현재 공개된 핵심 제품 정보가 없습니다.</div>'; return; }
+    root.innerHTML = `
+      <article class="card product-card strong ${focus.theme}">
+        <span class="tag theme-chip">공개 핵심 제품</span>
+        <h3>${esc(focus.name)}</h3>
+        <p>${esc(focus.problem || focus.headline || '')}</p>
+        <ul class="clean">${(focus.value_points || []).slice(0, 4).map((text) => `<li>${esc(text)}</li>`).join('')}</ul>
+        <div class="muted-box" style="margin-top:18px">${esc(focus.pricing_basis || '')}</div>
         <div class="actions">
-          <a class="button" href="${productPageHref(item.key, '#demo')}">실제 데모 보기</a>
-          <a class="button secondary" href="${productPageHref(item.key, '#intro')}">제품 설명</a>
-          <a class="button ghost" href="${productPageHref(item.key, '#order')}">플랜/결제</a>
+          <a class="button" href="${productPageHref(focus.key, '#demo')}">무료 데모 보기</a>
+          <a class="button secondary" href="${base}products/${focus.key}/plans/index.html">가격 보기</a>
+          <a class="button ghost" href="${base}products/${focus.key}/board/index.html">게시판 보기</a>
         </div>
       </article>
-    `).join('');
+      <article class="card strong">
+        <span class="tag">결제 후 열리는 항목</span>
+        <h3>전체 리포트, 맞춤 문구안, 정밀 발행, 이력 조회</h3>
+        <p>무료 데모에서는 상위 이슈와 위기 점수만 먼저 보여 주고, 결제 후에는 전체 이슈 목록과 페이지별 수정 우선순위, 사이트 맞춤 지침과 문구안, 로그인 이력 조회까지 연결합니다.</p>
+        <ul class="clean"><li>영역별 이슈 건수와 위기 점수</li><li>예상 과태료 범위와 수정 우선순위</li><li>맞춤 지침·문구 작성 추가 발행</li><li>로그인 후 지난 발행 이력 조회</li></ul>
+      </article>
+    `;
   }
 
   function buildModuleMatrix() {
     const root = document.getElementById('module-matrix');
     if (!root) return;
-    root.innerHTML = Object.values(products).map((item) => `
+    const modules = Object.values(products).filter((item) => item.key !== 'veridion');
+    if (!modules.length) { root.innerHTML = '<div class="empty-box">현재 분리 모듈이 없습니다.</div>'; return; }
+    root.innerHTML = modules.map((item) => `
       <article class="story-card ${item.theme}">
-        <span class="tag theme-chip">${esc(item.tag || item.label)}</span>
+        <span class="tag theme-chip">분리 모듈</span>
         <h3>${esc(item.name)}</h3>
         <p>${esc(item.summary || item.problem || '')}</p>
         <div class="actions">
-          <a class="button soft" href="${productPageHref(item.key, '#demo')}">입력하고 결과 보기</a>
-          <a class="button ghost" href="${productPageHref(item.key, '#delivery')}">전달 범위 보기</a>
+          <a class="button soft" href="${base}products/${item.key}/index.html">모듈 상세 보기</a>
+          <a class="button ghost" href="${base}products/${item.key}/board/index.html">모듈 게시판</a>
         </div>
       </article>
     `).join('');

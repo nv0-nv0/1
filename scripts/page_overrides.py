@@ -58,14 +58,78 @@ def build_page_schema(brand: dict, title: str, description: str, page_path: str,
     return json.dumps(schema, ensure_ascii=False, separators=(',', ':'))
 
 
+def static_header_markup(prefix: str, page_key: str, page_path: str) -> str:
+    product_active = 'active' if page_key in {'products', 'product', 'pricing', 'modules'} or '/products/' in page_path or '/modules/' in page_path else ''
+    board_active = 'active' if page_key == 'board' or '/board/' in page_path else ''
+    company_active = 'active' if page_key == 'company' or '/company/' in page_path else ''
+    auth_active = 'active' if page_key == 'auth' or '/auth/' in page_path else ''
+    home_active = 'active' if page_key == 'home' else ''
+    product_sub_guide = 'active' if '/products/veridion/' in page_path and not any(token in page_path for token in ('/plans/', '/board/', '/demo/', '/faq/', '/delivery/')) else ''
+    product_sub_plans = 'active' if '/products/veridion/plans/' in page_path or page_key == 'pricing' else ''
+    product_sub_board = 'active' if '/products/veridion/board/' in page_path else ''
+    quick_links = ''.join([
+        f'<a href="{prefix}products/veridion/index.html" class="sub-link {product_sub_guide}">안내</a>',
+        f'<a href="{prefix}products/veridion/plans/index.html" class="sub-link {product_sub_plans}">가격</a>',
+        f'<a href="{prefix}products/veridion/board/index.html" class="sub-link {product_sub_board}">게시판(자동발행)</a>',
+    ])
+    nav_links = ''.join([
+        f'<a href="{prefix}index.html" class="top-link {home_active}">홈</a>',
+        f'<a href="{prefix}products/veridion/index.html" class="top-link {product_active}">제품</a>',
+        f'<a href="{prefix}board/index.html" class="top-link {board_active}">게시판</a>',
+        f'<a href="{prefix}company/index.html" class="top-link {company_active}">회사소개</a>',
+        f'<a href="{prefix}auth/index.html" class="top-link {auth_active}">로그인(회원가입)</a>',
+    ])
+    return f'<button class="admin-fab" type="button" data-admin-entry="1" title="권한 확인 후 관리자 메뉴로 들어갑니다">관계자</button><div class="container nav-wrap"><div class="nav-left"><button class="mobile-nav-toggle" type="button" aria-expanded="false" aria-controls="mobile-drawer" data-nav-toggle="1">메뉴</button><a class="brand" href="{prefix}index.html"><span class="brand-mark">V</span><span class="brand-copy"><strong>Veridion</strong><span>온라인 개인사업자용 법률·규제 리스크 방어막</span></span></a></div><nav class="nav-links">{nav_links}</nav></div><div class="container subnav"><span class="subnav-label">제품</span>{quick_links}</div>'
+
+
+def static_side_nav_markup(prefix: str, page_key: str, page_path: str) -> str:
+    product_active = 'active' if page_key in {'products', 'product', 'pricing', 'modules'} or '/products/' in page_path or '/modules/' in page_path else ''
+    board_active = 'active' if page_key == 'board' or '/board/' in page_path else ''
+    company_active = 'active' if page_key == 'company' or '/company/' in page_path else ''
+    auth_active = 'active' if page_key == 'auth' or '/auth/' in page_path else ''
+    home_active = 'active' if page_key == 'home' else ''
+    product_sub_guide = 'active' if '/products/veridion/' in page_path and not any(token in page_path for token in ('/plans/', '/board/', '/demo/', '/faq/', '/delivery/')) else ''
+    product_sub_plans = 'active' if '/products/veridion/plans/' in page_path or page_key == 'pricing' else ''
+    product_sub_board = 'active' if '/products/veridion/board/' in page_path else ''
+    demo_active = 'active' if '/products/veridion/demo/' in page_path else ''
+    main_links = ''.join([
+        f'<a href="{prefix}index.html" class="side-link {home_active}">홈</a>',
+        f'<a href="{prefix}products/veridion/index.html" class="side-link {product_active}">제품</a>',
+        f'<a href="{prefix}board/index.html" class="side-link {board_active}">게시판</a>',
+        f'<a href="{prefix}company/index.html" class="side-link {company_active}">회사소개</a>',
+        f'<a href="{prefix}auth/index.html" class="side-link {auth_active}">로그인(회원가입)</a>',
+    ])
+    product_links = ''.join([
+        f'<a href="{prefix}products/veridion/index.html" class="side-sublink {product_sub_guide}">안내</a>',
+        f'<a href="{prefix}products/veridion/plans/index.html" class="side-sublink {product_sub_plans}">가격</a>',
+        f'<a href="{prefix}products/veridion/board/index.html" class="side-sublink {product_sub_board}">게시판(자동발행)</a>',
+        f'<a href="{prefix}products/veridion/demo/index.html" class="side-sublink {demo_active}">즉시 시연</a>',
+    ])
+    return f'<div class="side-nav-card"><button class="side-admin-button" type="button" data-admin-entry="1">관계자</button><a class="side-brand" href="{prefix}index.html"><span class="brand-mark">V</span><span><strong>Veridion</strong><small>리스크 점검 · 발행 · 이력 관리</small></span></a><nav class="side-nav-links"><div class="side-group"><span class="side-group-title">메인 메뉴</span>{main_links}</div><div class="side-group"><span class="side-group-title">제품</span>{product_links}</div></nav></div>'
+
+
+def static_footer_markup(brand: dict, prefix: str) -> str:
+    info = (brand or {}).get('business_info') or {}
+    email = info.get('contact_email') or brand.get('contact_email', 'ct@nv0.kr')
+    operator = info.get('operator_name') or brand.get('name', 'NV0')
+    notice = info.get('support_notice') or '정책과 제품 안내는 같은 기준으로 제공합니다.'
+    representative = info.get('representative_name', '')
+    biz_no = info.get('registration_number', '')
+    address = info.get('business_address', '')
+    return f'<div class="container footer-grid"><div><div class="brand"><span class="brand-mark">N0</span><span class="brand-copy"><strong>{escape(brand.get("name", "NV0"))}</strong><span>데모, 가격, 전달물을 먼저 보고 바로 판단할 수 있게 정리했습니다.</span></span></div><small style="margin-top:14px">공개 화면은 제품 이해와 구매 판단에 집중하고, 내부 운영 기능은 뒤로 분리했습니다.</small></div><div><strong>빠른 이동</strong><small><a href="{prefix}products/index.html">제품</a><br><a href="{prefix}board/index.html">게시판</a><br><a href="{prefix}company/index.html">회사소개</a><br><a href="{prefix}pricing/index.html">가격</a><br><a href="{prefix}faq/index.html">FAQ</a></small></div><div><strong>안내/정책</strong><small>상호: {escape(operator)}<br>{f"대표자: {escape(representative)}<br>" if representative else ""}{f"사업자등록번호: {escape(biz_no)}<br>" if biz_no else ""}<a href="mailto:{escape(email)}">{escape(email)}</a><br>{f"{escape(address)}<br>" if address else ""}{escape(notice)}<br>시행일 {POLICY_EFFECTIVE_DATE} · 최종 개정일 {POLICY_UPDATED_DATE}<br><a href="{prefix}portal/index.html">고객 포털</a><br><a href="{prefix}auth/index.html">로그인(회원가입)</a><br><a href="{prefix}legal/privacy/index.html">개인정보처리방침</a><br><a href="{prefix}legal/terms/index.html">이용약관</a><br><a href="{prefix}legal/refund/index.html">환불 정책</a><br><a href="{prefix}legal/cookies/index.html">쿠키 및 저장 안내</a></small></div></div>'
+
+
 def doc(brand: dict, title: str, description: str, body_class: str, body: str, *, depth: int, page_key: str, page_path: str, product_key: str | None = None) -> str:
     prefix = rel_prefix(depth)
-    attrs = [f'class="{body_class}"', f'data-page="{page_key}"']
+    attrs = [f'class="{body_class} with-side-nav"', f'data-page="{page_key}"']
     if product_key:
         attrs.append(f'data-product="{product_key}"')
     canonical = page_url(brand, page_path)
     og_type = 'product' if page_key == 'product' else 'website'
     schema_json = build_page_schema(brand, title, description, page_path, page_key, product_key)
+    header_markup = static_header_markup(prefix, page_key, page_path)
+    side_nav_markup = static_side_nav_markup(prefix, page_key, page_path)
+    footer_markup = static_footer_markup(brand, prefix)
     return f'''<!doctype html>
 <html lang="ko">
 <head>
@@ -94,9 +158,10 @@ def doc(brand: dict, title: str, description: str, body_class: str, body: str, *
   <script defer src="{prefix}assets/site.js"></script>
 </head>
 <body {' '.join(attrs)}>
-<header class="site-header" id="site-header"></header>
+<aside id="side-nav-shell" class="side-nav-shell">{side_nav_markup}</aside>
+<header class="site-header" id="site-header">{header_markup}</header>
 {body}
-<footer class="footer" id="site-footer"></footer>
+<footer class="footer" id="site-footer">{footer_markup}</footer>
 </body>
 </html>'''
 
@@ -343,66 +408,62 @@ def plan_cards_markup(product: dict) -> str:
 def build_home_page(data: dict) -> str:
     brand = data['brand']
     products = data['products']
+    focus = next((item for item in products if item['key'] == 'veridion'), products[0])
+    modules = [item for item in products if item['key'] != 'veridion']
     module_cards = ''.join(
-        f'<article class="story-card {escape(item["theme"])}"><span class="tag theme-chip">{escape(item["label"])}</span><h3>{escape(item["name"])}</h3><p>{escape(item["summary"])}</p><div class="small-actions"><a href="./products/{escape(item["key"] )}/index.html">요약 보기</a><a href="./products/{escape(item["key"] )}/demo/index.html">즉시 데모</a><a href="./products/{escape(item["key"] )}/plans/index.html">플랜</a></div></article>'
-        for item in products
+        f'<article class="story-card {escape(item["theme"])}"><span class="tag theme-chip">분리 모듈</span><h3>{escape(item["name"])}</h3><p>{escape(item["summary"])}</p><div class="small-actions"><a href="./products/{escape(item["key"] )}/index.html">모듈 상세</a><a href="./products/{escape(item["key"] )}/board/index.html">모듈 게시판</a></div></article>'
+        for item in modules
     )
     body = dedent(f'''    <main>
       <section class="hero">
         <div class="container hero-grid">
           <div class="card strong">
             <span class="kicker">{escape(brand["tagline"])}</span>
-            <h1>데모를 먼저 보고, 맞으면 바로 실행으로 이어지게 설계했습니다</h1>
-            <p class="lead">첫 화면에서는 무엇을 해결하는지와 어디서 시작하면 되는지만 짧게 보여줍니다. 자세한 비교와 입력은 제품별 화면으로 넘기고, 운영 기능은 뒤로 숨겨 고객이 판단과 실행에만 집중할 수 있게 구성했습니다.</p>
+            <h1>{escape(brand["hero_title"])}</h1>
+            <p class="lead">{escape(brand["hero_description"])}</p>
             <div class="actions">
-              <a class="button" href="./products/index.html">문제에 맞는 제품 고르기</a>
-              <a class="button secondary" href="./demo/index.html">대표 데모 바로 보기</a>
-              <a class="button ghost" href="./pricing/index.html">가격과 범위 먼저 보기</a>
+              <a class="button" href="./products/veridion/demo/index.html">무료 데모 바로 실행</a>
+              <a class="button secondary" href="./products/veridion/plans/index.html">가격과 발행 범위 보기</a>
+              <a class="button ghost" href="./board/index.html">자동발행 게시판 보기</a>
             </div>
             <div class="quick-link-grid">
-              <a class="quick-link-card" href="./engine/index.html"><strong>공통 엔진</strong><span>기록, 결제, 제공, 포털, 관리자 구조를 한 번에 봅니다.</span></a>
-              <a class="quick-link-card" href="./products/index.html"><strong>제품 모듈</strong><span>각 제품의 요약·데모·플랜·전달물로 바로 분기합니다.</span></a>
-              <a class="quick-link-card" href="./docs/index.html"><strong>문서 센터</strong><span>준비물, 전달물, 샘플 성격을 먼저 확인합니다.</span></a>
-              <a class="quick-link-card" href="./faq/index.html"><strong>FAQ</strong><span>반복 질문만 먼저 훑고 판단할 수 있습니다.</span></a>
+              <a class="quick-link-card" href="./products/veridion/index.html"><strong>제품 안내</strong><span>무엇을 점검하고 무엇을 발행하는지 먼저 봅니다.</span></a>
+              <a class="quick-link-card" href="./products/veridion/demo/index.html"><strong>무료 데모</strong><span>사이트 주소를 넣고 위기 점수와 영역별 건수를 먼저 봅니다.</span></a>
+              <a class="quick-link-card" href="./products/veridion/plans/index.html"><strong>가격</strong><span>결제 후 열리는 전체 리포트와 추가 발행 범위를 봅니다.</span></a>
+              <a class="quick-link-card" href="./auth/index.html"><strong>로그인</strong><span>결제 후 지난 발행 이력과 조회 코드를 계정으로 묶어 봅니다.</span></a>
             </div>
           </div>
           <div class="card accent">
-            <span class="tag" style="background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.12);color:#fff">빠른 시작</span>
-            <h3 style="font-size:1.72rem;margin:16px 0 10px">설명보다 먼저, 대표 결과를 바로 확인합니다</h3>
+            <span class="tag" style="background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.12);color:#fff">무료 데모에서 먼저 보이는 것</span>
+            <h3 style="font-size:1.72rem;margin:16px 0 10px">영역별 건수, 위기 점수, 예상 과태료를 먼저 공개합니다</h3>
             <div class="quick-demo-grid">
-              {''.join(f'<button class="quick-demo-button" type="button" data-quick-demo="{escape(item["key"])}" data-quick-scenario="0">{escape(item["name"])} 미리보기</button>' for item in products)}
+              <button class="quick-demo-button" type="button" data-quick-demo="veridion" data-quick-scenario="0">Veridion 미리보기</button>
             </div>
             <div class="result-box" id="quick-demo-result" role="status" aria-live="polite"></div>
-            <div class="notice notice-light" style="margin-top:16px"><strong>대표 흐름</strong><br>문제 선택 → 제품 모듈 → 즉시 데모 → 플랜 확인 → 결제 → 포털 확인</div>
+            <div class="notice notice-light" style="margin-top:16px"><strong>대표 흐름</strong><br>사이트 주소 입력 → 무료 데모 → 가격 확인 → 결제 → 발행 → 로그인 이력 조회</div>
           </div>
         </div>
       </section>
       <section class="section compact">
         <div class="container">
           <div class="section-head">
-            <div><h2>고객이 보는 화면과 내부 운영 화면을 분리했습니다</h2></div>
-            <p>홈은 제품 이해와 시작 경로에 집중하고, 제품 화면은 데모와 플랜 비교에 집중합니다. 실제 운영 기능은 관리자 허브로 분리해 공개 화면이 복잡해지지 않게 했습니다.</p>
+            <div><h2>지금 공개 판매와 검증에 집중하는 핵심 제품</h2></div>
+            <p>공개 홈에서는 Veridion 한 제품만 전면에 보여 줍니다. 다른 제품은 분리 모듈 허브에서 유지·검증하며, 추후 같은 품질 수준으로 결합합니다.</p>
           </div>
-          <div class="story-grid">
-            <article class="story-card"><span class="tag">공개 홈</span><h3>첫 클릭을 단순하게</h3><p>브랜드 기준과 빠른 시작 경로만 보여주고, 세부 정보는 각 제품 모듈로 보냅니다.</p></article>
-            <article class="story-card"><span class="tag">제품 모듈</span><h3>한 제품씩 깊게 보기</h3><p>요약, 즉시 데모, 플랜, 전달물, FAQ, 게시판으로 분기해 한 페이지 과밀을 줄였습니다.</p></article>
-            <article class="story-card"><span class="tag">관리자 허브</span><h3>운영 기능은 숨기고 분리</h3><p>재발행, 상태 변경, 자동발행 설정은 관리자 메뉴에서만 열리게 정리했습니다.</p></article>
-          </div>
+          <div class="product-grid" id="product-grid"><article class="card product-card strong {escape(focus['theme'])}"><span class="tag theme-chip">공개 핵심 제품</span><h3>{escape(focus['name'])}</h3><p>{escape(focus['problem'])}</p><ul class="clean">{''.join(f'<li>{escape(text)}</li>' for text in focus.get('value_points', [])[:4])}</ul><div class="small-actions"><a href="./products/veridion/index.html">제품 안내</a><a href="./products/veridion/demo/index.html">무료 데모</a><a href="./products/veridion/plans/index.html">가격</a></div></article><article class="card strong"><span class="tag">결제 후 열리는 항목</span><h3>전체 이슈, 맞춤 지침, 문구안, 정밀 리포트 발행</h3><p>무료 데모에서는 상위 이슈와 점수만 보여 주고, 결제 후에는 전체 리포트와 문구안을 엽니다. 추가 결제 시 해당 사이트에 맞춘 정밀 지침과 문구를 별도 리포트로 발행합니다.</p><ul class="clean"><li>전체 리스크 목록</li><li>페이지별 수정 우선순위</li><li>맞춤 문구안</li><li>로그인 이력 조회</li></ul></article></div>
         </div>
       </section>
       <section class="section compact">
         <div class="container">
-          <div class="section-head">
-            <div><h2>지금 가장 급한 문제에 맞는 제품부터 고르세요</h2></div>
-            <p>제품명을 몰라도 바로 선택할 수 있도록 각 제품을 해결 과제 중심으로 다시 정리했습니다.</p>
-          </div>
-          <div class="product-grid" id="product-grid">{module_cards}</div>
+          <div class="section-head"><div><h2>추후 결합 예정인 분리 모듈</h2></div><p>ClearPort, GrantOps, DraftForge는 별도 허브에서 유지합니다.</p></div>
+          <div class="story-grid" id="module-matrix">{module_cards}</div>
+          <div class="small-actions" style="margin-top:18px"><a href="./modules/index.html">분리 모듈 허브 보기</a></div>
         </div>
       </section>
       <section class="section compact">
         <div class="container accordion-stack">
           <details class="fold-card" open>
-            <summary><strong>작동 흐름</strong><span>공통 엔진 → 제품 모듈 → 데모 → 결제 → 포털 → 관리자</span></summary>
+            <summary><strong>작동 흐름</strong><span>무료 데모 → 결제 → 발행 → 포털 → 로그인 이력 조회</span></summary>
             <div><div class="timeline">{timeline_markup(data)}</div></div>
           </details>
           <details class="fold-card">
@@ -453,53 +514,36 @@ def build_products_page(data: dict) -> str:
     brand = data['brand']
     products = data['products']
     prefix = rel_prefix(1)
-    cards = []
-    for item in products:
-        fit = ''.join(f'<li>{escape(text)}</li>' for text in item.get('fit_for', [])[:2])
-        cards.append(f'''        <article class="card product-card strong {escape(item['theme'])}">
-          <span class="tag theme-chip">{escape(item['label'])}</span>
+    focus = next((item for item in products if item['key'] == 'veridion'), products[0])
+    modules = [item for item in products if item['key'] != 'veridion']
+    module_cards = ''.join(
+        f'''        <article class="story-card {escape(item['theme'])}">
+          <span class="tag theme-chip">분리 모듈</span>
           <h3>{escape(item['name'])}</h3>
-          <p>{escape(item['headline'])}</p>
-          <ul class="clean">{fit}</ul>
-          <div class="product-module-grid compact-grid">
-            <a class="quick-link-card" href="{prefix}products/{escape(item['key'])}/index.html"><strong>요약</strong><span>맞는 상황과 핵심 가치만 봅니다.</span></a>
-            <a class="quick-link-card" href="{prefix}products/{escape(item['key'])}/demo/index.html"><strong>즉시 데모</strong><span>바로 미리보고 저장합니다.</span></a>
-            <a class="quick-link-card" href="{prefix}products/{escape(item['key'])}/plans/index.html"><strong>플랜</strong><span>가격과 포함 범위를 확인합니다.</span></a>
-            <a class="quick-link-card" href="{prefix}products/{escape(item['key'])}/delivery/index.html"><strong>전달물</strong><span>무엇을 받는지 확인합니다.</span></a>
-            <a class="quick-link-card" href="{prefix}products/{escape(item['key'])}/faq/index.html"><strong>FAQ</strong><span>반복 질문만 먼저 봅니다.</span></a>
-            <a class="quick-link-card" href="{prefix}products/{escape(item['key'])}/board/index.html"><strong>게시판</strong><span>관련 공개 글과 사례를 읽습니다.</span></a>
-          </div>
-          <div class="actions">
-            <a class="button" href="{prefix}products/{escape(item['key'])}/demo/index.html">즉시 데모</a>
-            <a class="button secondary" href="{prefix}products/{escape(item['key'])}/plans/index.html">플랜 보기</a>
-            <a class="button ghost" href="{prefix}docs/{escape(item['key'])}/index.html">문서</a>
-          </div>
+          <p>{escape(item['summary'])}</p>
+          <div class="small-actions"><a href="{prefix}products/{escape(item['key'])}/index.html">모듈 상세</a><a href="{prefix}products/{escape(item['key'])}/board/index.html">모듈 게시판</a></div>
         </article>
-        ''')
+        '''
+        for item in modules
+    )
     body = dedent(f'''    <main>
       <section class="section">
         <div class="container page-hero">
           <div class="card strong">
             <div class="crumbs"><a href="{prefix}index.html">HOME</a><span class="sep">/</span><span>제품</span></div>
             <span class="kicker">Products</span>
-            <h1>제품명보다 지금 해결해야 하는 일부터 고르세요</h1>
-            <p class="lead">처음에는 한 줄 요약으로 가볍게 보고, 맞다고 느껴질 때만 데모, 가격, 전달물, FAQ로 더 깊게 들어갈 수 있게 구성했습니다. 불필요한 설명은 줄이고 결제 전 판단에 필요한 정보는 남겼습니다.</p>
-            <div class="actions"><a class="button" href="{prefix}solutions/index.html">문제별 시작</a><a class="button secondary" href="{prefix}pricing/index.html">가격 비교</a><a class="button ghost" href="{prefix}demo/index.html">공통 데모</a></div>
+            <h1>현재 공개 판매와 검증은 Veridion 한 제품에 집중합니다</h1>
+            <p class="lead">상단 메뉴의 제품은 Veridion을 뜻합니다. 사이트 주소를 넣어 무료 데모를 먼저 보고, 가격과 발행 범위를 확인한 뒤 결제와 로그인 이력 조회까지 같은 흐름으로 이어지게 구성했습니다.</p>
+            <div class="actions"><a class="button" href="{prefix}products/veridion/demo/index.html">무료 데모</a><a class="button secondary" href="{prefix}products/veridion/plans/index.html">가격 보기</a><a class="button ghost" href="{prefix}products/veridion/board/index.html">게시판 보기</a></div>
           </div>
-          <div class="card accent">
-            <span class="tag" style="background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.12);color:#fff">선택 기준</span>
-            <h3 style="font-size:1.72rem;margin:16px 0 10px">짧게 보고도 결정이 쉬워지게 만들었습니다</h3>
-            <div class="accordion-stack">
-              <details class="fold-card light-open" open><summary><strong>빠르게 고르기</strong><span>문제별 시작 → 즉시 데모 → 플랜 보기 순서면 충분합니다.</span></summary><div><p>처음부터 많은 정보를 읽지 않으셔도 됩니다. 문제를 고르고, 짧은 미리보기로 방향을 확인한 뒤, 플랜과 전달물만 보셔도 시작 여부를 판단하실 수 있게 구성했습니다.</p></div></details>
-              <details class="fold-card light-open"><summary><strong>깊게 검토하기</strong><span>문서와 FAQ, 전달물은 별도 모듈로 분리했습니다.</span></summary><div><p>자세한 준비물, 전달물, 정책은 따로 분리해 두었습니다. 그래서 개요 화면은 덜 복잡하고, 필요할 때는 오히려 더 깊고 실용적인 정보를 편하게 확인하실 수 있습니다.</p></div></details>
-            </div>
-          </div>
+          <div class="card accent"><span class="tag" style="background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.12);color:#fff">분리 모듈 원칙</span><h3 style="font-size:1.72rem;margin:16px 0 10px">다른 제품은 기능을 유지하되 공개 전면 노출만 분리합니다</h3><p>ClearPort, GrantOps, DraftForge는 분리 모듈 허브에서 따로 관리합니다. 기능은 유지하되 공개 주력 제품 흐름을 흐리지 않도록 구조를 분리했습니다.</p></div>
         </div>
       </section>
-      <section class="section compact"><div class="container"><div class="product-grid" id="product-grid">{''.join(cards)}</div></div></section>
+      <section class="section compact"><div class="container"><div class="product-grid" id="product-grid"><article class="card product-card strong {escape(focus['theme'])}"><span class="tag theme-chip">공개 핵심 제품</span><h3>{escape(focus['name'])}</h3><p>{escape(focus['headline'])}</p><ul class="clean">{''.join(f'<li>{escape(text)}</li>' for text in focus.get('fit_for', [])[:3])}</ul><div class="product-module-grid compact-grid"><a class="quick-link-card" href="{prefix}products/veridion/index.html"><strong>안내</strong><span>무엇을 점검하는지 봅니다.</span></a><a class="quick-link-card" href="{prefix}products/veridion/demo/index.html"><strong>무료 데모</strong><span>점수와 이슈를 먼저 확인합니다.</span></a><a class="quick-link-card" href="{prefix}products/veridion/plans/index.html"><strong>가격</strong><span>플랜과 범위를 비교합니다.</span></a><a class="quick-link-card" href="{prefix}products/veridion/board/index.html"><strong>게시판(자동발행)</strong><span>도움 글을 읽어봅니다.</span></a></div><div class="actions"><a class="button" href="{prefix}products/veridion/demo/index.html">무료 데모</a><a class="button secondary" href="{prefix}products/veridion/plans/index.html">가격 보기</a><a class="button ghost" href="{prefix}docs/veridion/index.html">문서</a></div></article></div></div></section>
+      <section class="section compact"><div class="container"><div class="section-head"><div><h2>분리 모듈 허브</h2></div><p>추후 결합 예정 모듈은 별도 허브에서 관리합니다.</p></div><div class="story-grid" id="module-matrix">{module_cards}</div><div class="small-actions" style="margin-top:18px"><a href="{prefix}modules/index.html">분리 모듈 전체 보기</a></div></div></section>
     </main>
     ''')
-    return doc(brand, f'제품 | {brand["name"]}', '문제별 제품 선택', 'products', body, depth=1, page_key='products', page_path='/products/index.html')
+    return doc(brand, f'제품 | {brand["name"]}', 'Veridion 공개 제품 허브', 'products', body, depth=1, page_key='products', page_path='/products/index.html')
 
 def build_engine_page(data: dict) -> str:
     brand = data['brand']
@@ -647,18 +691,18 @@ def build_board_page(data: dict) -> str:
         <div class="container page-hero">
           <div class="card strong">
             <div class="crumbs"><a href="{prefix}index.html">HOME</a><span class="sep">/</span><span>게시판</span></div>
-            <span class="kicker">Board</span>
-            <h1>게시판은 읽기 중심으로 두고 운영 기능은 분리했습니다</h1>
-            <p class="lead">공개 화면에서는 글을 읽고 제품을 이해하는 데만 집중할 수 있게 했고, 실제 생성·재발행·상태 변경은 관리자 허브에서만 다루도록 분리했습니다. 글을 본 뒤 바로 제품 요약, 데모, 플랜 비교로 넘어갈 수 있습니다.</p>
-            <div class="actions"><a class="button secondary" href="{prefix}products/index.html">제품 보기</a><a class="button ghost" href="{prefix}docs/index.html">문서 보기</a></div>
+            <span class="kicker">자동발행 게시판</span>
+            <h1>Veridion 이해를 돕는 자동발행 글을 한곳에서 봅니다</h1>
+            <p class="lead">게시판은 내부 공지판이 아니라 구매 판단을 돕는 공개 허브입니다. 글을 읽다가 바로 제품 설명, 무료 데모, 가격 확인으로 이어질 수 있도록 설계했습니다.</p>
+            <div class="actions"><a class="button secondary" href="{prefix}products/veridion/index.html">제품 안내</a><a class="button" href="{prefix}products/veridion/demo/index.html">무료 데모</a><a class="button ghost" href="{prefix}products/veridion/plans/index.html">가격 보기</a></div>
           </div>
-          <div class="card accent"><span class="tag" style="background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.12);color:#fff">읽기 모드</span><h3 style="font-size:1.72rem;margin:16px 0 10px">읽고 이해한 뒤 바로 다음 단계로 넘어갈 수 있습니다</h3><p>읽기 자체가 목적이 아니라 판단에 도움이 되도록 구성했습니다. 내용을 이해한 뒤 곧바로 제품 요약, 데모, 플랜으로 이어갈 수 있게 공개 화면을 단순화했습니다.</p></div>
+          <div class="card accent"><span class="tag" style="background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.12);color:#fff">운영 원칙</span><h3 style="font-size:1.72rem;margin:16px 0 10px">게시판은 Veridion 중심으로 노출하고, 다른 제품은 분리 모듈로 관리합니다</h3><p>공개 허브에서는 Veridion 관련 자동발행 글을 우선 노출합니다. 다른 제품은 내부 개발과 검증을 이어 가되, 공개 메인 흐름에서는 분리합니다.</p></div>
         </div>
       </section>
-      <section class="section compact"><div class="container"><div class="board-grid" id="public-board-grid"></div><div id="public-post-detail"></div></div></section>
+      <section class="section compact"><div class="container"><div class="board-grid" id="public-board-grid"></div><div id="public-post-detail"></div><div class="small-actions" style="margin-top:18px"><a href="{prefix}modules/index.html">분리 모듈 허브 보기</a></div></div></section>
     </main>
     ''')
-    return doc(brand, f'게시판 | {brand["name"]}', '공개 게시판', 'board', body, depth=1, page_key='board', page_path='/board/index.html')
+    return doc(brand, f'게시판 | {brand["name"]}', 'Veridion 자동발행 게시판', 'board', body, depth=1, page_key='board', page_path='/board/index.html')
 
 def build_terms_page(data: dict) -> str:
     brand = data['brand']
