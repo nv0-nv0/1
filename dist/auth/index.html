@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0f172a">
+  <meta name="format-detection" content="telephone=no,address=no,email=no,date=no">
+  <meta name="color-scheme" content="light">
+  <title>로그인 · 회원가입 | NV0</title>
+  <meta name="description" content="Veridion 로그인과 회원가입 페이지">
+  <meta name="robots" content="index,follow,max-image-preview:large,max-snippet:-1,max-video-preview:-1">
+  <meta property="og:locale" content="ko_KR">
+  <meta property="og:site_name" content="NV0">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="로그인 · 회원가입 | NV0">
+  <meta property="og:description" content="Veridion 로그인과 회원가입 페이지">
+  <meta property="og:url" content="https://nv0.kr/auth/">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="로그인 · 회원가입 | NV0">
+  <meta name="twitter:description" content="Veridion 로그인과 회원가입 페이지">
+  <link rel="canonical" href="https://nv0.kr/auth/">
+  <link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="../assets/site.css">
+  <script type="application/ld+json">{"@context":"https://schema.org","@type":"WebPage","name":"로그인 · 회원가입","description":"Veridion 로그인과 회원가입 페이지","url":"https://nv0.kr/auth/","inLanguage":"ko-KR","isPartOf":{"@type":"WebSite","name":"NV0","url":"https://nv0.kr/"}}</script>
+  <script src="../assets/site-data.js"></script>
+  <script defer src="../assets/site.js"></script>
+</head>
+<body class="auth" data-page="auth">
+<header class="site-header" id="site-header"></header>
+
+<main>
+  <section class="hero">
+    <div class="container page-hero">
+      <div class="card strong">
+        <span class="kicker">Portal Access</span>
+        <h1>로그인과 회원가입을 한 화면에서 처리합니다</h1>
+        <p class="lead">결제 후 발행된 리포트, 조회 코드, 지난 발행 이력을 같은 계정 기준으로 묶어 확인할 수 있게 구성했습니다.</p>
+        <div class="notice"><strong>회원가입 안내</strong><br>최초 구매 시 자동 계정이 생성될 수 있습니다. 별도 계정이 필요하면 아래 회원가입으로 바로 만들 수 있습니다.</div>
+      </div>
+      <div class="card accent">
+        <span class="tag" style="background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.12);color:#fff">계정 활용</span>
+        <ul class="inverse-list">
+          <li>지난 발행 이력 일괄 조회</li>
+          <li>조회 코드와 결제 건 묶음 관리</li>
+          <li>정밀 리포트 추가 발행 준비</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+  <section class="section compact">
+    <div class="container auth-grid">
+      <article class="card auth-panel">
+        <span class="tag">로그인</span>
+        <h3>기존 계정으로 접속</h3>
+        <form class="stack-form" id="portal-login-form">
+          <label>이메일<input type="email" name="email" placeholder="you@example.com" required></label>
+          <label>비밀번호<input type="password" name="password" placeholder="비밀번호 입력" required></label>
+          <button class="button" type="submit">로그인</button>
+        </form>
+      </article>
+      <article class="card auth-panel">
+        <span class="tag">회원가입</span>
+        <h3>새 계정 만들기</h3>
+        <form class="stack-form" id="portal-signup-form">
+          <label>회사명<input type="text" name="company" placeholder="상호 또는 회사명"></label>
+          <label>이름<input type="text" name="name" placeholder="담당자명" required></label>
+          <label>이메일<input type="email" name="email" placeholder="you@example.com" required></label>
+          <label>비밀번호<input type="password" name="password" placeholder="8자 이상 권장" required></label>
+          <button class="button secondary" type="submit">회원가입</button>
+        </form>
+      </article>
+    </div>
+    <div class="container auth-status-stack">
+      <div id="auth-status"></div>
+      <div id="auth-me"></div>
+      <div class="card">
+        <div class="section-head"><div><h2>지난 발행 이력</h2></div><div class="small-actions"><button class="button ghost" id="portal-logout-button" type="button">로그아웃</button></div></div>
+        <div id="auth-history"><div class="empty-box">로그인 후 지난 발행 이력이 여기에 표시됩니다.</div></div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer class="footer" id="site-footer"></footer>
+</body>
+</html>

@@ -1,0 +1,5 @@
+Contact: mailto:ct@nv0.kr
+Policy: https://nv0.kr/legal/privacy/
+Canonical: https://nv0.kr/.well-known/security.txt
+Expires: 2027-04-15T00:00:00.000Z
+Preferred-Languages: ko, en

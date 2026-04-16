@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0f172a">
+  <meta name="format-detection" content="telephone=no,address=no,email=no,date=no">
+  <meta name="color-scheme" content="light">
+  <title>관리자 허브 | NV0</title>
+  <meta name="description" content="운영 관리자 허브">
+  <meta name="robots" content="index,follow,max-image-preview:large,max-snippet:-1,max-video-preview:-1">
+  <meta property="og:locale" content="ko_KR">
+  <meta property="og:site_name" content="NV0">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="관리자 허브 | NV0">
+  <meta property="og:description" content="운영 관리자 허브">
+  <meta property="og:url" content="https://nv0.kr/admin/">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="관리자 허브 | NV0">
+  <meta name="twitter:description" content="운영 관리자 허브">
+  <link rel="canonical" href="https://nv0.kr/admin/">
+  <link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="../assets/site.css">
+  <script type="application/ld+json">{"@context":"https://schema.org","@type":"WebPage","name":"관리자 허브","description":"운영 관리자 허브","url":"https://nv0.kr/admin/","inLanguage":"ko-KR","isPartOf":{"@type":"WebSite","name":"NV0","url":"https://nv0.kr/"}}</script>
+  <script src="../assets/site-data.js"></script>
+  <script defer src="../assets/site.js"></script>
+</head>
+<body class="admin" data-page="admin">
+<header class="site-header" id="site-header"></header>
+
+<main id="admin-console">
+  <section class="section">
+    <div class="container page-hero">
+      <div class="card strong">
+        <div class="crumbs"><a href="../index.html">HOME</a><span class="sep">/</span><span>관리자 허브</span></div>
+        <span class="kicker">Admin hub</span>
+        <h1>관리 기능은 관리자 허브로만 모으고, 공개 화면에서는 감췄습니다</h1>
+        <p class="lead">비밀키가 있어야 운영 화면을 열 수 있습니다. 주문·결제·전달·포털 연결은 자동으로 이어지며, 이 화면에서는 자동화 상태 확인과 운영 안전성 점검만 합니다.</p>
+        <div class="result-box admin-gate" id="admin-gate-result">관리자 비밀키를 입력하면 운영 메뉴가 열립니다.</div>
+        <div class="auth-inline admin-auth-inline">
+          <input id="admin-token-input" placeholder="관리자 비밀키" autocomplete="off" spellcheck="false">
+          <button class="button secondary" type="button" id="admin-token-save">관리자 열기</button>
+          <button class="button ghost" type="button" id="admin-token-clear">토큰 지우기</button>
+        </div>
+      </div>
+      <div class="card accent">
+        <span class="tag" style="background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.12);color:#fff">운영 원칙</span>
+        <h3 style="font-size:1.72rem;margin:16px 0 10px">공개 화면은 판매에 집중하고, 운영 화면은 자동화 상태만 확인</h3>
+        <p>고객이 보는 화면에서는 데모와 결제만 남기고, 관리자 화면에서는 자동 처리 여부와 장애 징후만 확인합니다.</p>
+      </div>
+    </div>
+  </section>
+  <section class="section compact admin-shell" id="admin-shell">
+    <div class="container admin-layout">
+      <aside class="admin-sidebar card strong">
+        <span class="tag">관리 메뉴</span>
+        <nav class="admin-side-links">
+          <a href="#admin-overview">개요</a>
+          <a href="#admin-automation">자동발행 설정</a>
+          <a href="#admin-orders-section">주문/결제</a>
+          <a href="#admin-requests-section">요청</a>
+          <a href="#admin-publications-section">공개 글</a>
+        </nav>
+        <div class="result-box" id="admin-action-result">수동 보정 버튼은 기본 비활성화 상태입니다. 주문·결제·전달·콘텐츠 연결은 자동 흐름으로만 동작합니다.</div>
+      </aside>
+      <div class="admin-main-stack">
+        <section id="admin-overview" class="admin-section"><div class="admin-grid" id="admin-summary"></div></section>
+        <section id="admin-automation" class="admin-section"><div class="record-grid" id="admin-automation-grid"></div></section>
+        <section id="admin-orders-section" class="admin-section"><div class="admin-stack" id="admin-orders"></div></section>
+        <section id="admin-requests-section" class="admin-section"><div class="record-grid" id="admin-requests"></div></section>
+        <section id="admin-publications-section" class="admin-section"><div class="record-grid" id="admin-publications"></div><div class="card strong"><div class="mock-progress" id="admin-feed"></div></div></section>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer class="footer" id="site-footer"></footer>
+</body>
+</html>
