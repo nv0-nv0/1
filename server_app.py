@@ -59,6 +59,8 @@ NV0_TOSS_SECRET_KEY = os.getenv("NV0_TOSS_SECRET_KEY", "")
 NV0_TOSS_MOCK = os.getenv("NV0_TOSS_MOCK", "0").lower() in {"1", "true", "yes", "on"}
 NV0_TOSS_WEBHOOK_SECRET = os.getenv("NV0_TOSS_WEBHOOK_SECRET", "")
 NV0_ENABLE_MANUAL_ADMIN_ACTIONS = os.getenv("NV0_ENABLE_MANUAL_ADMIN_ACTIONS", "0").lower() in {"1", "true", "yes", "on"}
+NV0_ADMIN_COOKIE_NAME = os.getenv("NV0_ADMIN_COOKIE_NAME", "nv0_admin_session").strip() or "nv0_admin_session"
+ADMIN_SESSION_TTL_SECONDS = max(300, int(os.getenv("NV0_ADMIN_SESSION_TTL_SECONDS", "43200") or "43200"))
 TOSS_CONFIRM_URL = os.getenv("NV0_TOSS_CONFIRM_URL", "https://api.tosspayments.com/v1/payments/confirm")
 SUCCESS_PATH = "/payments/toss/success/"
 FAIL_PATH = "/payments/toss/fail/"
@@ -762,20 +764,13 @@ def product_prefix(key: str) -> str:
 
 
 def board_settings_record() -> dict[str, Any]:
-    return get_record("scheduler", "board-settings") or {
-        "id": "board-settings",
-        "ctaLabel": "제품 설명 보기",
-        "ctaHref": "",
-        "autoPublishAllProducts": False,
-        "createdAt": now_iso(),
-        "updatedAt": now_iso(),
-    }
+    return get_board_settings()
 
 
 def publication_cta_defaults(product_key: str) -> tuple[str, str]:
     target = PRODUCTS.get(product_key) or {}
     automation = target.get("board_automation") or {}
-    settings = board_settings_record()
+    settings = get_board_settings()
     global_label = clip_text(settings.get("ctaLabel"), 120)
     global_href = clip_text(settings.get("ctaHref"), 500)
     use_global = bool(settings.get("autoPublishAllProducts"))
@@ -1389,6 +1384,98 @@ VERIDION_ISSUE_RULES: dict[str, dict[str, Any]] = {
     'sitemap_missing': {'lawGroup': 'crawl', 'lawLabel': '탐색 품질', 'area': 'sitemap', 'penaltyMinKrw': 0, 'penaltyMaxKrw': 0},
 }
 
+VERIDION_INDUSTRY_BASELINES: dict[str, dict[str, Any]] = {
+    'commerce': {'label': '이커머스', 'baseline': 58, 'spread': 18, 'low': 28, 'high': 82},
+    'beauty': {'label': '뷰티·웰니스', 'baseline': 55, 'spread': 17, 'low': 26, 'high': 80},
+    'healthcare': {'label': '의료·건강', 'baseline': 61, 'spread': 16, 'low': 30, 'high': 84},
+    'education': {'label': '교육·서비스', 'baseline': 51, 'spread': 17, 'low': 24, 'high': 78},
+    'saas': {'label': 'B2B SaaS', 'baseline': 46, 'spread': 15, 'low': 22, 'high': 72},
+    'default': {'label': '일반 온라인 서비스', 'baseline': 52, 'spread': 18, 'low': 24, 'high': 80},
+}
+
+
+def normalize_veridion_industry(value: Any) -> str:
+    raw = clean(value).casefold()
+    if not raw:
+        return 'default'
+    mapping = {
+        'commerce': 'commerce', 'ecommerce': 'commerce', '쇼핑몰': 'commerce', '커머스': 'commerce', '이커머스': 'commerce',
+        'beauty': 'beauty', '뷰티': 'beauty', '웰니스': 'beauty',
+        'healthcare': 'healthcare', '의료': 'healthcare', '건강': 'healthcare', '헬스케어': 'healthcare',
+        'education': 'education', '교육': 'education', '서비스': 'education',
+        'saas': 'saas', 'b2b saas': 'saas',
+    }
+    for key, target in mapping.items():
+        if key in raw:
+            return target
+    return 'default'
+
+
+def build_veridion_peer_comparison(*, risk_score: int, issue_count: int, high_count: int, confidence_score: float, industry: Any) -> dict[str, Any]:
+    industry_key = normalize_veridion_industry(industry)
+    baseline = VERIDION_INDUSTRY_BASELINES.get(industry_key, VERIDION_INDUSTRY_BASELINES['default'])
+    weighted_score = float(risk_score) + min(14.0, issue_count * 1.6) + high_count * 3.5 - max(0.0, (confidence_score - 60.0) * 0.05)
+    distance = weighted_score - float(baseline['baseline'])
+    bottom_percent = int(round(50 + (distance / max(1.0, float(baseline['spread']))) * 18))
+    bottom_percent = max(3, min(97, bottom_percent))
+    if bottom_percent >= 80:
+        band = '하위권'
+    elif bottom_percent >= 60:
+        band = '주의권'
+    elif bottom_percent >= 35:
+        band = '중간권'
+    else:
+        band = '양호권'
+    return {
+        'industryKey': industry_key,
+        'industryLabel': baseline['label'],
+        'bottomPercent': bottom_percent,
+        'worseThanPercent': bottom_percent,
+        'betterThanPercent': max(3, min(97, 100 - bottom_percent)),
+        'band': band,
+        'benchmarkRange': {'low': baseline['low'], 'high': baseline['high']},
+        'disclaimer': '유사 업종 공개 페이지 기준의 내부 비교 추정치이며, 실제 제재 가능성이나 법률 판정과 동일하지 않습니다.',
+    }
+
+
+def build_veridion_service_bundle(report: dict[str, Any]) -> list[dict[str, Any]]:
+    risk = report.get('risk') or {}
+    issues = report.get('issues') or []
+    page_actions = report.get('pageActions') or []
+    site_rules = report.get('siteSpecificRules') or []
+    copy_suggestions = report.get('copySuggestions') or []
+    return [
+        {
+            'serviceNo': 1,
+            'key': 'full_detail_audit',
+            'title': '서비스 1 · 전체 세부 점검 리포트',
+            'summary': f"리포트 코드 {report.get('code')} 기준으로 전체 이슈 {len(issues)}건, 영역별 집계, 페이지별 결과, 예상 최대 노출 범위를 전부 엽니다.",
+            'includes': [
+                f"전체 이슈 {len(issues)}건 상세 표",
+                f"영역별 집계 {len(risk.get('lawGroups') or [])}축",
+                f"페이지별 조치 {len(page_actions)}건",
+                '고위험/중위험/저위험 우선순위',
+                '예상 최대 과태료 및 비금전 리스크 요약',
+            ],
+            'status': 'ready',
+        },
+        {
+            'serviceNo': 2,
+            'key': 'tailored_remediation_report',
+            'title': '서비스 2 · 사이트 맞춤형 수정안 리포트',
+            'summary': f"{report.get('website') or '해당 사이트'} 화면 구조와 문구 맥락에 맞춘 맞춤형 수정안, 교체 문구, 배치 권고를 발행합니다.",
+            'includes': [
+                f"맞춤 규칙 {len(site_rules)}종",
+                f"문구 수정 제안 {len(copy_suggestions)}종",
+                '개인정보·환불·약관·사업자 정보 교체안',
+                '화면별 적용 위치 및 우선순위',
+                '재점검 체크리스트',
+            ],
+            'status': 'ready',
+        },
+    ]
+
+
 
 def make_veridion_issue(*, code: str, level: str, category: str, title: str, detail: str, page_url: str, evidence: str, fix_copy: str = '', occurrence_count: int = 1) -> dict[str, Any]:
     meta = VERIDION_ISSUE_RULES.get(code, {})
@@ -1440,7 +1527,7 @@ def summarize_veridion_law_groups(issues: list[dict[str, Any]]) -> list[dict[str
     return rows
 
 
-def build_veridion_risk_profile(*, issues: list[dict[str, Any]], stats: dict[str, Any], has_forms: bool, has_checkout: bool) -> dict[str, Any]:
+def build_veridion_risk_profile(*, issues: list[dict[str, Any]], stats: dict[str, Any], has_forms: bool, has_checkout: bool, industry: Any = '') -> dict[str, Any]:
     high_count = len([item for item in issues if clean(item.get('level')) == 'high'])
     medium_count = len([item for item in issues if clean(item.get('level')) == 'medium'])
     low_count = len([item for item in issues if clean(item.get('level')) == 'low'])
@@ -1490,6 +1577,13 @@ def build_veridion_risk_profile(*, issues: list[dict[str, Any]], stats: dict[str
         'disclaimer': '법률 확정 판단이 아니라 공개 페이지 자동 점검을 기반으로 한 노출 추정치입니다.',
         'nonMonetaryRisks': ['시정 권고 또는 고지 보완 요구', '결제 이탈·소비자 분쟁 가능성', '광고 집행·검수 보류 가능성'],
     }
+    peer = build_veridion_peer_comparison(risk_score=risk_score, issue_count=len(issues), high_count=high_count, confidence_score=confidence_raw, industry=industry)
+    diagnostics = [
+        {'key': 'policy_coverage', 'label': '정책 고지 완성도', 'score': max(18, min(96, round(priority_coverage))), 'status': 'stable' if priority_coverage >= 80 else 'watch' if priority_coverage >= 55 else 'urgent', 'detail': f"핵심 페이지 커버리지 {priority_coverage}% 기준입니다."},
+        {'key': 'privacy_notice', 'label': '개인정보 안내 준비도', 'score': max(15, min(96, 90 - high_count * 8 - medium_count * 4 - (0 if has_forms else 12))), 'status': 'stable' if has_forms and high_count == 0 else 'watch' if medium_count < 2 else 'urgent', 'detail': '폼 직전 고지와 개인정보처리방침 연결 상태를 함께 봅니다.'},
+        {'key': 'checkout_disclosure', 'label': '결제·환불 고지 준비도', 'score': max(15, min(96, 92 - (12 if has_checkout else 2) * max(1, high_count or 1) + (6 if has_checkout else 0))), 'status': 'stable' if has_checkout and high_count == 0 else 'watch' if has_checkout else 'stable', 'detail': '결제 직전 환불·청약철회·문의 채널 고지를 우선 확인합니다.'},
+        {'key': 'consumer_dispute', 'label': '소비자 분쟁 유발 가능성', 'score': max(8, min(97, round(high_count * 19 + medium_count * 11 + min(18, signal_count * 1.5)))), 'status': 'urgent' if high_count >= 2 else 'watch' if medium_count >= 2 else 'stable', 'detail': '환불/표시/고지 누락이 실제 분쟁으로 번질 가능성을 추정합니다.'},
+    ]
     return {
         'issueCount': len(issues),
         'highRiskCount': high_count,
@@ -1505,6 +1599,8 @@ def build_veridion_risk_profile(*, issues: list[dict[str, Any]], stats: dict[str
         'estimatedExposure': exposure,
         'lawGroups': law_groups,
         'summaryLine': f"위기 점수 {risk_score}점 · 고위험 {high_count}건 · 예상 노출 {exposure['display']}",
+        'peerComparison': peer,
+        'diagnostics': diagnostics,
     }
 
 
@@ -1591,6 +1687,7 @@ def build_veridion_public_report(report: dict[str, Any]) -> dict[str, Any]:
         'summary': report.get('summary'),
         'stats': report.get('stats') or {},
         'risk': report.get('risk') or {},
+        'serviceBundle': report.get('serviceBundle') or [],
         'crawlPolicy': report.get('crawlPolicy') or {},
         'countsByPageType': report.get('countsByPageType') or {},
         'issues': safe_issues,
@@ -1602,6 +1699,7 @@ def build_veridion_public_report(report: dict[str, Any]) -> dict[str, Any]:
         'publicLocked': {
             'fullIssueCount': len(report.get('issues') or []),
             'fullRuleCount': len(report.get('siteSpecificRules') or []),
+            'serviceCount': len(report.get('serviceBundle') or []),
             'message': '전체 영역, 페이지별 조치, 맞춤 규칙은 결제 후 발행본에서 제공합니다.',
         },
     }
@@ -1794,7 +1892,7 @@ def build_veridion_scan(payload: dict[str, Any]) -> dict[str, Any]:
         copy_suggestions.append({'label': '기본 수정 안내', 'pageUrl': website, 'before': '강한 단정 또는 누락 리스크가 적은 편입니다.', 'after': '현재 구조는 비교적 안정적입니다. 다만 개인정보·결제·고지 링크를 주기적으로 다시 확인해 주세요.'})
 
     stats = {'discovered': discovered_count, 'fetched': fetched_count, 'blocked': len(blocked_urls), 'failed': len(failed_urls), 'forms': total_forms, 'internalLinks': total_internal_links, 'explorationRate': exploration_rate, 'priorityCoverage': priority_coverage, 'priorityTargets': len(expected_priority), 'priorityFound': found_priority, 'elapsedMs': round((time.monotonic() - started) * 1000, 1)}
-    risk = build_veridion_risk_profile(issues=issues, stats=stats, has_forms=has_forms, has_checkout=has_checkout)
+    risk = build_veridion_risk_profile(issues=issues, stats=stats, has_forms=has_forms, has_checkout=has_checkout, industry=payload.get('industry'))
     report_id = uid('vrep')
     report_code = make_public_code('VREP', 'veridion')
     issued_at = now_iso()
@@ -1803,6 +1901,7 @@ def build_veridion_scan(payload: dict[str, Any]) -> dict[str, Any]:
     report['siteSpecificRules'] = build_veridion_site_rules(report)
     report['pageActions'] = build_veridion_page_actions(report)
     report['remediationPlan'] = build_veridion_remediation_plan(report)
+    report['serviceBundle'] = build_veridion_service_bundle(report)
     return upsert_record('reports', report)
 
 
@@ -1868,14 +1967,16 @@ def build_veridion_result_pack_from_report(base_pack: dict[str, Any], report: di
         '탐색률이 낮더라도 신뢰도 등급을 따로 붙여 숫자 왜곡을 줄입니다.',
         '재점검은 같은 리포트 코드 아래에서 수정 전/후를 비교하는 방식으로 관리합니다.',
     ]
+    service_bundle = report.get('serviceBundle') or build_veridion_service_bundle(report)
     bundle = [
         {'title': '위기 점수 요약본', 'description': f"리포트 코드 {report.get('code')} 기준으로 위기 점수, 고위험 건수, 예상 노출 범위를 한 장 요약으로 발행합니다.", 'customerValue': '경영진 공유와 우선순위 합의를 빠르게 끝낼 수 있습니다.', 'usageMoment': '즉시 공유', 'expertNote': '첫 장에서 숫자와 범위를 같이 보여주면 내부 의사결정 속도가 올라갑니다.', 'status': 'ready'},
         {'title': '전체 이슈·페이지별 조치서', 'description': f"전체 이슈 {len(issues)}건과 페이지별 조치 {len(page_actions)}건을 같은 구조로 묶어 전달합니다.", 'customerValue': '디자인·개발·운영이 같은 작업지시서를 보고 움직일 수 있습니다.', 'usageMoment': '실행 착수', 'expertNote': '페이지 단위 조치가 있어야 실제 수정 속도가 빨라집니다.', 'status': 'ready'},
         {'title': '맞춤 규칙·재점검 큐', 'description': f"맞춤 규칙 {len(site_rules)}종과 재점검 단계 {len(remediation_plan)}단계를 운영 기준으로 남깁니다.", 'customerValue': '한 번 수정하고 끝나는 것이 아니라 재발 방지 기준까지 확보할 수 있습니다.', 'usageMoment': '후속 점검', 'expertNote': '운영 규칙까지 남겨야 1인 운영에서도 반복 비용이 줄어듭니다.', 'status': 'ready'}
     ]
-    pack['issuanceBundle'] = bundle
-    pack['deliveryAssets'] = deepcopy(bundle)
-    pack['valueNarrative'] = '이번 Veridion 결과는 무료 데모의 위기 점수·예상 노출 범위를 실제 발행본의 전체 이슈, 페이지별 조치, 맞춤 규칙으로 이어 붙인 구조입니다. 적은 비용으로 먼저 위기감을 만들고, 결제 후에는 실제 수정에 바로 쓰는 실행 문서까지 제공하도록 설계했습니다.'
+    pack['issuanceBundle'] = bundle + [{'title': item.get('title'), 'description': item.get('summary'), 'customerValue': '결제 후 실제로 열리는 납품형 서비스입니다.', 'usageMoment': '결제 완료 후 발행', 'expertNote': ', '.join(item.get('includes')[:2]), 'status': item.get('status', 'ready')} for item in service_bundle]
+    pack['deliveryAssets'] = deepcopy(pack['issuanceBundle'])
+    pack['postPaymentServices'] = service_bundle
+    pack['valueNarrative'] = '이번 Veridion 결과는 무료 데모의 위기 점수·예상 노출 범위를 실제 발행본의 전체 이슈, 페이지별 조치, 맞춤 규칙으로 이어 붙인 구조입니다. 결제 후에는 서비스 1 전체 세부 점검 리포트와 서비스 2 사이트 맞춤형 수정안 리포트를 같은 코드로 발행해 바로 실행 문서로 쓰도록 설계했습니다.'
     pack['buyerDecisionReason'] = '무료 데모에서 본 숫자와 실제 발행본의 전체 이슈가 같은 코드로 이어져, 결제 직후 체감 가치와 실행성이 높습니다.'
     pack['linkedReport'] = {'id': report.get('id'), 'code': report.get('code'), 'website': website, 'explorationRate': stats.get('explorationRate'), 'priorityCoverage': stats.get('priorityCoverage'), 'riskScore': risk.get('riskScore')}
     return pack
@@ -1907,21 +2008,21 @@ def build_veridion_demo_preview(report: dict[str, Any], company: str) -> dict[st
         'company': company or '샘플 회사',
         'goal': clean(report.get('focus')) or '준법 리스크 우선순위 정리',
         'keywords': ', '.join(report.get('options') or []),
-        'diagnosisSummary': f"위기 점수 {risk.get('riskScore', 0)}점, 고위험 {risk.get('highRiskCount', 0)}건, 예상 노출 {exposure.get('display', '비정량')}를 먼저 계산했습니다.",
+        'diagnosisSummary': f"위기 점수 {risk.get('riskScore', 0)}점, 고위험 {risk.get('highRiskCount', 0)}건, 유사 업종 대비 하위 {((risk.get('peerComparison') or {}).get('bottomPercent') or 0)}%, 예상 노출 {exposure.get('display', '비정량')}를 먼저 계산했습니다.",
         'sampleOutputs': [
             {'title': '위기 점수 요약', 'note': f"{risk.get('riskScore', 0)}점 · {risk.get('riskLabel', '확인')}", 'preview': risk.get('summaryLine') or report.get('summary') or '', 'whatIncluded': '고위험 건수, 전체 이슈 수, 예상 노출 범위, 신뢰도 등급을 함께 제공합니다.', 'actionNow': '무료 데모에서는 숫자와 상위 이슈를 먼저 확인하고 결제 후 전체 발행본으로 넘어갑니다.', 'buyerValue': '사이트 상태를 한 번에 설명할 숫자와 범위를 바로 확보할 수 있습니다.', 'expertLens': '탐색률과 커버리지는 따로 두고 위기 점수는 별도로 계산합니다.', 'whyItMatters': '무료 데모 단계에서 위험도를 직관적으로 느껴야 전환이 빨라집니다.', 'deliveryState': 'ready_to_issue'},
             {'title': '상위 이슈 미리보기', 'note': f"상위 {len(issues[:5])}건", 'preview': issues[0].get('detail') if issues else '상위 이슈가 많지 않은 편입니다.', 'whatIncluded': '상위 이슈 제목, 위험 수준, 영역만 먼저 보여주고 전체 목록은 발행본에서 엽니다.', 'actionNow': '결제 후 전체 이슈·페이지별 조치·맞춤 규칙을 발행합니다.', 'buyerValue': '데모에서 과도하게 다 보여주지 않으면서도 구매 판단은 충분히 돕습니다.', 'expertLens': '무료 데모는 위기감, 유료 발행본은 실행 문서에 집중합니다.', 'whyItMatters': '전환 구조가 분리돼야 데모와 유료의 역할이 명확해집니다.', 'deliveryState': 'ready_to_issue'},
             {'title': '발행본 연결', 'note': f"리포트 코드 {report.get('code')}", 'preview': '결제 후에는 전체 영역, 페이지별 조치, 맞춤 규칙, 재점검 단계까지 같은 코드로 연결됩니다.', 'whatIncluded': '전체 이슈, 법령군 요약, 페이지별 조치, 사이트 맞춤 규칙, 재점검 큐를 발행본에서 제공합니다.', 'actionNow': '샘플 결과를 본 뒤 같은 코드로 결제와 포털 전달 흐름을 이어갑니다.', 'buyerValue': '무료 데모와 유료 발행본이 끊기지 않고 같은 코드로 이어집니다.', 'expertLens': '같은 코드 체계가 있어야 데모-결제-포털-재점검의 운영 비용이 낮아집니다.', 'whyItMatters': '보고용이 아니라 납품·운영용 흐름이 연결됩니다.', 'deliveryState': 'ready_to_issue'}
         ],
         'quickWins': ['홈·푸터 정책 링크 보강', '입력/결제 직전 고지 보강', '강한 단정 표현 완화'],
-        'valueDrivers': ['위기 점수와 예상 노출 범위를 먼저 보여줍니다.', '결제 후 전체 발행본과 같은 리포트 코드로 이어집니다.', '재점검까지 한 흐름으로 관리할 수 있습니다.'],
+        'valueDrivers': ['위기 점수와 예상 노출 범위를 먼저 보여줍니다.', '유사 업종 대비 상대 위치와 영역별 집계를 함께 보여줍니다.', '결제 후 서비스 1 전체 세부 점검과 서비스 2 맞춤 수정안 발행으로 이어집니다.'],
         'successMetrics': [f"위기 점수 {risk.get('riskScore', 0)}점", f"탐색률 {stats.get('explorationRate', 0)}%", f"예상 노출 {exposure.get('display', '비정량')}"],
         'prioritySequence': ['1. 무료 데모에서 숫자와 상위 이슈 확인', '2. 결제 후 전체 발행본 열기', '3. 맞춤 규칙 반영 후 재점검'],
         'expertNotes': ['무료 데모는 상위 이슈만, 발행본은 전체 이슈를 제공합니다.', '예상 금액은 자동 추정치이며 법률 확정 판단이 아닙니다.', '같은 리포트 코드로 발행과 재점검을 연결합니다.'],
         'objectionHandling': ['무료 데모만으로도 위험도를 직관적으로 확인할 수 있습니다.', '결제 후에는 전체 영역과 맞춤 규칙이 바로 열립니다.'],
         'scorecard': {'stage': 'demo', 'stageLabel': '실제 탐색 데모', 'earned': 100 if stats.get('fetched', 0) else 68, 'total': 100, 'grade': 'A+' if stats.get('fetched', 0) else 'B', 'headline': 'Veridion 실제 탐색 품질 기준표', 'summary': '실제 페이지 읽기, 위기 점수 계산, 상위 이슈 추출, 발행 연결 준비까지 같은 흐름으로 확인합니다.', 'items': [{'label': '실제 페이지 읽기', 'score': 20 if stats.get('fetched', 0) else 8, 'max': 20, 'reason': f"실제 HTML 페이지 {stats.get('fetched', 0)}개를 읽었습니다." if stats.get('fetched', 0) else '실제 페이지를 읽지 못했습니다.'}, {'label': '탐색률 계산', 'score': 15 if stats.get('discovered', 0) else 6, 'max': 15, 'reason': f"발견 {stats.get('discovered', 0)}개 대비 탐색률 {stats.get('explorationRate', 0)}%를 계산했습니다."}, {'label': '핵심 페이지 커버리지', 'score': 15, 'max': 15, 'reason': f"핵심 페이지 커버리지 {stats.get('priorityCoverage', 0)}%를 별도로 확인했습니다."}, {'label': '위기 점수 계산', 'score': 15 if risk.get('issueCount', 0) else 8, 'max': 15, 'reason': risk.get('summaryLine') or '위기 점수 계산을 준비했습니다.'}, {'label': '상위 이슈 정리', 'score': 15, 'max': 15, 'reason': f"상위 이슈 {len(issues)}건을 먼저 정렬했습니다."}, {'label': '발행 연결 준비', 'score': 10 if report.get('issuance', {}).get('status') == 'ready' else 4, 'max': 10, 'reason': report.get('issuance', {}).get('readyReason') or '리포트 발행 준비 상태를 점검했습니다.'}, {'label': '재사용성', 'score': 10, 'max': 10, 'reason': '같은 리포트 코드로 포털·관리자·재점검 흐름을 연결할 수 있습니다.'}]},
         'ctaHint': f"리포트 코드 {report.get('code')} 기준으로 결제 후 발행 자료와 포털 결과를 같은 흐름으로 이어갑니다.",
-        'closingArgument': '이번 데모는 무료 단계에서 위기감이 분명히 느껴지도록 숫자와 상위 이슈만 보여주고, 유료 발행본에서 전체 이슈와 맞춤 규칙을 여는 구조로 구성했습니다.',
+        'closingArgument': '이번 데모는 무료 단계에서 위기감이 분명히 느껴지도록 숫자와 상위 이슈만 보여주고, 결제 후에는 서비스 1 전체 세부 점검과 서비스 2 맞춤 수정안 리포트를 발행하는 구조로 구성했습니다.',
         'linkedReport': {'id': report.get('id'), 'code': report.get('code')},
     }
 
@@ -3205,51 +3306,76 @@ def ensure_seed_publications() -> None:
         upsert_record("publications", pub)
 
 
+
+
+def scheduled_product_keys(settings: dict[str, Any]) -> list[str]:
+    selected = [item for item in (settings.get("selectedProducts") or []) if item in PRODUCTS]
+    if selected:
+        return selected
+    if bool(settings.get("autoPublishAllProducts")):
+        return list(PRODUCTS.keys())
+    return [key for key, item in PRODUCTS.items() if (item.get("board_automation") or {}).get("enabled")] or list(PRODUCTS.keys())
+
+
+def scheduler_window_key(now: datetime, settings: dict[str, Any]) -> str:
+    schedule_type = clean(settings.get("scheduleType") or "daily")
+    if schedule_type == "weekly":
+        iso_year, iso_week, _ = now.isocalendar()
+        return f"{iso_year}-W{iso_week:02d}"
+    if schedule_type == "interval":
+        hours = max(1, int(settings.get("intervalHours") or 24))
+        bucket = int(now.timestamp()) // (hours * 3600)
+        return f"interval-{hours}-{bucket}"
+    return now.strftime("%Y-%m-%d")
+
+
+def scheduler_allowed_runs(now: datetime, settings: dict[str, Any]) -> int:
+    frequency = max(1, int(settings.get("frequencyPerRun") or 1))
+    if clean(settings.get("scheduleType") or "daily") == "interval":
+        return frequency
+    slots = parse_time_slots(settings.get("timeSlots"))
+    if not slots:
+        return frequency
+    current = now.strftime("%H:%M")
+    passed = sum(1 for item in slots if item <= current)
+    return min(frequency, passed)
+
 def ensure_scheduled_publications() -> None:
     global _LAST_SCHEDULED_CHECK_MONOTONIC
-    ensure_seed_publications()
-    now_mono = time.monotonic()
-    if now_mono - _LAST_SCHEDULED_CHECK_MONOTONIC < SCHEDULE_CHECK_MIN_INTERVAL_SECONDS:
+    now_monotonic = time.monotonic()
+    if now_monotonic - _LAST_SCHEDULED_CHECK_MONOTONIC < SCHEDULE_CHECK_MIN_INTERVAL_SECONDS:
         return
     with _SCHEDULE_LOCK:
-        now_mono = time.monotonic()
-        if now_mono - _LAST_SCHEDULED_CHECK_MONOTONIC < SCHEDULE_CHECK_MIN_INTERVAL_SECONDS:
+        now_monotonic = time.monotonic()
+        if now_monotonic - _LAST_SCHEDULED_CHECK_MONOTONIC < SCHEDULE_CHECK_MIN_INTERVAL_SECONDS:
             return
-        now_dt = datetime.now(timezone.utc)
-        for key, target in PRODUCTS.items():
-            automation = target.get("board_automation") or {}
-            if not automation.get("enabled"):
-                continue
-            interval_hours = int(automation.get("interval_hours") or 72)
-            topics = automation.get("topics") or []
-            if not topics:
-                continue
-            state_id = f"scheduler-{key}"
-            state = get_record("scheduler", state_id) or {"id": state_id, "product": key, "lastPublishedAt": "", "topicIndex": 0, "createdAt": now_iso()}
-            last_dt = parse_iso(state.get("lastPublishedAt"))
-            if last_dt and (now_dt - last_dt).total_seconds() < interval_hours * 3600:
-                continue
-            topic_index = int(state.get("topicIndex") or 0) % len(topics)
-            topic = topics[topic_index]
-            created = now_iso()
-            pub = build_publication_payload(
-                product_key=key,
-                title=topic.get("title") or f"{target.get('name')} 참고 글",
-                summary=topic.get("summary") or target.get("summary", ""),
-                source="scheduled",
-                code=f"AUTO-{product_prefix(key)}-{topic_index + 1:03d}",
-                created_at=created,
-                cta_label=topic.get("ctaText") or publication_cta_defaults(key)[0],
-                cta_href=publication_cta_defaults(key)[1],
-                topic_summary=topic.get("summary") or target.get("summary", ""),
-                publication_id=uid("pubsch"),
-            )
-            upsert_record("publications", pub)
-            state["lastPublishedAt"] = created
-            state["topicIndex"] = (topic_index + 1) % len(topics)
-            state["updatedAt"] = created
+        _LAST_SCHEDULED_CHECK_MONOTONIC = now_monotonic
+        ensure_seed_publications()
+        settings = get_board_settings()
+        if not bool(settings.get("autoPublishEnabled", True)):
+            return
+        targets = scheduled_product_keys(settings)
+        if not targets:
+            return
+        now = datetime.now(timezone.utc).astimezone()
+        state = get_record("scheduler", "auto-publish-state") or {"id": "auto-publish-state", "windowKey": "", "windowCount": 0, "roundRobinIndex": 0, "lastRunAt": "", "createdAt": now_iso()}
+        window_key = scheduler_window_key(now, settings)
+        if clean(state.get("windowKey")) != window_key:
+            state["windowKey"] = window_key
+            state["windowCount"] = 0
+        allowed_runs = scheduler_allowed_runs(now, settings)
+        due_runs = max(0, allowed_runs - int(state.get("windowCount") or 0))
+        if due_runs <= 0:
             upsert_record("scheduler", state)
-        _LAST_SCHEDULED_CHECK_MONOTONIC = time.monotonic()
+            return
+        for _ in range(due_runs):
+            target = targets[int(state.get("roundRobinIndex") or 0) % len(targets)]
+            create_board_publication(target, source='scheduled')
+            state["roundRobinIndex"] = (int(state.get("roundRobinIndex") or 0) + 1) % len(targets)
+            state["windowCount"] = int(state.get("windowCount") or 0) + 1
+            state["lastRunAt"] = now_iso()
+        state["updatedAt"] = now_iso()
+        upsert_record("scheduler", state)
 
 
 def ensure_publications_for_order(order: dict[str, Any]) -> dict[str, Any]:
@@ -3688,17 +3814,128 @@ def update_order(order_id: str, updater) -> dict[str, Any]:
     return upsert_record("orders", updated)
 
 
+
+def admin_cookie_secure() -> bool:
+    return CANONICAL_SCHEME == "https" or NV0_BASE_URL.startswith("https://")
+
+
+def admin_cookie_samesite() -> str:
+    return "lax"
+
+
+def build_admin_login_page(message: str = "") -> str:
+    status_html = f"<p class='status'>{escape(message)}</p>" if message else "<p class='status'>관리자 인증 후에만 운영 메뉴와 설정 화면이 열립니다.</p>"
+    return f"""<!doctype html>
+<html lang=\"ko\">
+<head>
+  <meta charset=\"utf-8\">
+  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">
+  <meta name=\"robots\" content=\"noindex,nofollow\">
+  <title>NV0 관리자 로그인</title>
+  <style>
+    :root {{ color-scheme: light; }}
+    * {{ box-sizing: border-box; }}
+    body {{ margin:0; min-height:100vh; display:grid; place-items:center; padding:24px; font-family: Inter, Pretendard, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background:linear-gradient(180deg,#f8fafc 0%,#e2e8f0 100%); color:#0f172a; }}
+    .shell {{ width:100%; max-width:460px; background:rgba(255,255,255,.94); border:1px solid rgba(148,163,184,.22); border-radius:24px; box-shadow:0 28px 70px rgba(15,23,42,.16); padding:28px; }}
+    .eyebrow {{ display:inline-flex; padding:6px 10px; border-radius:999px; background:#e0f2fe; color:#075985; font-size:12px; font-weight:700; letter-spacing:.04em; text-transform:uppercase; }}
+    h1 {{ margin:14px 0 10px; font-size:30px; line-height:1.2; }}
+    p {{ margin:0 0 10px; color:#334155; line-height:1.6; }}
+    form {{ display:grid; gap:14px; margin-top:18px; }}
+    label {{ display:grid; gap:8px; font-weight:600; font-size:14px; color:#0f172a; }}
+    input {{ width:100%; border:1px solid #cbd5e1; border-radius:14px; padding:14px 15px; font:inherit; background:#fff; }}
+    input:focus {{ outline:none; border-color:#0f766e; box-shadow:0 0 0 4px rgba(15,118,110,.12); }}
+    button {{ border:0; border-radius:14px; padding:14px 16px; background:#0f766e; color:#fff; font:inherit; font-weight:700; cursor:pointer; }}
+    button.secondary {{ background:#e2e8f0; color:#0f172a; }}
+    .actions {{ display:grid; gap:10px; }}
+    .status {{ margin-top:12px; padding:12px 14px; border-radius:14px; background:#f8fafc; border:1px solid #e2e8f0; color:#334155; }}
+    .meta {{ margin-top:16px; font-size:13px; color:#64748b; }}
+  </style>
+</head>
+<body>
+  <main class=\"shell\">
+    <span class=\"eyebrow\">Admin protected</span>
+    <h1>NV0 관리자 로그인</h1>
+    <p>관리자 페이지 HTML, 메뉴, 설정값은 인증 완료 후에만 내려갑니다.</p>
+    {status_html}
+    <form method=\"post\" action=\"/admin/login\">
+      <label>관리자 키
+        <input type=\"password\" name=\"token\" autocomplete=\"current-password\" placeholder=\"관리자 키 입력\" required>
+      </label>
+      <input type=\"hidden\" name=\"next\" value=\"/admin/index.html\">
+      <div class=\"actions\">
+        <button type=\"submit\">관리자 로그인</button>
+        <button type=\"button\" class=\"secondary\" onclick=\"window.location.href='/'\">홈으로 이동</button>
+      </div>
+    </form>
+    <div class=\"meta\">로그인 성공 시 HttpOnly 보안 쿠키가 발급되며, API와 관리자 HTML은 같은 세션으로 보호됩니다.</div>
+  </main>
+</body>
+</html>"""
+
+
+def make_admin_session_cookie_value(expires_at: int) -> str:
+    payload = f"{expires_at}"
+    signature = hmac.new(NV0_ADMIN_TOKEN.encode("utf-8"), payload.encode("utf-8"), hashlib.sha256).hexdigest()
+    return f"{payload}.{signature}"
+
+
+def parse_admin_session_cookie(token: str) -> bool:
+    raw = clean(token)
+    if not raw or "." not in raw or not NV0_ADMIN_TOKEN:
+        return False
+    payload, signature = raw.rsplit(".", 1)
+    expected = hmac.new(NV0_ADMIN_TOKEN.encode("utf-8"), payload.encode("utf-8"), hashlib.sha256).hexdigest()
+    if not secrets.compare_digest(signature, expected):
+        return False
+    if not payload.isdigit():
+        return False
+    return int(payload) >= int(time.time())
+
+
+def request_has_admin_session(request: Request | None) -> bool:
+    if request is None:
+        return False
+    return parse_admin_session_cookie(request.cookies.get(NV0_ADMIN_COOKIE_NAME, ""))
+
+
+def set_admin_session_cookie(response: Response) -> int:
+    expires_at = int(time.time()) + ADMIN_SESSION_TTL_SECONDS
+    response.set_cookie(
+        key=NV0_ADMIN_COOKIE_NAME,
+        value=make_admin_session_cookie_value(expires_at),
+        max_age=ADMIN_SESSION_TTL_SECONDS,
+        expires=expires_at,
+        path="/",
+        secure=admin_cookie_secure(),
+        httponly=True,
+        samesite=admin_cookie_samesite(),
+    )
+    return expires_at
+
+
+def clear_admin_session_cookie(response: Response) -> None:
+    response.delete_cookie(
+        key=NV0_ADMIN_COOKIE_NAME,
+        path="/",
+        secure=admin_cookie_secure(),
+        httponly=True,
+        samesite=admin_cookie_samesite(),
+    )
+
 def require_admin(
+    request: Request,
     x_admin_token: str | None = Header(default=None),
     authorization: str | None = Header(default=None),
 ) -> None:
+    if request_has_admin_session(request):
+        return
     if not NV0_ADMIN_TOKEN and not REQUIRE_ADMIN_TOKEN:
         return
     token = clean(x_admin_token)
     if not token and authorization and authorization.lower().startswith("bearer "):
         token = clean(authorization.split(" ", 1)[1])
     if not token or not secrets.compare_digest(token, NV0_ADMIN_TOKEN):
-        raise HTTPException(status_code=401, detail="관리자 토큰이 필요합니다.")
+        raise HTTPException(status_code=401, detail="관리자 인증이 필요합니다.")
 
 
 def _health_dependency_snapshot(*, verbose: bool = False) -> dict[str, Any]:
@@ -3782,12 +4019,12 @@ def public_config() -> dict[str, Any]:
                 "failUrl": "" if BOARD_ONLY_MODE else f"{NV0_BASE_URL}{FAIL_PATH}",
             },
         },
-        "admin": {"protected": bool(NV0_ADMIN_TOKEN), "required": REQUIRE_ADMIN_TOKEN, "manualActionsEnabled": NV0_ENABLE_MANUAL_ADMIN_ACTIONS},
+        "admin": {"protected": bool(NV0_ADMIN_TOKEN), "required": REQUIRE_ADMIN_TOKEN, "manualActionsEnabled": NV0_ENABLE_MANUAL_ADMIN_ACTIONS, "cookieName": NV0_ADMIN_COOKIE_NAME, "sessionTtlSeconds": ADMIN_SESSION_TTL_SECONDS},
         "backup": {"enabled": True, "encrypted": bool(os.getenv("NV0_BACKUP_PASSPHRASE", ""))},
         "boardAutomation": {
             "enabledProducts": [key for key, item in PRODUCTS.items() if (item.get("board_automation") or {}).get("enabled")],
         },
-        "integration": {"system_config_endpoint": "/api/public/system-config", "demo_endpoint": "/api/public/demo-requests", "contact_endpoint": "/api/public/contact-requests", "portal_lookup_endpoint": "/api/public/portal/lookup", "order_endpoint": "/api/public/orders", "reserve_order_endpoint": "/api/public/orders/reserve", "toss_confirm_endpoint": "/api/public/payments/toss/confirm", "board_feed_endpoint": "/api/public/board/feed", "admin_validate_endpoint": "/api/admin/validate", "admin_state_endpoint": "/api/admin/state", "veridion_scan_endpoint": "/api/public/veridion/scan", "clearport_analyze_endpoint": "/api/public/clearport/analyze", "grantops_analyze_endpoint": "/api/public/grantops/analyze", "draftforge_analyze_endpoint": "/api/public/draftforge/analyze"},
+        "integration": {"system_config_endpoint": "/api/public/system-config", "demo_endpoint": "/api/public/demo-requests", "contact_endpoint": "/api/public/contact-requests", "portal_lookup_endpoint": "/api/public/portal/lookup", "order_endpoint": "/api/public/orders", "reserve_order_endpoint": "/api/public/orders/reserve", "toss_confirm_endpoint": "/api/public/payments/toss/confirm", "board_feed_endpoint": "/api/public/board/feed", "admin_validate_endpoint": "/api/admin/validate", "admin_state_endpoint": "/api/admin/state", "admin_login_endpoint": "/api/admin/login", "admin_logout_endpoint": "/api/admin/logout", "admin_session_endpoint": "/api/admin/session", "veridion_scan_endpoint": "/api/public/veridion/scan", "clearport_analyze_endpoint": "/api/public/clearport/analyze", "grantops_analyze_endpoint": "/api/public/grantops/analyze", "draftforge_analyze_endpoint": "/api/public/draftforge/analyze"},
         "boardOnly": BOARD_ONLY_MODE,
         "disabledFeatures": ["orders", "payments", "demo", "contact", "portal", "pricing", "docs", "cases", "faq"] if BOARD_ONLY_MODE else [],
     }
@@ -3799,17 +4036,49 @@ def board_settings_defaults() -> dict[str, Any]:
         "ctaLabel": "제품 설명 보기",
         "ctaHref": "/products/veridion/index.html#intro",
         "autoPublishAllProducts": True,
+        "autoPublishEnabled": True,
+        "scheduleType": "daily",
+        "frequencyPerRun": 1,
+        "timeSlots": ["09:00"],
+        "intervalHours": 24,
+        "selectedProducts": [],
+        "publishMode": "publish",
         "createdAt": now_iso(),
         "updatedAt": now_iso(),
     }
 
 
 def get_board_settings() -> dict[str, Any]:
-    current = get_record("settings", "board-settings") or {}
+    current = get_record("settings", "board-settings") or get_record("scheduler", "board-settings") or {}
     defaults = board_settings_defaults()
     merged = {**defaults, **current}
     merged.setdefault("id", "board-settings")
+    merged["timeSlots"] = parse_time_slots(merged.get("timeSlots"))
+    merged["selectedProducts"] = [item for item in (merged.get("selectedProducts") or []) if item in PRODUCTS]
     return merged
+
+
+def parse_time_slots(raw: Any) -> list[str]:
+    if isinstance(raw, list):
+        candidates = raw
+    else:
+        candidates = str(raw or "").split(",")
+    result: list[str] = []
+    for item in candidates:
+        value = clean(item)
+        if not value:
+            continue
+        if re.fullmatch(r"(?:[01]?\d|2[0-3]):[0-5]\d", value):
+            result.append(value.zfill(5))
+    return sorted(set(result))
+
+
+def parse_selected_products(raw: Any) -> list[str]:
+    if isinstance(raw, list):
+        values = [clean(item) for item in raw]
+    else:
+        values = [clean(item) for item in str(raw or "").split(",")]
+    return [item for item in values if item in PRODUCTS]
 
 
 def save_board_settings(payload: dict[str, Any]) -> dict[str, Any]:
@@ -3817,6 +4086,14 @@ def save_board_settings(payload: dict[str, Any]) -> dict[str, Any]:
     current["ctaLabel"] = clip_text(payload.get("ctaLabel"), 120) or current.get("ctaLabel") or "제품 설명 보기"
     current["ctaHref"] = clip_text(payload.get("ctaHref"), 300) or current.get("ctaHref") or "/products/veridion/index.html#intro"
     current["autoPublishAllProducts"] = bool(payload.get("autoPublishAllProducts"))
+    current["autoPublishEnabled"] = bool(payload.get("autoPublishEnabled", True))
+    schedule_type = clean(payload.get("scheduleType") or current.get("scheduleType") or "daily").lower()
+    current["scheduleType"] = schedule_type if schedule_type in {"daily", "weekly", "interval"} else "daily"
+    current["frequencyPerRun"] = max(1, min(24, int(payload.get("frequencyPerRun") or current.get("frequencyPerRun") or 1)))
+    current["intervalHours"] = max(1, min(168, int(payload.get("intervalHours") or current.get("intervalHours") or 24)))
+    current["timeSlots"] = parse_time_slots(payload.get("timeSlots") or current.get("timeSlots") or ["09:00"]) or ["09:00"]
+    current["selectedProducts"] = parse_selected_products(payload.get("selectedProducts") or current.get("selectedProducts") or [])
+    current["publishMode"] = "publish" if clean(payload.get("publishMode") or current.get("publishMode") or "publish") != "draft" else "draft"
     current["updatedAt"] = now_iso()
     current.setdefault("createdAt", now_iso())
     return upsert_record("settings", current)
@@ -4144,6 +4421,8 @@ def create_app() -> FastAPI:
             return board_only_json_response('이 기능은 비활성화되었습니다. 현재는 자료실 허브만 운영합니다.')
         if BOARD_ONLY_MODE and request.method == 'GET' and request.url.path not in HEALTH_ENDPOINTS and not request.url.path.startswith('/api/') and not board_only_path_allowed(request.url.path):
             return board_only_html_response(request.url.path)
+        if request.method == 'GET' and request.url.path in {'/admin', '/admin/', '/admin/index.html'} and not request_has_admin_session(request):
+            return HTMLResponse(content=build_admin_login_page(), headers={'Cache-Control': 'no-store', 'X-Robots-Tag': 'noindex, nofollow'})
         response = await call_next(request)
         response.headers.setdefault("X-Content-Type-Options", "nosniff")
         response.headers.setdefault("X-Frame-Options", "SAMEORIGIN")
@@ -4206,6 +4485,51 @@ def create_app() -> FastAPI:
     @app.get("/api/health")
     def health() -> dict[str, Any]:
         return public_health_payload(verbose=PUBLIC_HEALTH_VERBOSE)
+
+    @app.get("/admin", include_in_schema=False)
+    @app.get("/admin/", include_in_schema=False)
+    @app.get("/admin/index.html", include_in_schema=False)
+    def admin_index(request: Request) -> Response:
+        if not request_has_admin_session(request):
+            return HTMLResponse(content=build_admin_login_page(), headers={"Cache-Control": "no-store", "X-Robots-Tag": "noindex, nofollow"})
+        html = DIST.joinpath("admin", "index.html").read_text(encoding="utf-8").replace('content="index,follow,max-image-preview:large,max-snippet:-1,max-video-preview:-1"', 'content="noindex,nofollow"')
+        return HTMLResponse(content=html, headers={"Cache-Control": "no-store", "X-Robots-Tag": "noindex, nofollow"})
+
+    @app.get("/admin/login", include_in_schema=False)
+    @app.get("/admin/login/", include_in_schema=False)
+    @app.get("/admin/login/index.html", include_in_schema=False)
+    def admin_login_page(request: Request) -> Response:
+        if request_has_admin_session(request):
+            return Response(status_code=303, headers={"Location": "/admin/index.html"})
+        return HTMLResponse(content=build_admin_login_page(), headers={"Cache-Control": "no-store", "X-Robots-Tag": "noindex, nofollow"})
+
+    @app.post("/admin/login", include_in_schema=False)
+    async def admin_login_submit(request: Request) -> Response:
+        form = await request.form()
+        token = clean(form.get("token"))
+        next_path = clip_text(form.get("next"), 200) or "/admin/index.html"
+        if token and secrets.compare_digest(token, NV0_ADMIN_TOKEN):
+            response = Response(status_code=303, headers={"Location": next_path})
+            set_admin_session_cookie(response)
+            return response
+        return HTMLResponse(content=build_admin_login_page("관리자 키가 맞지 않습니다."), status_code=401, headers={"Cache-Control": "no-store", "X-Robots-Tag": "noindex, nofollow"})
+
+    @app.post("/api/admin/login")
+    def api_admin_login(payload: dict[str, Any], response: Response) -> dict[str, Any]:
+        token = clean(payload.get("token"))
+        if not token or not secrets.compare_digest(token, NV0_ADMIN_TOKEN):
+            raise HTTPException(status_code=401, detail="관리자 키가 맞지 않습니다.")
+        expires_at = set_admin_session_cookie(response)
+        return {"ok": True, "authenticated": True, "expiresAt": datetime.fromtimestamp(expires_at, tz=timezone.utc).isoformat()}
+
+    @app.post("/api/admin/logout")
+    def api_admin_logout(response: Response) -> dict[str, Any]:
+        clear_admin_session_cookie(response)
+        return {"ok": True, "authenticated": False}
+
+    @app.get("/api/admin/session")
+    def api_admin_session(request: Request) -> dict[str, Any]:
+        return {"ok": True, "authenticated": request_has_admin_session(request)}
 
     @app.get("/api/admin/health")
     def admin_health(_: None = Depends(require_admin)) -> dict[str, Any]:
@@ -4354,16 +4678,12 @@ def create_app() -> FastAPI:
 
     @app.get("/api/admin/board-settings")
     def admin_board_settings(_: None = Depends(require_admin)) -> dict[str, Any]:
-        return {"ok": True, "settings": board_settings_record(), "state": state_payload()}
+        return {"ok": True, "settings": get_board_settings(), "state": state_payload()}
 
     @app.post("/api/admin/board-settings")
     def admin_set_board_settings(payload: dict[str, Any], _: None = Depends(require_admin)) -> dict[str, Any]:
-        settings = board_settings_record()
-        settings["ctaLabel"] = clip_text(payload.get("ctaLabel"), 120) or settings.get("ctaLabel") or "제품 설명 보기"
-        settings["ctaHref"] = clip_text(payload.get("ctaHref"), 500)
-        settings["autoPublishAllProducts"] = bool(payload.get("autoPublishAllProducts"))
-        settings["updatedAt"] = now_iso()
-        upsert_record("scheduler", settings)
+        settings = save_board_settings(payload)
+        ensure_scheduled_publications()
         return {"ok": True, "settings": settings, "state": state_payload()}
 
     @app.post("/api/admin/library/publications")
