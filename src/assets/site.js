@@ -150,9 +150,21 @@
           input?.focus();
           return;
         }
-        if (result) result.textContent = '비밀키가 확인되었습니다. 관리자 허브로 이동합니다.';
+        if (result) result.textContent = root.dataset.redirect === 'false'
+          ? '비밀키가 확인되었습니다. 이 화면에서 운영 메뉴를 엽니다.'
+          : '비밀키가 확인되었습니다. 관리자 허브로 이동합니다.';
         close();
-        if (root.dataset.redirect !== 'false') window.location.href = `${base}admin/index.html`;
+        if (root.dataset.redirect !== 'false') {
+          window.location.href = `${base}admin/index.html`;
+          return;
+        }
+        await bootstrapAdminGate();
+        renderAdminSummary();
+        bindAdminActions();
+        const tokenInput = document.getElementById('admin-token-input');
+        if (tokenInput) tokenInput.value = getAdminToken();
+        const shell = document.getElementById('admin-shell');
+        shell?.scrollIntoView({ behavior:'smooth', block:'start' });
       });
     }
     return { modal, input, result };
@@ -165,7 +177,9 @@
       if (modalUi.input) modalUi.input.value = getAdminToken();
       const modalRoot = document.getElementById('admin-access-modal-root');
       if (modalRoot) modalRoot.dataset.redirect = redirect === false ? 'false' : 'true';
-      if (modalUi.result) modalUi.result.textContent = '관리 비밀키를 입력하면 관리자 기능이 열립니다.';
+      if (modalUi.result) modalUi.result.textContent = redirect === false
+        ? '관리 비밀키를 입력하면 이 화면에서 바로 운영 메뉴를 엽니다.'
+        : '관리 비밀키를 입력하면 관리자 허브로 이동합니다.';
       setTimeout(() => modalUi.input?.focus(), 10);
       return false;
     }
@@ -680,15 +694,28 @@
     await refreshSession();
   }
 
+  async function openAdminEntryFromTrigger(trigger){
+    if (!trigger) return false;
+    const stayOnPage = path.includes('/admin/') || trigger.dataset.adminStay === '1';
+    await requestAdminAccess(!stayOnPage);
+    return true;
+  }
   function bindAdminEntry(){
     document.querySelectorAll('[data-admin-entry]').forEach((trigger) => {
       if (trigger.dataset.bound === '1') return;
       trigger.dataset.bound = '1';
       trigger.addEventListener('click', async (event) => {
         event.preventDefault();
-        if (path.includes('/admin/')) return;
-        await requestAdminAccess(true);
+        await openAdminEntryFromTrigger(trigger);
       });
+    });
+    if (document.body?.dataset.adminEntryDelegated === '1') return;
+    document.body.dataset.adminEntryDelegated = '1';
+    document.addEventListener('click', async (event) => {
+      const trigger = event.target.closest('[data-admin-entry]');
+      if (!trigger || trigger.dataset.bound === '1') return;
+      event.preventDefault();
+      await openAdminEntryFromTrigger(trigger);
     });
   }
   function renderFooter(){
