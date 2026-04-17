@@ -27,7 +27,7 @@ from uuid import uuid4
 
 from bs4 import BeautifulSoup
 from bs4 import FeatureNotFound
-from fastapi import Depends, FastAPI, Header, HTTPException, Request, Response
+from fastapi import Depends, FastAPI, File, Header, HTTPException, Request, Response, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import HTMLResponse, JSONResponse
@@ -39,6 +39,8 @@ DIST = ROOT / "dist"
 DATA_FILE = SRC / "data" / "site.json"
 APP_DATA_DIR = Path(os.getenv("NV0_DATA_DIR", str(ROOT / "data")))
 APP_DATA_DIR.mkdir(parents=True, exist_ok=True)
+LIBRARY_ASSET_DIR = APP_DATA_DIR / "library_assets"
+LIBRARY_ASSET_DIR.mkdir(parents=True, exist_ok=True)
 DB_PATH = Path(os.getenv("NV0_DB_PATH", str(APP_DATA_DIR / "nv0.db")))
 DB_PATH.parent.mkdir(parents=True, exist_ok=True)
 
@@ -46,7 +48,7 @@ SITE_DATA = json.loads(DATA_FILE.read_text(encoding="utf-8"))
 PRODUCTS = {item["key"]: item for item in SITE_DATA["products"]}
 PUBLIC_BOARD = SITE_DATA.get("public_board", [])
 BOARD_ONLY_MODE = os.getenv("NV0_BOARD_ONLY_MODE", "0").lower() in {"1", "true", "yes", "on"}
-STORE_TYPES = ["publications", "scheduler"] if BOARD_ONLY_MODE else ["orders", "demos", "contacts", "lookups", "reports", "publications", "webhook_events", "scheduler", "accounts", "sessions"]
+STORE_TYPES = ["publications", "scheduler", "assets"] if BOARD_ONLY_MODE else ["orders", "demos", "contacts", "lookups", "reports", "publications", "webhook_events", "scheduler", "assets", "accounts", "sessions"]
 
 APP_PORT = str(os.getenv("PORT", "8000") or "8000").strip() or "8000"
 NV0_BASE_URL = os.getenv("NV0_BASE_URL", f"http://127.0.0.1:{APP_PORT}").rstrip("/")
@@ -210,7 +212,7 @@ def board_only_html_response(path: str) -> HTMLResponse:
         "<!doctype html><html lang='ko'><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>"
         "<title>410 Gone</title><style>body{font-family:system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#0f172a;color:#e2e8f0;margin:0}"
         "main{max-width:760px;margin:8vh auto;padding:24px}.card{background:#111827;border:1px solid #334155;border-radius:20px;padding:24px}a{color:#93c5fd}</style></head>"
-        f"<body><main><div class='card'><h1>이 경로는 운영하지 않습니다</h1><p>현재 NV0는 AI 자동발행 블로그 허브 중심으로 운영합니다.</p><p>요청 경로: <code>{path}</code></p><p><a href='/board/'>게시판으로 이동</a> · <a href='/admin/'>관리자 열기</a></p></div></main></body></html>"
+        f"<body><main><div class='card'><h1>이 경로는 운영하지 않습니다</h1><p>현재 NV0는 자료실 중심 운영 화면만 제공합니다.</p><p>요청 경로: <code>{path}</code></p><p><a href='/board/'>자료실로 이동</a> · <a href='/admin/'>관리자 열기</a></p></div></main></body></html>"
     ))
 
 
@@ -757,6 +759,148 @@ def product_name(key: str) -> str:
 def product_prefix(key: str) -> str:
     mapping = {"veridion": "VER", "clearport": "CLR", "grantops": "GRT", "draftforge": "DRF"}
     return mapping.get(key, clean(key)[:3].upper() or "GEN")
+
+
+def board_settings_record() -> dict[str, Any]:
+    return get_record("scheduler", "board-settings") or {
+        "id": "board-settings",
+        "ctaLabel": "제품 설명 보기",
+        "ctaHref": "",
+        "autoPublishAllProducts": False,
+        "createdAt": now_iso(),
+        "updatedAt": now_iso(),
+    }
+
+
+def publication_cta_defaults(product_key: str) -> tuple[str, str]:
+    target = PRODUCTS.get(product_key) or {}
+    automation = target.get("board_automation") or {}
+    settings = board_settings_record()
+    global_label = clip_text(settings.get("ctaLabel"), 120)
+    global_href = clip_text(settings.get("ctaHref"), 500)
+    use_global = bool(settings.get("autoPublishAllProducts"))
+    label = global_label if use_global and global_label else clip_text(automation.get("cta_label"), 120) or "제품 설명 보기"
+    href = global_href if use_global and global_href else clip_text(automation.get("cta_href"), 500) or f"/products/{product_key}/index.html#intro"
+    return label, href
+
+
+def intake_required_for_order(order: dict[str, Any]) -> bool:
+    if not clip_text(order.get("company"), 160):
+        return True
+    if not clip_text(order.get("name"), 120):
+        return True
+    if not validate_email(normalize_email(order.get("email"))):
+        return True
+    if clean(order.get("product")) == "veridion" and not clip_text(order.get("link") or order.get("website"), 500):
+        return True
+    return False
+
+
+def finalize_paid_order_or_require_intake(order: dict[str, Any]) -> dict[str, Any]:
+    if intake_required_for_order(order):
+        order["paymentStatus"] = "paid"
+        order["status"] = "intake_required"
+        order["resultPack"] = None
+        order["publicationIds"] = order.get("publicationIds") or []
+        order["publicationCount"] = len(order.get("publicationIds") or [])
+        delivery_meta = deepcopy(order.get("deliveryMeta") or {})
+        delivery_meta["automation"] = "awaiting_intake"
+        delivery_meta.pop("deliveredAt", None)
+        order["deliveryMeta"] = delivery_meta
+        return order
+    return finalize_paid_order(order)
+
+
+def submit_order_intake(order_id: str, payload: dict[str, Any]) -> dict[str, Any]:
+    with order_lock(order_id):
+        order = get_record("orders", order_id)
+        if not order:
+            raise HTTPException(status_code=404, detail="결제 기록을 찾지 못했습니다.")
+        if clean(order.get("paymentStatus")) != "paid":
+            raise HTTPException(status_code=400, detail="결제 완료 후에만 진행 정보를 입력할 수 있습니다.")
+        order["company"] = clip_text(payload.get("company") or order.get("company"), 160)
+        order["name"] = clip_text(payload.get("name") or order.get("name"), 120)
+        order["email"] = normalize_email(payload.get("email") or order.get("email"))
+        link_value = clip_text(payload.get("website") or payload.get("link") or order.get("link") or order.get("website"), 500)
+        if link_value:
+            order["link"] = link_value
+            order["website"] = link_value
+        note = clip_text(payload.get("note"), 1000)
+        if note:
+            order["note"] = note
+        order["updatedAt"] = now_iso()
+        updated = finalize_paid_order_or_require_intake(order)
+        return upsert_record("orders", updated)
+
+
+def create_library_publication(payload: dict[str, Any]) -> dict[str, Any]:
+    product_key = clean(payload.get("product"))
+    validate_product(product_key)
+    title = clip_text(payload.get("title"), 200)
+    summary = clip_text(payload.get("summary"), 400)
+    body = clip_text(payload.get("body"), 20000)
+    if not title:
+        raise HTTPException(status_code=400, detail="자료 제목이 필요합니다.")
+    default_label, default_href = publication_cta_defaults(product_key)
+    asset_url = clip_text(payload.get("assetUrl"), 500)
+    cta_href = clip_text(payload.get("ctaHref"), 500) or asset_url or default_href
+    pub = build_publication_payload(
+        product_key=product_key,
+        title=title,
+        summary=summary or body[:180] or f"{product_name(product_key)} 자료",
+        source="admin-manual",
+        code=f"LIB-{product_prefix(product_key)}-{datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S')}",
+        created_at=now_iso(),
+        cta_label=clip_text(payload.get("ctaLabel"), 120) or default_label,
+        cta_href=cta_href,
+        topic_summary=summary or body[:180] or title,
+        publication_id=uid("publib"),
+    )
+    if body:
+        pub["body"] = body
+        pub["bodyHtml"] = f"<div class='article-shell'><p class='article-lead'>{escape(summary or title)}</p><div class='article-sections'><section><h4>{escape(title)}</h4><p>{escape(body).replace(chr(10), '<br>')}</p></section></div></div>"
+    if asset_url:
+        pub["assetUrl"] = asset_url
+    return upsert_record("publications", pub)
+
+
+def create_library_asset(payload: dict[str, Any]) -> dict[str, Any]:
+    product_key = clean(payload.get("product"))
+    validate_product(product_key)
+    title = clip_text(payload.get("title"), 200) or "업로드 자료"
+    filename = clean(payload.get("filename")) or f"{uid('asset')}.bin"
+    safe_name = re.sub(r"[^A-Za-z0-9._-]+", "-", filename).strip(".-") or f"{uid('asset')}.bin"
+    content_b64 = payload.get("contentBase64") or ""
+    mime_type = clip_text(payload.get("mimeType"), 120) or "application/octet-stream"
+    relative_url = ""
+    size = 0
+    if content_b64:
+        try:
+            blob = base64.b64decode(content_b64)
+        except Exception as exc:
+            raise HTTPException(status_code=400, detail=f"파일 인코딩이 올바르지 않습니다: {exc}")
+        dest = LIBRARY_ASSET_DIR / f"{datetime.now(timezone.utc).strftime('%Y%m%d')}-{uid('asset')}-{safe_name}"
+        dest.write_bytes(blob)
+        relative_url = f"/uploads/{dest.name}"
+        size = len(blob)
+    elif clip_text(payload.get("url"), 500):
+        relative_url = clip_text(payload.get("url"), 500)
+    else:
+        raise HTTPException(status_code=400, detail="업로드할 파일 내용 또는 URL이 필요합니다.")
+    asset = {
+        "id": uid("asset"),
+        "product": product_key,
+        "productName": product_name(product_key),
+        "title": title,
+        "filename": safe_name,
+        "mimeType": mime_type,
+        "url": relative_url,
+        "size": size,
+        "createdAt": now_iso(),
+        "updatedAt": now_iso(),
+        "source": "admin-upload",
+    }
+    return upsert_record("assets", asset)
 
 
 def validate_product(key: str) -> None:
@@ -2719,7 +2863,7 @@ def build_delivery_assets(target: dict[str, Any], company: str, goal: str) -> li
         },
         {
             "title": f"{target['name']} 자동 발행 글 2건 이상",
-            "description": "제품 설명, 공개 게시판, 고객 포털에서 같은 조회 코드로 이어서 확인할 수 있는 자동 발행 콘텐츠입니다.",
+            "description": "제품 설명, 공개 자료실, 고객 포털에서 같은 조회 코드로 이어서 확인할 수 있는 자동 발행 콘텐츠입니다.",
             "customerValue": f"결과를 전달하는 데서 끝나지 않고, 대외 설명과 내부 공유까지 한 번에 이어집니다.",
             "usageMoment": f"고객 설명, 내부 아카이브, 후속 문의 대응에 재사용합니다.",
             "expertNote": angles[2] if len(angles) > 2 else f"같은 내용을 보는 화면이 달라도 메시지는 흔들리지 않게 유지합니다.",
@@ -2915,7 +3059,7 @@ def build_article_sections(target: dict[str, Any], *, title: str, summary: str, 
     value_text = smooth_phrases(values, sep=" / ") or target.get("summary", "")
     fit_text = smooth_phrases(fit_for) or "실무 팀"
     workflow_text = smooth_phrases(workflow, sep=" → ") or "콘텐츠 허브 → 제품 설명 → 데모 시연 → 결제 → 결과 전달"
-    proof = f"조회 코드 {order_code}로 정상작동 상태와 자동발행 글을 함께 확인할 수 있습니다." if order_code else "무료 샘플과 데모 시연 자료부터 확인한 뒤 결제 여부를 결정하실 수 있습니다."
+    proof = f"조회 코드 {order_code}로 정상작동 상태와 자료실 발행 글을 함께 확인할 수 있습니다." if order_code else "무료 샘플과 데모 시연 자료부터 확인한 뒤 결제 여부를 결정하실 수 있습니다."
     audience = company or "운영팀"
     plan_line = f"{plan} 플랜 기준으로 " if plan else ""
     focus = clean(title or topic_summary or target.get("summary", ""))
@@ -3020,15 +3164,15 @@ def create_publications_for_order(order: dict[str, Any], forced_ids: list[str] |
             summary = f"{order.get('company') or order.get('email') or '고객'} 상황에 맞춰 {target['name']} {order['plan']} 플랜으로 바로 줄일 수 있는 일과 전자동 발행 제공 결과를 블로그 형식으로 정리했습니다."
         else:
             pub_title = title
-            summary = f"{target.get('summary', '')} 조회 코드 {order['code']} 기준으로 함께 확인할 수 있는 AI 자동발행 안내 글입니다."
+            summary = f"{target.get('summary', '')} 조회 코드 {order['code']} 기준으로 함께 확인할 수 있는 자료실 안내 글입니다."
         pub = build_publication_payload(
             product_key=order["product"],
             title=pub_title,
             summary=summary,
             source="order-automation",
             code=order["code"],
-            cta_label=(target.get("board_automation") or {}).get("cta_label") or "제품 설명 보기",
-            cta_href=(target.get("board_automation") or {}).get("cta_href") or f"/products/{order['product']}/index.html#intro",
+            cta_label=publication_cta_defaults(order["product"])[0],
+            cta_href=publication_cta_defaults(order["product"])[1],
             order=order,
             topic_summary=title,
             publication_id=pub_id,
@@ -3053,8 +3197,8 @@ def ensure_seed_publications() -> None:
             source="seed",
             code=f"SEED-{idx + 1}",
             created_at=created,
-            cta_label=automation.get("cta_label") or "제품 설명 보기",
-            cta_href=automation.get("cta_href") or f"/products/{item['product']}/index.html#intro",
+            cta_label=publication_cta_defaults(item["product"])[0],
+            cta_href=publication_cta_defaults(item["product"])[1],
             topic_summary=item["summary"],
             publication_id=f"pubseed-{idx + 1}",
         )
@@ -3095,8 +3239,8 @@ def ensure_scheduled_publications() -> None:
                 source="scheduled",
                 code=f"AUTO-{product_prefix(key)}-{topic_index + 1:03d}",
                 created_at=created,
-                cta_label=topic.get("ctaText") or automation.get("cta_label") or "제품 설명 보기",
-                cta_href=automation.get("cta_href") or f"/products/{key}/index.html#intro",
+                cta_label=topic.get("ctaText") or publication_cta_defaults(key)[0],
+                cta_href=publication_cta_defaults(key)[1],
                 topic_summary=topic.get("summary") or target.get("summary", ""),
                 publication_id=uid("pubsch"),
             )
@@ -3131,6 +3275,10 @@ def ensure_publications_for_order(order: dict[str, Any]) -> dict[str, Any]:
 
 def finalize_paid_order(order: dict[str, Any]) -> dict[str, Any]:
     order["paymentStatus"] = "paid"
+    if order_requires_intake(order) or (intake_url_required(order) and not clip_text(order.get("link"), 500)):
+        order["status"] = "intake_required"
+        order["resultPack"] = None
+        return order
     order["status"] = "delivered"
     account, created_access = ensure_account_for_order(order, clean(order.get("portalPassword")))
     order["portalAccount"] = {"email": account.get("email"), "accountId": account.get("id")}
@@ -3259,8 +3407,6 @@ def base_order_entry(payload: dict[str, Any], *, payment_method: str | None = No
     validate_plan(product, plan)
     if billing != "one-time":
         raise HTTPException(status_code=400, detail="현재 온라인 결제는 1회 결제형만 지원합니다.")
-    if not company or not name or not validate_email(email):
-        raise HTTPException(status_code=400, detail="결제 필수값이 누락되었습니다.")
     plan_meta = plan_info(product, plan)
     status = payment_status or ("paid" if method == "toss" and not NV0_TOSS_CLIENT_KEY and not NV0_TOSS_SECRET_KEY else "pending")
     order_id = clean(payload.get("id")) or uid("ord")
@@ -3269,6 +3415,8 @@ def base_order_entry(payload: dict[str, Any], *, payment_method: str | None = No
     addon_amount = 290000 if "precision_copy" in addons else 0
     amount_total = plan_meta["amount"] + addon_amount
     price_display = plan_meta["display"] + (" + 정밀 작성 29만" if addon_amount else "")
+    link = clip_text(payload.get("link") or payload.get("website"), 500)
+    ready_for_delivery = bool(company and name and validate_email(email) and (not intake_url_required({"product": product}) or link))
     return {
         "id": order_id,
         "code": order_code,
@@ -3284,14 +3432,15 @@ def base_order_entry(payload: dict[str, Any], *, payment_method: str | None = No
         "billing": billing,
         "paymentMethod": method,
         "paymentStatus": status,
-        "status": next_status_for_payment(status),
+        "status": "delivered" if status == "paid" and ready_for_delivery else ("intake_required" if status == "paid" else next_status_for_payment(status)),
         "company": company,
         "name": name,
         "email": email,
+        "link": link,
         "note": clip_text(payload.get("note"), 1000),
         "reportId": clean(payload.get("reportId")),
         "reportCode": normalize_code(payload.get("reportCode")),
-        "resultPack": build_result_pack(product, plan, company, clip_text(payload.get("note"), 1000), payload) if status == "paid" else None,
+        "resultPack": build_result_pack(product, plan, company or "결제 고객", clip_text(payload.get("note"), 1000), payload) if status == "paid" and ready_for_delivery else None,
         "publicationIds": payload.get("publicationIds") if isinstance(payload.get("publicationIds"), list) else [],
         "publicationCount": len(payload.get("publicationIds") or []),
         "paymentKey": clean(payload.get("paymentKey")),
@@ -3304,7 +3453,7 @@ def base_order_entry(payload: dict[str, Any], *, payment_method: str | None = No
 def create_order_entry(payload: dict[str, Any]) -> dict[str, Any]:
     order = base_order_entry(payload)
     if order["paymentStatus"] == "paid":
-        order = finalize_paid_order(order)
+        order = finalize_paid_order_or_require_intake(order)
     return upsert_record("orders", order)
 
 
@@ -3320,6 +3469,7 @@ def reserve_toss_order(payload: dict[str, Any]) -> dict[str, Any]:
         'company': clip_text(payload.get('company'), 160),
         'name': clip_text(payload.get('name'), 120),
         'email': normalize_email(payload.get('email')),
+        'link': clip_text(payload.get('link') or payload.get('website'), 500),
         'note': clip_text(payload.get('note'), 1000),
         'reportId': clean(payload.get('reportId')),
         'reportCode': normalize_code(payload.get('reportCode')),
@@ -3643,6 +3793,131 @@ def public_config() -> dict[str, Any]:
     }
 
 
+def board_settings_defaults() -> dict[str, Any]:
+    return {
+        "id": "board-settings",
+        "ctaLabel": "제품 설명 보기",
+        "ctaHref": "/products/veridion/index.html#intro",
+        "autoPublishAllProducts": True,
+        "createdAt": now_iso(),
+        "updatedAt": now_iso(),
+    }
+
+
+def get_board_settings() -> dict[str, Any]:
+    current = get_record("settings", "board-settings") or {}
+    defaults = board_settings_defaults()
+    merged = {**defaults, **current}
+    merged.setdefault("id", "board-settings")
+    return merged
+
+
+def save_board_settings(payload: dict[str, Any]) -> dict[str, Any]:
+    current = get_board_settings()
+    current["ctaLabel"] = clip_text(payload.get("ctaLabel"), 120) or current.get("ctaLabel") or "제품 설명 보기"
+    current["ctaHref"] = clip_text(payload.get("ctaHref"), 300) or current.get("ctaHref") or "/products/veridion/index.html#intro"
+    current["autoPublishAllProducts"] = bool(payload.get("autoPublishAllProducts"))
+    current["updatedAt"] = now_iso()
+    current.setdefault("createdAt", now_iso())
+    return upsert_record("settings", current)
+
+
+def effective_cta(product_key: str, *, fallback_label: str = "제품 설명 보기", fallback_href: str = "") -> tuple[str, str]:
+    settings = get_board_settings()
+    auto_all = bool(settings.get("autoPublishAllProducts"))
+    target = PRODUCTS.get(product_key) or {}
+    automation = target.get("board_automation") or {}
+    default_href = fallback_href or f"/products/{product_key}/index.html#intro"
+    if auto_all:
+        return (
+            clip_text(settings.get("ctaLabel"), 120) or fallback_label or automation.get("cta_label") or "제품 설명 보기",
+            clip_text(settings.get("ctaHref"), 300) or default_href or automation.get("cta_href") or f"/products/{product_key}/index.html#intro",
+        )
+    return (
+        fallback_label or automation.get("cta_label") or clip_text(settings.get("ctaLabel"), 120) or "제품 설명 보기",
+        fallback_href or automation.get("cta_href") or clip_text(settings.get("ctaHref"), 300) or f"/products/{product_key}/index.html#intro",
+    )
+
+
+def order_requires_intake(order: dict[str, Any]) -> bool:
+    return not bool(clip_text(order.get("company"), 160) and clip_text(order.get("name"), 120) and validate_email(normalize_email(order.get("email"))))
+
+
+def intake_url_required(order: dict[str, Any]) -> bool:
+    return clean(order.get("product")) == "veridion"
+
+
+def normalize_order_intake(order: dict[str, Any], payload: dict[str, Any]) -> dict[str, Any]:
+    company = clip_text(payload.get("company") or order.get("company"), 160)
+    name = clip_text(payload.get("name") or order.get("name"), 120)
+    email = normalize_email(payload.get("email") or order.get("email"))
+    link = clip_text(payload.get("link") or payload.get("website") or order.get("link"), 500)
+    note = clip_text(payload.get("note") or order.get("note"), 1000)
+    if not company or not name or not validate_email(email):
+        raise HTTPException(status_code=400, detail="결제 후 진행에 필요한 회사명, 담당자명, 이메일을 입력해 주세요.")
+    if intake_url_required(order) and not link:
+        raise HTTPException(status_code=400, detail="Veridion 진행에는 사이트 주소가 필요합니다.")
+    order["company"] = company
+    order["name"] = name
+    order["email"] = email
+    order["link"] = link
+    order["note"] = note
+    order["updatedAt"] = now_iso()
+    return order
+
+
+def create_manual_publication(payload: dict[str, Any]) -> dict[str, Any]:
+    product_key = clean(payload.get("product") or "veridion")
+    validate_product(product_key)
+    title = clip_text(payload.get("title"), 160)
+    summary = clip_text(payload.get("summary"), 300)
+    body = clean(payload.get("body"))
+    if not title or not summary:
+        raise HTTPException(status_code=400, detail="자료실 글 등록에는 제목과 요약이 필요합니다.")
+    cta_label, cta_href = effective_cta(product_key, fallback_label=clip_text(payload.get("ctaLabel"), 120) or "제품 설명 보기", fallback_href=clip_text(payload.get("ctaHref"), 300) or f"/products/{product_key}/index.html#intro")
+    publication = build_publication_payload(
+        product_key=product_key,
+        title=title,
+        summary=summary,
+        source="manual",
+        code=f"MANUAL-{product_prefix(product_key)}-{int(time.time())}",
+        created_at=now_iso(),
+        cta_label=cta_label,
+        cta_href=cta_href,
+        topic_summary=summary,
+        publication_id=uid("pubman"),
+    )
+    if body:
+        publication["body"] = body
+        publication["bodyHtml"] = "<p>" + "</p><p>".join(escape(chunk) for chunk in body.split("\n") if chunk.strip()) + "</p>"
+    asset_url = clip_text(payload.get("assetUrl"), 500)
+    if asset_url:
+        publication["assetUrl"] = asset_url
+    return upsert_record("publications", publication)
+
+
+def save_library_asset(product_key: str, title: str, upload: UploadFile) -> dict[str, Any]:
+    validate_product(product_key)
+    safe_name = re.sub(r"[^A-Za-z0-9._-]+", "-", Path(upload.filename or "asset.bin").name).strip("-") or "asset.bin"
+    asset_id = uid("asset")
+    dest = LIBRARY_ASSET_DIR / f"{asset_id}-{safe_name}"
+    content = upload.file.read()
+    dest.write_bytes(content)
+    asset = {
+        "id": asset_id,
+        "product": product_key,
+        "productName": product_name(product_key),
+        "title": clip_text(title, 160) or safe_name,
+        "filename": safe_name,
+        "url": f"/uploads/{dest.name}",
+        "contentType": upload.content_type or "application/octet-stream",
+        "size": len(content),
+        "createdAt": now_iso(),
+        "updatedAt": now_iso(),
+    }
+    return upsert_record("assets", asset)
+
+
 def toss_confirm_remote(payment_key: str, order_id: str, amount: int) -> dict[str, Any]:
     if NV0_TOSS_MOCK or (IS_LOCAL_BASE and (not NV0_TOSS_CLIENT_KEY or not NV0_TOSS_SECRET_KEY)):
         return {
@@ -3694,14 +3969,14 @@ def confirm_toss_payment(payload: dict[str, Any]) -> dict[str, Any]:
         if order.get("paymentStatus") == "paid":
             if existing_payment_key and existing_payment_key != payment_key:
                 raise HTTPException(status_code=409, detail="이미 다른 결제 키로 승인된 결제 건입니다.")
-            order = finalize_paid_order(order)
+            order = finalize_paid_order_or_require_intake(order)
             order["updatedAt"] = now_iso()
             return upsert_record("orders", order)
 
         payment = toss_confirm_remote(payment_key, order_id, amount)
         order["paymentKey"] = payment_key
         order["paymentMeta"] = payment
-        order = finalize_paid_order(order)
+        order = finalize_paid_order_or_require_intake(order)
         order["updatedAt"] = now_iso()
         return upsert_record("orders", order)
 
@@ -3715,7 +3990,7 @@ def apply_webhook_to_order(order: dict[str, Any], event_type: str, data: dict[st
         merged_meta = deepcopy(order.get("paymentMeta") or {})
         merged_meta.update(data)
         order["paymentMeta"] = merged_meta
-        order = finalize_paid_order(order)
+        order = finalize_paid_order_or_require_intake(order)
     elif status in {"CANCELED", "PARTIAL_CANCELED"}:
         order["paymentStatus"] = "cancelled"
         order["status"] = "payment_cancelled"
@@ -3823,8 +4098,8 @@ def create_board_publication(product_key: str, *, source: str = 'manual', force_
         source=source,
         code=f"{source.upper()}-{product_prefix(product_key)}-{topic_index + 1:03d}",
         created_at=created,
-        cta_label=topic.get('ctaText') or automation.get('cta_label') or '제품 설명 보기',
-        cta_href=automation.get('cta_href') or f"/products/{product_key}/index.html#intro",
+        cta_label=topic.get('ctaText') or publication_cta_defaults(product_key)[0],
+        cta_href=publication_cta_defaults(product_key)[1],
         topic_summary=topic.get('summary') or target.get('summary', ''),
         publication_id=uid('pubman' if source == 'manual' else 'pubsch'),
     )
@@ -3866,7 +4141,7 @@ def create_app() -> FastAPI:
         if body_limit_response is not None:
             return body_limit_response
         if BOARD_ONLY_MODE and board_only_disabled_api(request.url.path):
-            return board_only_json_response('이 기능은 비활성화되었습니다. 현재는 AI 자동발행 블로그 허브만 운영합니다.')
+            return board_only_json_response('이 기능은 비활성화되었습니다. 현재는 자료실 허브만 운영합니다.')
         if BOARD_ONLY_MODE and request.method == 'GET' and request.url.path not in HEALTH_ENDPOINTS and not request.url.path.startswith('/api/') and not board_only_path_allowed(request.url.path):
             return board_only_html_response(request.url.path)
         response = await call_next(request)
@@ -3980,6 +4255,12 @@ def create_app() -> FastAPI:
             order = confirm_toss_payment(payload)
             return {"ok": True, "order": order, "state": state_payload()}
 
+        @app.post("/api/public/orders/{order_id}/intake")
+        def public_order_intake(order_id: str, payload: dict[str, Any]) -> dict[str, Any]:
+            order = submit_order_intake(order_id, payload)
+            return {"ok": True, "order": order, "state": state_payload()}
+
+
         @app.post("/api/public/payments/toss/webhook")
         async def public_toss_webhook(request: Request) -> dict[str, Any]:
             raw_body = await request.body()
@@ -4070,10 +4351,39 @@ def create_app() -> FastAPI:
             account = ctx["account"]
             return {"ok": True, "account": safe_account_payload(account), "orders": orders_for_email(account.get("email"))}
 
+
+    @app.get("/api/admin/board-settings")
+    def admin_board_settings(_: None = Depends(require_admin)) -> dict[str, Any]:
+        return {"ok": True, "settings": board_settings_record(), "state": state_payload()}
+
+    @app.post("/api/admin/board-settings")
+    def admin_set_board_settings(payload: dict[str, Any], _: None = Depends(require_admin)) -> dict[str, Any]:
+        settings = board_settings_record()
+        settings["ctaLabel"] = clip_text(payload.get("ctaLabel"), 120) or settings.get("ctaLabel") or "제품 설명 보기"
+        settings["ctaHref"] = clip_text(payload.get("ctaHref"), 500)
+        settings["autoPublishAllProducts"] = bool(payload.get("autoPublishAllProducts"))
+        settings["updatedAt"] = now_iso()
+        upsert_record("scheduler", settings)
+        return {"ok": True, "settings": settings, "state": state_payload()}
+
+    @app.post("/api/admin/library/publications")
+    def admin_library_publications(payload: dict[str, Any], _: None = Depends(require_admin)) -> dict[str, Any]:
+        publication = create_library_publication(payload)
+        return {"ok": True, "publication": publication, "state": state_payload()}
+
+    @app.post("/api/admin/library/assets")
+    def admin_library_assets(payload: dict[str, Any], _: None = Depends(require_admin)) -> dict[str, Any]:
+        asset = create_library_asset(payload)
+        return {"ok": True, "asset": asset, "state": state_payload()}
+
     @app.post("/api/admin/actions/publish-now")
     def admin_publish_now(payload: dict[str, Any] | None = None, _: None = Depends(require_admin)) -> dict[str, Any]:
         requested = clean((payload or {}).get('product'))
-        targets = [requested] if requested and requested in PRODUCTS else [key for key, item in PRODUCTS.items() if (item.get('board_automation') or {}).get('enabled')]
+        settings = get_board_settings()
+        if bool(settings.get('autoPublishAllProducts')):
+            targets = [key for key in PRODUCTS.keys()] if not requested else [requested]
+        else:
+            targets = [requested] if requested and requested in PRODUCTS else [key for key, item in PRODUCTS.items() if (item.get('board_automation') or {}).get('enabled')]
         published = [create_board_publication(key, source='manual') for key in targets]
         return {"ok": True, "published": published, "state": state_payload()}
 
@@ -4109,6 +4419,7 @@ def create_app() -> FastAPI:
             updated = update_order(order_id, _republish_order)
             return {"ok": True, "order": updated, "state": state_payload()}
 
+    app.mount("/uploads", StaticFiles(directory=str(LIBRARY_ASSET_DIR), html=False), name="uploads")
     app.mount("/", StaticFiles(directory=str(DIST), html=True), name="static")
     app = CORSMiddleware(
         app=app,
@@ -4126,7 +4437,7 @@ def _advance_order(order: dict[str, Any]) -> dict[str, Any]:
         raise HTTPException(status_code=400, detail="결제 완료 전에는 자동 제공을 완료할 수 없습니다.")
     if current == "delivered":
         return order
-    return finalize_paid_order(order)
+    return finalize_paid_order_or_require_intake(order)
 
 
 def _toggle_payment(order: dict[str, Any]) -> dict[str, Any]:

@@ -167,10 +167,6 @@ def main() -> int:
         'plan': 'Starter',
         'billing': 'one-time',
         'paymentMethod': 'toss',
-        'company': 'Deploy Verify Co',
-        'name': 'Verifier',
-        'email': 'verify@example.com',
-        'note': f'post-deploy verify / {demo_code}',
     }
     status, body, _ = fetch('POST', base_url + '/api/public/orders/reserve', order_payload)
     ensure(status, 200, 'POST /api/public/orders/reserve')
@@ -191,9 +187,22 @@ def main() -> int:
     order = json.loads(body.decode('utf-8')).get('order', {})
     if order.get('paymentStatus') != 'paid':
         raise AssertionError('payment confirm did not mark paymentStatus=paid')
-    if order.get('status') not in {'delivered', 'published'}:
+    if order.get('status') != 'intake_required':
         raise AssertionError(f"payment confirm returned unexpected order status: {order.get('status')!r}")
     results.append('OK api:payment-confirm')
+
+    status, body, _ = fetch('POST', base_url + f'/api/public/orders/{order_id}/intake', {
+        'company': 'Deploy Verify Co',
+        'name': 'Verifier',
+        'email': 'verify@example.com',
+        'website': 'https://example.com',
+        'note': f'post-deploy verify / {demo_code}',
+    })
+    ensure(status, 200, 'POST /api/public/orders/{id}/intake')
+    intake_order = json.loads(body.decode('utf-8')).get('order', {})
+    if intake_order.get('status') not in {'delivered', 'published'}:
+        raise AssertionError(f"order intake returned unexpected status: {intake_order.get('status')!r}")
+    results.append('OK api:intake')
 
     status, body, _ = fetch('POST', base_url + '/api/public/portal/lookup', {
         'email': 'verify@example.com',

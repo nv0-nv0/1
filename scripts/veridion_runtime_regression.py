@@ -74,8 +74,19 @@ def main() -> None:
     })
     require(status == 200, f'veridion confirm should be 200, got {status}')
     confirmed = body.get('order') or {}
-    require(confirmed.get('status') == 'delivered', 'veridion order should be delivered after payment')
+    require(confirmed.get('status') == 'intake_required', 'veridion order should require intake after payment')
     require(confirmed.get('paymentStatus') == 'paid', 'veridion order should be paid after payment')
+
+    status, body = fetch('POST', f'{base}/api/public/orders/{confirmed.get("id")}/intake', {
+        'company': 'Veridion Runtime Lab',
+        'name': '통합테스터',
+        'email': 'veridion-runtime@example.com',
+        'website': base,
+        'note': '체험 목표: Veridion 전체 발행 검증\n키워드: 리포트,규칙,발행\n긴급도: 이번 주',
+    })
+    require(status == 200, f'veridion intake should be 200, got {status}')
+    confirmed = body.get('order') or {}
+    require(confirmed.get('status') == 'delivered', 'veridion order should be delivered after intake')
     pack = confirmed.get('resultPack') or {}
     require(isinstance(pack.get('siteSpecificRules'), list) and len(pack.get('siteSpecificRules') or []) >= 3, 'delivery pack siteSpecificRules missing')
     require(isinstance(pack.get('pageActions'), list) and len(pack.get('pageActions') or []) >= 3, 'delivery pack pageActions missing')

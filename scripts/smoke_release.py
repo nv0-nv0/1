@@ -86,10 +86,6 @@ def main() -> None:
             'plan': 'Starter',
             'billing': 'one-time',
             'paymentMethod': 'toss',
-            'company': 'Smoke Labs',
-            'name': 'Smoke User',
-            'email': 'smoke@example.com',
-            'note': 'smoke-check',
         })
         summary['demoCode'] = demo['demo']['code']
         summary['contactCode'] = contact['contact']['code']
@@ -100,12 +96,20 @@ def main() -> None:
                 'orderId': reserved['order']['id'],
                 'amount': reserved['order']['amount'],
             })
+            summary['orderStatusAfterConfirm'] = confirmed['order']['status']
+            _, completed, _ = fetch('POST', base + f"/api/public/orders/{confirmed['order']['id']}/intake", {
+                'company': 'Smoke Labs',
+                'name': 'Smoke User',
+                'email': 'smoke@example.com',
+                'website': 'https://example.com',
+                'note': 'smoke-check',
+            })
             _, lookup, _ = fetch('POST', base + '/api/public/portal/lookup', {
-                'email': confirmed['order']['email'],
-                'code': confirmed['order']['code'],
+                'email': completed['order']['email'],
+                'code': completed['order']['code'],
             })
             summary['publicationCount'] = len(lookup.get('publications', []))
-            summary['orderStatus'] = confirmed['order']['status']
+            summary['orderStatus'] = completed['order']['status']
         else:
             summary['orderStatus'] = reserved['order']['status']
             summary['note'] = 'Toss live mode detected: reserve only smoke tested. Run one real payment separately.'

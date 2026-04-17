@@ -97,6 +97,18 @@ def check_product(base: str, product_key: str) -> dict[str, object]:
         'amount': order['amount'],
     })
     confirmed = confirmed_res['order']
+    if confirmed.get('status') == 'intake_required':
+        intake_payload = {
+            'company': f'{product["name"]} Quality Lab',
+            'name': '품질검증',
+            'email': f'{product_key}-quality@example.com',
+            'note': '체험 목표: 결과물 품질 검증\n키워드: 전문성, 설득력, 발행\n긴급도: 이번 주 안',
+        }
+        if product_key == 'veridion':
+            intake_payload['website'] = 'https://example.com'
+        _, intake_res = fetch('POST', f"{base}/api/public/orders/{order['id']}/intake", intake_payload)
+        confirmed = intake_res['order']
+    require(confirmed.get('status') == 'delivered', f'{product_key}: order should be delivered after payment/intake')
     result_pack = confirmed.get('resultPack') or {}
     check_scorecard(result_pack.get('scorecard') or {}, product_key=product_key, stage='delivery')
     check_rich_outputs(result_pack.get('outputs') or [], product_key=product_key, stage='delivery', minimum=len(product.get('outputs') or []))

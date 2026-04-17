@@ -62,16 +62,11 @@ def check_product(base: str, product_key: str) -> dict[str, object]:
         require(len(item.get('whatIncluded') or '') >= 15, f'{product_key}: demo output include note too short')
         require(len(item.get('actionNow') or '') >= 15, f'{product_key}: demo output action note too short')
         require(len(item.get('buyerValue') or '') >= 15, f'{product_key}: demo output buyer value too short')
-
     order_payload = {
         'product': product_key,
         'plan': 'Growth',
         'billing': 'one-time',
         'paymentMethod': 'toss',
-        'company': f'{product["name"]} Labs',
-        'name': '통합테스터',
-        'email': f'{product_key}@example.com',
-        'note': '체험 목표: 즉시 작동 검증\n키워드: 결과물, 발행, 가치\n긴급도: 이번 주 안',
     }
     _, reserve_res = fetch('POST', f'{base}/api/public/orders/reserve', order_payload)
     order = reserve_res['order']
@@ -82,8 +77,19 @@ def check_product(base: str, product_key: str) -> dict[str, object]:
         'amount': order['amount'],
     })
     confirmed = confirm_res['order']
-    require(confirmed.get('status') == 'delivered', f'{product_key}: order not delivered')
+    require(confirmed.get('status') == 'intake_required', f'{product_key}: order not awaiting intake')
     require(confirmed.get('paymentStatus') == 'paid', f'{product_key}: order not paid')
+    intake_payload = {
+        'company': f'{product["name"]} Labs',
+        'name': '통합테스터',
+        'email': f'{product_key}@example.com',
+        'note': '체험 목표: 즉시 작동 검증\n키워드: 결과물, 발행, 가치\n긴급도: 이번 주 안',
+    }
+    if product_key == 'veridion':
+        intake_payload['website'] = 'https://example.com'
+    _, intake_res = fetch('POST', f"{base}/api/public/orders/{confirmed['id']}/intake", intake_payload)
+    confirmed = intake_res['order']
+    require(confirmed.get('status') == 'delivered', f'{product_key}: order not delivered after intake')
     result_pack = confirmed.get('resultPack') or {}
     require(len(result_pack.get('outputs') or []) >= len(product.get('outputs') or []), f'{product_key}: result outputs incomplete')
     require(len(result_pack.get('quickWins') or []) >= 3, f'{product_key}: result quick wins insufficient')

@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+import time
 from pathlib import Path
 from urllib.request import Request, urlopen
 
@@ -49,8 +50,18 @@ def analyze_payload(product_key: str) -> tuple[str, dict]:
 
 def check_cache(base: str) -> list[dict[str, object]]:
     summary = []
-    for product_key in ('clearport', 'grantops', 'draftforge'):
+    for index, product_key in enumerate(('clearport', 'grantops', 'draftforge'), start=1):
         endpoint, payload = analyze_payload(product_key)
+        token = f'cache-{product_key}-{int(time.time() * 1000)}-{index}'
+        payload = dict(payload)
+        payload['company'] = f"{payload.get('company', 'Cache Lab')} {token}"
+        if product_key == 'clearport':
+            payload['blocker'] = f"{payload.get('blocker', '자료 정리')} {token}"
+        elif product_key == 'grantops':
+            payload['blocker'] = token
+            payload['programName'] = f"{payload.get('programName', '테스트 지원사업')} {token}"
+        elif product_key == 'draftforge':
+            payload['draftPain'] = f"{payload.get('draftPain', '최종본 혼선')} {token}"
         _, first = fetch('POST', f'{base}{endpoint}', payload)
         _, second = fetch('POST', f'{base}{endpoint}', payload)
         require(first.get('cached') is False, f'{product_key}: first analyze should not be cached')
@@ -107,6 +118,18 @@ def check_result_integrity(base: str) -> list[dict[str, object]]:
             'paymentKey': f'mock_{product_key}_integrity', 'orderId': order['id'], 'amount': order['amount'],
         })
         paid = confirmed['order']
+        intake_payload = {
+            'company': f'{product_key} Integrity Lab',
+            'name': '무결성테스터',
+            'email': f'{product_key}-integrity@example.com',
+            'note': '체험 목표: 발행본 무결성 확인\n키워드: 안정성,결과물,발행',
+        }
+        if paid.get('status') == 'intake_required':
+            if product_key == 'veridion':
+                intake_payload['website'] = 'https://example.com'
+            _, intake = fetch('POST', f"{base}/api/public/orders/{order['id']}/intake", intake_payload)
+            paid = intake['order']
+        require(paid.get('status') == 'delivered', f'{product_key}: order should be delivered after payment/intake')
         pack = paid.get('resultPack') or {}
         require(bool(pack.get('artifactManifest')), f'{product_key}: artifact manifest missing')
         require(bool(pack.get('qualityValidation', {}).get('passed')), f'{product_key}: quality validation failed')

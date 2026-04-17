@@ -11,14 +11,14 @@
   const navItems = [
     ['홈', `${base}index.html`, 'home'],
     ['제품', `${base}products/veridion/index.html`, 'productHub'],
-    ['게시판', `${base}board/index.html`, 'board'],
+    ['자료실', `${base}board/index.html`, 'board'],
     ['회사소개', `${base}company/index.html`, 'company'],
     ['로그인(회원가입)', `${base}auth/index.html`, 'auth'],
   ];
   const productMenuItems = [
     ['안내', `${base}products/veridion/index.html`, path.includes('/products/veridion/') && !path.includes('/plans/') && !path.includes('/board/') && !path.includes('/demo/') && !path.includes('/faq/') && !path.includes('/delivery/')],
     ['가격', `${base}products/veridion/plans/index.html`, path.includes('/products/veridion/plans/') || pageKey === 'pricing'],
-    ['게시판(자동발행)', `${base}products/veridion/board/index.html`, path.includes('/products/veridion/board/')],
+    ['자료실', `${base}products/veridion/board/index.html`, path.includes('/products/veridion/board/')],
   ];
   const STORE = {
     orders: 'nv0-engine-orders',
@@ -83,7 +83,7 @@
   function validatePlan(productKey, planName){ const target = products[productKey]; return Boolean(target?.plans?.some((item) => item.name === planName)); }
   function nextStatusForPayment(paymentStatus){ const status = clean(paymentStatus); return status === 'paid' ? 'delivered' : (status === 'ready' || status === 'pending') ? 'payment_pending' : 'draft_ready'; }
   function createFriendlyError(error, fallback){ return error instanceof Error ? error.message : fallback; }
-  function orderStatusLabel(status){ return ({payment_pending:'결제 대기', draft_ready:'자동 실행 준비', published:'콘텐츠 발행 완료', delivered:'결과 전달 완료'})[clean(status)] || (clean(status) || '확인 필요'); }
+  function orderStatusLabel(status){ return ({payment_pending:'결제 대기', intake_required:'진행 정보 입력 필요', draft_ready:'자동 실행 준비', published:'콘텐츠 발행 완료', delivered:'결과 전달 완료'})[clean(status)] || (clean(status) || '확인 필요'); }
   function paymentStatusLabel(status){ return clean(status) === 'paid' ? '결제 완료' : clean(status) === 'ready' ? '결제 준비 완료' : '결제 대기'; }
 
   function buildCtaHref(raw, productKey){ if (!raw) return `${base}products/${productKey}/index.html#intro`; if (/^https?:/i.test(raw)) return raw; const cleanPath = String(raw).replace(/^\//, ''); return `${base}${cleanPath}`; }
@@ -416,14 +416,11 @@
     const data = normalizePayload(payload);
     assert(validateProduct(data.product), '제품을 선택하세요.');
     assert(validatePlan(data.product, data.plan), '플랜을 선택하세요.');
-    assert(clean(data.company), '회사명을 입력하세요.');
-    assert(clean(data.name), '담당자명을 입력하세요.');
-    assert(validateEmail(data.email), '이메일 형식이 올바르지 않습니다.');
     const target = products[data.product];
     const createdAt = stamp();
     const id = uid('ord');
     const code = makePublicCode('NV0', data.product);
-    const resultPack = buildResultPack(target, data);
+    const ready = clean(data.company) && clean(data.name) && validateEmail(data.email) && (data.product !== 'veridion' || clean(data.link || data.website));
     const order = {
       id,
       code,
@@ -432,29 +429,33 @@
       plan: data.plan,
       billing: data.billing || 'one-time',
       paymentMethod: data.paymentMethod || 'toss',
-      company: data.company,
-      name: data.name,
-      email: normalizeEmail(data.email),
+      company: data.company || '',
+      name: data.name || '',
+      email: normalizeEmail(data.email || ''),
+      link: data.link || data.website || '',
       note: data.note || '',
       reportId: data.reportId || '',
       reportCode: data.reportCode || '',
       price: planPrice(data.product, data.plan),
       paymentStatus: 'paid',
-      status: 'delivered',
-      deliveryMeta: { automation: 'local_auto', deliveredAt: createdAt },
+      status: ready ? 'delivered' : 'intake_required',
+      deliveryMeta: ready ? { automation: 'local_auto', deliveredAt: createdAt } : {},
       amount: priceToAmount(planPrice(data.product, data.plan)),
-      resultPack,
+      resultPack: ready ? buildResultPack(target, data) : null,
       publicationIds: [],
       publicationCount: 0,
       createdAt,
       updatedAt: createdAt,
     };
-    const publications = createPublicationsForOrder(order);
-    order.publicationIds = publications.map((item) => item.id);
-    order.publicationCount = publications.length;
+    if (ready) {
+      const publications = createPublicationsForOrder(order);
+      order.publicationIds = publications.map((item) => item.id);
+      order.publicationCount = publications.length;
+    }
     push(STORE.orders, order);
     return order;
   }
+
   function createDemo(payload){
     const data = normalizePayload(payload);
     assert(validateProduct(data.product), '제품을 선택하세요.');
@@ -498,18 +499,13 @@
   function renderHeader(){
     const header = document.getElementById('site-header'); if (!header) return;
     const quickLinks = renderProductSubLinks('sub-link');
-    header.innerHTML = `<button class="admin-fab" type="button" data-admin-entry="1" title="권한 확인 후 관리자 메뉴로 들어갑니다">관계자</button><div class="container nav-wrap"><div class="nav-left"><button class="mobile-nav-toggle" type="button" aria-expanded="false" aria-controls="mobile-drawer" data-nav-toggle="1">메뉴</button><a class="brand" href="${base}index.html"><span class="brand-mark">V</span><span class="brand-copy"><strong>Veridion</strong><span>온라인 개인사업자용 법률·규제 리스크 방어막</span></span></a></div><nav class="nav-links">${renderNavLinks('top-link')}</nav></div><div class="container subnav"><span class="subnav-label">제품</span>${quickLinks}</div>`;
+    header.innerHTML = `<div class="container nav-wrap"><div class="nav-left"><button class="mobile-nav-toggle" type="button" aria-expanded="false" aria-controls="mobile-drawer" data-nav-toggle="1">메뉴</button><a class="brand" href="${base}index.html"><span class="brand-mark">V</span><span class="brand-copy"><strong>Veridion</strong><span>온라인 개인사업자용 법률·규제 리스크 방어막</span></span></a></div><nav class="nav-links">${renderNavLinks('top-link')}<button class="admin-entry" type="button" data-admin-entry="1" title="권한 확인 후 관리자 메뉴로 들어갑니다">관리자</button></nav></div><div class="container subnav"><span class="subnav-label">제품</span>${quickLinks}</div>`;
   }
+
   function renderSidebar(){
-    let shell = document.getElementById('side-nav-shell');
-    if (!shell) {
-      shell = document.createElement('aside');
-      shell.id = 'side-nav-shell';
-      shell.className = 'side-nav-shell';
-      document.body.prepend(shell);
-    }
-    shell.innerHTML = `<div class="side-nav-card"><button class="side-admin-button" type="button" data-admin-entry="1">관계자</button><a class="side-brand" href="${base}index.html"><span class="brand-mark">V</span><span><strong>Veridion</strong><small>리스크 점검 · 발행 · 이력 관리</small></span></a><nav class="side-nav-links"><div class="side-group"><span class="side-group-title">메인 메뉴</span>${renderNavLinks('side-link')}</div><div class="side-group"><span class="side-group-title">제품</span>${renderProductSubLinks('side-sublink')}<a href="${base}products/veridion/demo/index.html" class="side-sublink ${path.includes('/products/veridion/demo/') ? 'active' : ''}">즉시 시연</a></div></nav></div>`;
-    document.body.classList.add('with-side-nav');
+    const existing = document.getElementById('side-nav-shell');
+    if (existing) existing.remove();
+    document.body.classList.remove('with-side-nav');
     if (!document.getElementById('mobile-nav-backdrop')) {
       const backdrop = document.createElement('button');
       backdrop.type = 'button';
@@ -525,8 +521,9 @@
       drawer.className = 'mobile-drawer';
       document.body.appendChild(drawer);
     }
-    drawer.innerHTML = `<div class="mobile-drawer-card"><div class="mobile-drawer-top"><strong>메뉴</strong><button class="mobile-nav-close" type="button" data-nav-close="1">닫기</button></div><button class="side-admin-button" type="button" data-admin-entry="1">관계자</button><nav class="side-nav-links"><div class="side-group"><span class="side-group-title">메인 메뉴</span>${renderNavLinks('side-link')}</div><div class="side-group"><span class="side-group-title">제품</span>${renderProductSubLinks('side-sublink')}<a href="${base}products/veridion/demo/index.html" class="side-sublink ${path.includes('/products/veridion/demo/') ? 'active' : ''}">즉시 시연</a></div></nav></div>`;
+    drawer.innerHTML = `<div class="mobile-drawer-card"><div class="mobile-drawer-top"><strong>메뉴</strong><button class="mobile-nav-close" type="button" data-nav-close="1">닫기</button></div><button class="side-admin-button" type="button" data-admin-entry="1">관리자</button><nav class="side-nav-links"><div class="side-group"><span class="side-group-title">메인 메뉴</span>${renderNavLinks('side-link')}</div><div class="side-group"><span class="side-group-title">제품</span>${renderProductSubLinks('side-sublink')}<a href="${base}products/veridion/demo/index.html" class="side-sublink ${path.includes('/products/veridion/demo/') ? 'active' : ''}">즉시 시연</a></div></nav></div>`;
   }
+
   function bindNavChrome(){
     const body = document.body;
     const toggle = document.querySelector('[data-nav-toggle="1"]');
@@ -710,18 +707,190 @@
     });
   }
   function buildPlans() { const root = document.getElementById('plan-grid'); if (!root || !product) return; root.innerHTML = product.plans.map((plan) => { const recommended = plan.recommended ? '<span class="tag" style="margin-left:8px">추천</span>' : ''; const meta = [plan.delivery ? `납기 ${esc(plan.delivery)}` : '', plan.revisions ? esc(plan.revisions) : ''].filter(Boolean).join(' · '); const includes = Array.isArray(plan.includes) && plan.includes.length ? `<ul class="clean plan-include-list">${plan.includes.map((item) => `<li>${esc(item)}</li>`).join('')}</ul>` : ''; return `<article class="plan-card ${plan.recommended ? 'recommended' : ''}"><div class="plan-head"><span class="tag">${esc(plan.name)}</span>${recommended}</div><h3>${esc(plan.price)}</h3><p>${esc(plan.note || '')}</p>${meta ? `<div class="plan-meta">${meta}</div>` : ''}${includes}<div class="small-actions"><a class="button" href="#order" data-plan-pick="${esc(plan.name)}">이 플랜으로 가격/결제 보기</a></div></article>`; }).join(''); root.querySelectorAll('[data-plan-pick]').forEach((btn)=>btn.addEventListener('click',()=>{ const form=document.getElementById('product-checkout-form'); if(form){ const select=form.querySelector('select[name="plan"]'); if(select) select.value=btn.dataset.planPick; location.hash='order'; }})); }
-  function fillProductSlots() { if (!product) return; document.querySelectorAll('[data-fill="product-name"]').forEach((el) => el.textContent = product.name); document.querySelectorAll('[data-fill="product-headline"]').forEach((el) => el.textContent = product.headline); document.querySelectorAll('[data-fill="product-summary"]').forEach((el) => el.textContent = product.summary); document.querySelectorAll('[data-fill="product-problem"]').forEach((el) => el.textContent = product.problem); document.querySelectorAll('[data-fill="product-pricing"]').forEach((el) => el.textContent = currencyPlan(product.key)); const valueRoot = document.getElementById('product-values'); if (valueRoot) valueRoot.innerHTML = product.value_points.map((item) => `<li>${item}</li>`).join(''); const outputRoot = document.getElementById('product-outputs'); if (outputRoot) outputRoot.innerHTML = product.outputs.map((item) => `<li>${item}</li>`).join(''); const workflowRoot = document.getElementById('product-workflow'); if (workflowRoot) workflowRoot.innerHTML = (product.workflow || []).map((item) => `<li>${item}</li>`).join(''); const demoRoot = document.getElementById('product-demo-scenarios'); if (demoRoot) demoRoot.innerHTML = (product.demo_scenarios || []).map((item) => `<li>${item}</li>`).join(''); const relatedRoot = document.getElementById('product-related-modules'); if (relatedRoot) relatedRoot.innerHTML = (product.related_modules || []).map((key) => products[key]).filter(Boolean).map((item) => `<article class="story-card ${item.theme}"><span class="tag theme-chip">${esc(item.label)}</span><h3>${esc(item.name)}</h3><p>${esc(item.summary)}</p><div class="small-actions"><a href="${base}products/${item.key}/index.html#intro">제품 설명 보기</a><a href="${base}products/${item.key}/index.html#demo">데모 시연</a></div></article>`).join('') || '<div class="empty-box">바로 이어서 비교할 제품이 아직 없습니다. 현재 제품 기준으로 먼저 판단하셔도 괜찮습니다.</div>';  const faqRoot = document.getElementById('product-faq'); if (faqRoot) faqRoot.innerHTML = (product.faqs || []).map((item) => `<article class="faq-card"><span class="tag">Q</span><h3>${esc(item.q)}</h3><p>${esc(item.a)}</p></article>`).join(''); const actions = document.getElementById('product-actions'); if (actions) actions.innerHTML = `<a class="button" href="${base}products/${product.key}/demo/index.html">샘플 결과</a><a class="button secondary" href="${base}products/${product.key}/plans/index.html">플랜 보기</a><a class="button ghost" href="${base}products/${product.key}/delivery/index.html">전달 자료 보기</a><a class="button ghost" href="${base}products/${product.key}/board/index.html">콘텐츠 보기</a>`; const basis = document.getElementById('product-pricing-basis'); if (basis) basis.textContent = product.pricing_basis || ''; const demoForm = document.getElementById('product-demo-form'); if (demoForm) { const defaults = product.demo_defaults || {}; demoForm.querySelectorAll('[data-demo-field]').forEach((input)=>{ const key = input.dataset.demoField; if (defaults[key] && !input.value) input.value = defaults[key]; }); } }
+  function fillProductSlots() { if (!product) return; document.querySelectorAll('[data-fill="product-name"]').forEach((el) => el.textContent = product.name); document.querySelectorAll('[data-fill="product-headline"]').forEach((el) => el.textContent = product.headline); document.querySelectorAll('[data-fill="product-summary"]').forEach((el) => el.textContent = product.summary); document.querySelectorAll('[data-fill="product-problem"]').forEach((el) => el.textContent = product.problem); document.querySelectorAll('[data-fill="product-pricing"]').forEach((el) => el.textContent = currencyPlan(product.key)); const valueRoot = document.getElementById('product-values'); if (valueRoot) valueRoot.innerHTML = product.value_points.map((item) => `<li>${item}</li>`).join(''); const outputRoot = document.getElementById('product-outputs'); if (outputRoot) outputRoot.innerHTML = product.outputs.map((item) => `<li>${item}</li>`).join(''); const workflowRoot = document.getElementById('product-workflow'); if (workflowRoot) workflowRoot.innerHTML = (product.workflow || []).map((item) => `<li>${item}</li>`).join(''); const demoRoot = document.getElementById('product-demo-scenarios'); if (demoRoot) demoRoot.innerHTML = (product.demo_scenarios || []).map((item) => `<li>${item}</li>`).join(''); const relatedRoot = document.getElementById('product-related-modules'); if (relatedRoot) relatedRoot.innerHTML = (product.related_modules || []).map((key) => products[key]).filter(Boolean).map((item) => `<article class="story-card ${item.theme}"><span class="tag theme-chip">${esc(item.label)}</span><h3>${esc(item.name)}</h3><p>${esc(item.summary)}</p><div class="small-actions"><a href="${base}products/${item.key}/index.html#intro">제품 설명 보기</a><a href="${base}products/${item.key}/index.html#demo">데모 시연</a></div></article>`).join('') || '<div class="empty-box">바로 이어서 비교할 제품이 아직 없습니다. 현재 제품 기준으로 먼저 판단하셔도 괜찮습니다.</div>';  const faqRoot = document.getElementById('product-faq'); if (faqRoot) faqRoot.innerHTML = (product.faqs || []).map((item) => `<article class="faq-card"><span class="tag">Q</span><h3>${esc(item.q)}</h3><p>${esc(item.a)}</p></article>`).join(''); const actions = document.getElementById('product-actions'); if (actions) actions.innerHTML = `<a class="button" href="${base}products/${product.key}/demo/index.html">샘플 결과</a><a class="button secondary" href="${base}products/${product.key}/plans/index.html">플랜 보기</a><a class="button ghost" href="${base}products/${product.key}/delivery/index.html">전달 자료 보기</a><a class="button ghost" href="${base}products/${product.key}/board/index.html">자료실 보기</a>`; const basis = document.getElementById('product-pricing-basis'); if (basis) basis.textContent = product.pricing_basis || ''; const demoForm = document.getElementById('product-demo-form'); if (demoForm) { const defaults = product.demo_defaults || {}; demoForm.querySelectorAll('[data-demo-field]').forEach((input)=>{ const key = input.dataset.demoField; if (defaults[key] && !input.value) input.value = defaults[key]; }); } }
   function advanceOrder(orderId){ return updateItem(STORE.orders, orderId, (item) => { if (item.paymentStatus !== 'paid') throw new Error('결제 완료 전에는 자동 제공을 완료할 수 없습니다.'); return {...item, status:'delivered', deliveryMeta:{...(item.deliveryMeta||{}), automation:'local_auto', deliveredAt: stamp()}, updatedAt: stamp()}; }); }
   function toggleOrderPayment(orderId){ return updateItem(STORE.orders, orderId, (item) => { const paymentStatus = item.paymentStatus === 'paid' ? 'pending' : 'paid'; const status = paymentStatus === 'paid' ? 'delivered' : 'payment_pending'; return {...item, paymentStatus, status, deliveryMeta: paymentStatus === 'paid' ? { ...(item.deliveryMeta||{}), automation:'local_auto', deliveredAt: stamp() } : item.deliveryMeta, updatedAt: stamp()}; }); }
   function republishOrder(orderId){ const orders = read(STORE.orders); const order = orders.find((item) => item.id === orderId); if (!order) throw new Error('결제 접수를 찾지 못했습니다.'); const extra = createPublicationsForOrder(order); return updateItem(STORE.orders, orderId, (item) => ({...item, publicationIds: [...(item.publicationIds || []), ...extra.map((p) => p.id)], publicationCount: (item.publicationCount || 0) + extra.length, updatedAt: stamp()})); }
   function lookupOrder(email, code){ const orders = read(STORE.orders); if (code) { const exact = orders.find((item) => String(item.code).toLowerCase() === String(code).toLowerCase()); if (exact && (!email || String(exact.email).toLowerCase() === String(email).toLowerCase())) return exact; } if (email) return orders.find((item) => String(item.email).toLowerCase() === String(email).toLowerCase()) || null; return null; }
   function renderPublicationDetail(targetId, items){ const root = document.getElementById(targetId); if (!root) return; const params = new URLSearchParams(location.search); const postId = params.get('post'); const item = items.find((entry) => entry.id === postId) || items[0]; if (!item) { root.innerHTML = '<div class="empty-box">지금 표시할 글이 없습니다. 목록에서 다른 글을 선택하시거나 제품 상세로 이동해 주세요.</div>'; return; } const detailProduct = products[item.product] || null; const portalLink = item.code ? `${base}portal/index.html?code=${encodeURIComponent(item.code)}` : `${base}portal/index.html`; root.innerHTML = `<article class="post-detail"><span class="tag">${esc(item.productName || productName(item.product))}</span><h3>${esc(item.title)}</h3><p>${esc(item.summary)}</p><div class="kv"><div class="row"><strong>게시 시각</strong><span>${formatDate(item.createdAt)}</span></div><div class="row"><strong>조회 코드</strong><span>${esc(item.code || '기본 안내')}</span></div><div class="row"><strong>글 유형</strong><span>${esc(item.source || 'board')}</span></div><div class="row"><strong>본문</strong><span>${esc(item.body || item.summary).split('\n').join('<br>')}</span></div></div><div class="small-actions">${boardCtaMarkup(item)}<a href="${detailProduct ? `${base}products/${item.product}/index.html` : `${base}products/index.html`}">자세히 보기</a><a href="${base}products/${item.product}/board/index.html?post=${item.id}">같은 제품 글 더 보기</a><a href="${portalLink}">제공 상태 확인</a></div></article>`; }
-  function renderPublicBoard() { const root = document.getElementById('public-board-grid'); if (!root) return; ensureSeedData(); const items = read(STORE.publications).filter((item) => item.product === 'veridion').sort((a,b) => (a.createdAt < b.createdAt ? 1 : -1)); if (!items.length) { root.innerHTML = '<div class="empty-box">아직 공개된 글이 없습니다. 조금 뒤 다시 확인하시거나 제품 상세에서 먼저 방향을 살펴보실 수 있습니다.</div>'; return; } root.innerHTML = items.slice(0, 12).map((item, idx) => `<article class="board-card board-card-blog"><span class="tag">Veridion 관련 글 ${idx + 1}</span><h3>${esc(item.title)}</h3><p>${esc(item.summary)}</p><div class="board-meta"><span>${esc(item.productName || productName(item.product))}</span><span>${esc(String(item.readMinutes || 3))}분 읽기</span><span>${esc(item.format || 'ai-hybrid-blog')}</span></div><div class="small-actions">${boardCtaMarkup(item)}<a href="${publicBoardHref(item.id)}">블로그 글 보기</a><a href="${base}products/veridion/index.html">제품 상세</a></div></article>`).join(''); renderPublicationDetail('public-post-detail', items); }
-  function renderProductBoard() { const root = document.getElementById('product-board-grid'); if (!root || !product) return; ensureSeedData(); const dynamic = read(STORE.publications).filter((item) => item.product === product.key); const automation = product.board_automation || {}; const seedCards = (automation.topics || []).map((topic, idx) => buildPublicationRecord({ product: product.key, title: topic.title, summary: topic.summary, source:'topic-seed', code:'', createdAt: stamp(), ctaLabel: topic.ctaText || automation.cta_label || '제품 보기', ctaHref: buildCtaHref(automation.cta_href, product.key), topicSummary: topic.summary, id:`topic-${idx}` })); const items = [...dynamic, ...seedCards].sort((a,b)=>a.createdAt < b.createdAt ? 1 : -1); root.innerHTML = items.slice(0, 12).map((item, idx) => `<article class="board-card board-card-blog"><span class="tag">${product.name} 관련 글 ${idx + 1}</span><h3>${esc(item.title)}</h3><p>${esc(item.summary)}</p><div class="board-meta"><span>${esc(String(item.readMinutes || 3))}분 읽기</span><span>${esc(item.format || 'ai-hybrid-blog')}</span></div><div class="small-actions">${boardCtaMarkup(item)}<a href="${productBoardHref(product.key, item.id)}">블로그 글 보기</a><a href="${base}products/${product.key}/index.html#order">결제 진행</a></div></article>`).join(''); renderPublicationDetail('product-post-detail', items); }
+  function renderPublicBoard() { const root = document.getElementById('public-board-grid'); if (!root) return; ensureSeedData(); const items = read(STORE.publications).filter((item) => item.product === 'veridion').sort((a,b) => (a.createdAt < b.createdAt ? 1 : -1)); if (!items.length) { root.innerHTML = '<div class="empty-box">아직 공개된 글이 없습니다. 조금 뒤 다시 확인하시거나 제품 상세에서 먼저 방향을 살펴보실 수 있습니다.</div>'; return; } root.innerHTML = items.slice(0, 12).map((item, idx) => `<article class="board-card board-card-blog"><span class="tag">Veridion 자료실 ${idx + 1}</span><h3>${esc(item.title)}</h3><p>${esc(item.summary)}</p><div class="board-meta"><span>${esc(item.productName || productName(item.product))}</span><span>${esc(String(item.readMinutes || 3))}분 읽기</span><span>${esc(item.format || 'ai-hybrid-blog')}</span></div><div class="small-actions">${boardCtaMarkup(item)}<a href="${publicBoardHref(item.id)}">글 보기</a><a href="${base}products/veridion/index.html">제품 상세</a></div></article>`).join(''); renderPublicationDetail('public-post-detail', items); }
+  function renderProductBoard() { const root = document.getElementById('product-board-grid'); if (!root || !product) return; ensureSeedData(); const dynamic = read(STORE.publications).filter((item) => item.product === product.key); const automation = product.board_automation || {}; const seedCards = (automation.topics || []).map((topic, idx) => buildPublicationRecord({ product: product.key, title: topic.title, summary: topic.summary, source:'topic-seed', code:'', createdAt: stamp(), ctaLabel: topic.ctaText || automation.cta_label || '제품 보기', ctaHref: buildCtaHref(automation.cta_href, product.key), topicSummary: topic.summary, id:`topic-${idx}` })); const items = [...dynamic, ...seedCards].sort((a,b)=>a.createdAt < b.createdAt ? 1 : -1); root.innerHTML = items.slice(0, 12).map((item, idx) => `<article class="board-card board-card-blog"><span class="tag">${product.name} 자료실 ${idx + 1}</span><h3>${esc(item.title)}</h3><p>${esc(item.summary)}</p><div class="board-meta"><span>${esc(String(item.readMinutes || 3))}분 읽기</span><span>${esc(item.format || 'ai-hybrid-blog')}</span></div><div class="small-actions">${boardCtaMarkup(item)}<a href="${productBoardHref(product.key, item.id)}">글 보기</a><a href="${base}products/${product.key}/index.html#order">결제 진행</a></div></article>`).join(''); renderPublicationDetail('product-post-detail', items); }
   async function loadBoardFeed(){ const url = config.integration?.board_feed_endpoint; if (!url) return false; try { const res = await fetch(url, { headers: { 'Accept':'application/json' } }); if (!res.ok) return false; const payload = await res.json(); if (Array.isArray(payload?.items)) write(STORE.publications, payload.items); return Array.isArray(payload?.items); } catch { return false; } }
   function setPrefills(){ const params = new URLSearchParams(location.search); const productField = document.querySelector('input[name="product"], select[name="product"]'); if (productField && params.get('product')) productField.value = params.get('product'); const planField = document.querySelector('select[name="plan"][data-prefill="plan"]'); if (planField && params.get('plan')) planField.value = params.get('plan'); if (product?.key) { const report = getLastProductReport(product.key); if (report) applyProductReportToCheckout(product.key, report, report); } }
   function renderAdminSummary(){ const orders = read(STORE.orders); const demos = read(STORE.demos); const contacts = read(STORE.contacts); const publications = read(STORE.publications); const reports = read(STORE.reports); const summary = document.getElementById('admin-summary'); const delivered = orders.filter((item)=>item.status==='delivered'); const automated = delivered.filter((item)=>clean(item?.deliveryMeta?.automation || '').includes('auto')); const portalReady = delivered.filter((item)=>Boolean(item?.code && normalizeEmail(item?.email || ''))); if (summary) summary.innerHTML = `<article class="record-card"><span class="tag">주문</span><h4>${orders.length}</h4><p>저장된 결제·주문 건수</p></article><article class="record-card"><span class="tag">자동 전달</span><h4>${automated.length}</h4><p>자동 결과 생성과 전달 연결까지 끝난 주문</p></article><article class="record-card"><span class="tag">포털 연결</span><h4>${portalReady.length}</h4><p>조회 코드와 고객 포털 연결이 준비된 주문</p></article><article class="record-card"><span class="tag">Veridion 리포트</span><h4>${reports.filter((item)=>item.product==='veridion').length}</h4><p>실제 탐색 기반 발행 리포트</p></article>`; const automation = document.getElementById('admin-automation-grid'); if (automation) { const latest = reports.filter((item)=>item.product==='veridion').sort((a,b)=> String(a.createdAt||'') < String(b.createdAt||'') ? 1 : -1)[0]; const manualEnabled = Boolean(runtime.systemConfig?.admin?.manualActionsEnabled); automation.innerHTML = `<article class="record-card"><span class="tag">주문 자동화</span><h4>${orders.length ? Math.round((automated.length / orders.length) * 100) : 100}%</h4><p>${manualEnabled ? '수동 보정 허용 상태입니다.' : '수동 보정 버튼 없이 자동 흐름만 사용합니다.'}</p></article><article class="record-card"><span class="tag">콘텐츠 연결</span><h4>${publications.length}개 공개 글</h4><p>결제 완료 주문은 공개 글과 포털 기록이 같은 코드로 연결됩니다.</p></article><article class="record-card"><span class="tag">Veridion 스캔</span><h4>${latest?.stats?.explorationRate ?? '-' }%</h4><p>${latest ? `최근 리포트 ${esc(latest.code)} · 핵심 페이지 ${esc(String(latest.stats?.priorityCoverage ?? '-'))}%` : '아직 실제 탐색 리포트가 없습니다.'}</p></article>`; } const orderRoot = document.getElementById('admin-orders'); if (orderRoot) orderRoot.innerHTML = orders.length ? orders.slice(0,12).map((item)=>{ const publicationCount = Number(item.publicationCount || (item.publicationIds || []).length || 0); const autoMode = esc(item?.deliveryMeta?.automation || 'auto_runtime'); const reportLine = item.reportCode ? ` · 리포트 ${esc(item.reportCode)}` : ''; const paymentKeyLine = item.paymentKey ? '결제 키 확인 완료' : (clean(item.paymentStatus) === 'paid' ? '결제 승인 완료' : '결제 대기'); return `<article class="record-card"><span class="tag">${esc(item.productName || productName(item.product))}</span><h4>${esc(item.company || item.email)}</h4><p>플랜 ${esc(item.plan)} · 결제 ${esc(paymentStatusLabel(item.paymentStatus))} · 상태 ${esc(orderStatusLabel(item.status))}</p><p>조회 코드 <span class="inline-code">${esc(item.code)}</span>${reportLine}</p><ul class="clean"><li>자동화 모드: ${autoMode}</li><li>결과 묶음: ${publicationCount}건 연결</li><li>결제/포털: ${paymentKeyLine}</li></ul><div class="small-actions"><a href="${portalHref(item)}">고객 포털</a><a href="${base}products/${item.product}/index.html">제품 보기</a></div></article>`; }).join('') : '<div class="empty-box">저장된 주문이 없습니다.</div>'; const requestRoot = document.getElementById('admin-requests'); if (requestRoot) requestRoot.innerHTML = ([...demos.map((item)=>`<article class="record-card"><span class="tag">데모</span><h4>${esc(item.company || item.email)}</h4><p>${esc(item.productName)} · ${esc(item.need || '')}</p><p>코드 <span class="inline-code">${esc(item.code)}</span>${item.reportCode ? ` · 리포트 ${esc(item.reportCode)}` : ''}</p></article>`), ...contacts.map((item)=>`<article class="record-card"><span class="tag">문의</span><h4>${esc(item.company || item.email)}</h4><p>${esc(item.productName)} · ${esc(item.issue || '')}</p><p>코드 <span class="inline-code">${esc(item.code)}</span></p></article>`)]).slice(0,12).join('') || '<div class="empty-box">저장된 요청이 없습니다.</div>'; const pubRoot = document.getElementById('admin-publications'); if (pubRoot) pubRoot.innerHTML = publications.length ? publications.slice(0,12).map((item)=>`<article class="record-card"><span class="tag">${esc(item.productName || productName(item.product))}</span><h4>${esc(item.title)}</h4><p>${esc(item.summary)}</p><div class="small-actions"><a href="${publicBoardHref(item.id)}">전체 글</a><a href="${productBoardHref(item.product, item.id)}">제품 글</a></div></article>`).join('') : '<div class="empty-box">발행된 글이 없습니다.</div>'; const feed = document.getElementById('admin-feed'); if (feed) { const latest = reports.filter((item)=>item.product==='veridion').sort((a,b)=> String(a.createdAt||'') < String(b.createdAt||'') ? 1 : -1)[0]; const issuesHtml = latest ? (latest.issues || []).slice(0,4).map((item)=>`<div class="mock-step"><strong>${esc(item.title)}</strong><span>${esc(item.detail)}</span></div>`).join('') : ''; feed.innerHTML = `<div class="mock-step"><strong>자동 처리 원칙</strong><span>수동 결제 전환, 수동 전달 완료, 수동 재발행 버튼 없이 주문·결제·포털 연결을 자동 흐름으로만 유지합니다.</span></div>${latest ? `<div class="mock-step"><strong>최근 Veridion 리포트</strong><span>${esc(latest.code)} · 탐색률 ${esc(String(latest.stats?.explorationRate ?? '-'))}% · 핵심 페이지 ${esc(String(latest.stats?.priorityCoverage ?? '-'))}%</span></div>` : '<div class="empty-box">아직 Veridion 탐색 리포트가 없습니다.</div>'}${issuesHtml}`; } }
-  function bindAdminActions(){ const root = document.getElementById('admin-console'); if (!root) return; root.addEventListener('click', async (event) => { const button = event.target.closest('[data-admin-action]'); if (!button) return; event.preventDefault(); showResult('admin-action-result', '수동 보정 버튼은 기본 비활성화 상태입니다. 자동 흐름 이상이 보이면 로그·백업·복구 기준으로만 점검하세요.'); }); }
+  function bindAdminActions(){
+    const root = document.getElementById('admin-console');
+    if (!root) return;
+    const boardForm = document.getElementById('admin-board-settings-form');
+    boardForm?.addEventListener('submit', (event) => { event.preventDefault(); withSubmitLock(boardForm, async () => {
+      const data = Object.fromEntries(new FormData(boardForm).entries());
+      data.autoPublishAllProducts = boardForm.querySelector('input[name="autoPublishAllProducts"]')?.checked ? 1 : 0;
+      const res = await postIfConfigured('/api/admin/board-settings', data);
+      if (res.ok && res.json?.settings) { applyStatePayload(res.json?.state); showResult('admin-action-result', '자료실 CTA 자동 발행 설정을 저장했습니다.'); }
+      else throw new Error(res.json?.detail || res.text || '자료실 설정 저장에 실패했습니다.');
+    }).catch((error)=>showResult('admin-action-result', createFriendlyError(error,'자료실 설정 저장 실패'))); });
+    const publishAll = document.getElementById('admin-publish-all');
+    publishAll?.addEventListener('click', () => { withSubmitLock(boardForm || root, async () => {
+      const res = await postIfConfigured('/api/admin/actions/publish-now', {});
+      if (res.ok) { applyStatePayload(res.json?.state); renderPublicBoard(); renderProductBoard(); renderAdminSummary(); showResult('admin-action-result', '전체 제품 기준 자료실 글을 즉시 발행했습니다.'); }
+      else throw new Error(res.json?.detail || res.text || '전체 발행에 실패했습니다.');
+    }).catch((error)=>showResult('admin-action-result', createFriendlyError(error,'전체 발행 실패'))); });
+    const publicationForm = document.getElementById('admin-publication-form');
+    publicationForm?.addEventListener('submit', (event) => { event.preventDefault(); withSubmitLock(publicationForm, async () => {
+      const payload = Object.fromEntries(new FormData(publicationForm).entries());
+      const res = await postIfConfigured('/api/admin/library/publications', payload);
+      if (res.ok) { applyStatePayload(res.json?.state); publicationForm.reset(); renderPublicBoard(); renderProductBoard(); renderAdminSummary(); showResult('admin-action-result', '자료실 글을 등록했습니다.'); }
+      else throw new Error(res.json?.detail || res.text || '자료실 글 등록에 실패했습니다.');
+    }).catch((error)=>showResult('admin-action-result', createFriendlyError(error,'자료실 글 등록 실패'))); });
+    const assetForm = document.getElementById('admin-asset-form');
+    assetForm?.addEventListener('submit', (event) => { event.preventDefault(); withSubmitLock(assetForm, async () => {
+      const fd = new FormData(assetForm);
+      const res = await fetch('/api/admin/library/assets', { method:'POST', headers: headersFor('/api/admin/library/assets'), body: fd });
+      const json = await res.json().catch(()=>null);
+      if (res.ok && json?.asset) { assetForm.reset(); showResult('admin-action-result', `파일 업로드 완료: ${esc(json.asset.title)} / ${esc(json.asset.url)}`); }
+      else throw new Error(json?.detail || '파일 업로드에 실패했습니다.');
+    }).catch((error)=>showResult('admin-action-result', createFriendlyError(error,'파일 업로드 실패'))); });
+    root.addEventListener('click', async (event) => {
+      const button = event.target.closest('[data-admin-action]');
+      if (!button) return;
+      event.preventDefault();
+      showResult('admin-action-result', '수동 보정 버튼은 기본 비활성화 상태입니다. 자동 흐름 이상이 보이면 로그·백업·복구 기준으로만 점검하세요.');
+    });
+  }
+
+  function buildDemoSaveBox(entry, remoteSaved){
+    if (entry?.code) return `<div class="demo-save-box"><strong>임시 저장 결과</strong><br>조회 코드 <span class="inline-code">${esc(entry.code)}</span> 로 데모를 다시 확인할 수 있습니다.${remoteSaved ? ' 서버에도 저장했습니다.' : ''}</div>`;
+    return `<div class="demo-save-box"><strong>다음 단계</strong><br>무료 데모는 저장형 문의가 아니라 즉시 분석 화면입니다. 결제 후 진행 정보 입력 단계에서 회사명, 담당자명, 이메일, 사이트 주소를 한 번에 받습니다.</div>`;
+  }
+
+  function renderProductDemoWorkspace(){
+    const root = document.getElementById('product-demo-shell');
+    if (!root || !product) return;
+    if (product.key === 'veridion') {
+      root.innerHTML = `<form id="product-demo-form" class="stack-form"><div class="form-grid"><div class="span-2"><label>사이트 주소</label><input name="website" data-demo-field="website" placeholder="https://example.com" inputmode="url" autocomplete="url" required></div><div><label>업종</label><select name="industry" data-demo-field="industry"><option value="commerce">이커머스</option><option value="beauty">뷰티·웰니스</option><option value="healthcare">의료·건강</option><option value="education">교육·서비스</option><option value="saas">B2B SaaS</option></select></div><div><label>운영 국가</label><input name="market" data-demo-field="market" placeholder="예: 대한민국"></div><div class="span-2"><label>중점 확인 포인트</label><input name="focus" data-demo-field="focus" placeholder="예: 광고표현, 개인정보, 결제고지"></div></div><div class="actions"><button class="button" type="submit">즉시 분석하기</button><a class="button ghost" href="#order">바로 결제</a></div></form>`;
+      return;
+    }
+    root.innerHTML = `<form id="product-demo-form" class="stack-form"><div class="form-grid"><div><label>회사명(선택)</label><input name="company" data-demo-field="company" placeholder="예: 샘플 브랜드"></div><div><label>중점 확인 포인트</label><input name="focus" data-demo-field="focus" placeholder="예: 현재 운영 병목"></div></div><div class="actions"><button class="button" type="submit">즉시 분석하기</button><a class="button ghost" href="#order">바로 결제</a></div></form>`;
+  }
+
+  function intakeFormMarkup(order){
+    return `<form id="payment-intake-form" class="stack-form"><div class="form-grid"><div><label>회사명</label><input name="company" value="${esc(order?.company || '')}" required></div><div><label>담당자명</label><input name="name" value="${esc(order?.name || '')}" required></div><div><label>이메일</label><input name="email" type="email" value="${esc(order?.email || '')}" required></div><div class="span-2"><label>사이트 주소</label><input name="website" value="${esc(order?.link || '')}" placeholder="https://example.com" ${order?.product === 'veridion' ? 'required' : ''}></div></div><div class="actions"><button class="button" type="submit">진행 정보 저장하고 결과 받기</button></div></form>`;
+  }
+
+  async function startCheckout(payload, resultId){
+    const reserve = await postIfConfigured(config.integration?.reserve_order_endpoint || '/api/public/orders/reserve', payload);
+    if (!(reserve.ok && reserve.json?.order)) throw new Error(reserve.json?.detail || reserve.text || '결제 준비에 실패했습니다.');
+    applyStatePayload(reserve.json?.state);
+    const order = reserve.json.order;
+    try { sessionStorage.setItem('nv0-last-order', JSON.stringify(order)); } catch {}
+    const payment = reserve.json.payment || paymentRuntime() || {};
+    const successUrl = `${location.origin}${base === './' ? '' : base.replace(/\.\//g,'')}`;
+    if (payment.enabled && !payment.mock && window.TossPayments && payment.clientKey) {
+      const toss = window.TossPayments(payment.clientKey);
+      await toss.requestPayment('카드', { amount: order.amount, orderId: order.id, orderName: `${productName(order.product)} ${order.plan}`, customerName: '결제 고객', successUrl: `${location.origin}/payments/toss/success/`, failUrl: `${location.origin}/payments/toss/fail/` });
+      return order;
+    }
+    const query = new URLSearchParams({ orderId: order.id, paymentKey: `mock_${order.id}`, amount: String(order.amount), mock: '1' });
+    location.href = `${base}payments/toss/success/index.html?${query.toString()}`;
+    showResult(resultId, '결제 페이지로 이동합니다.');
+    return order;
+  }
+
+  async function bindProductCheckoutForm(){
+    const form = document.getElementById('product-checkout-form');
+    if (!form) return;
+    form.addEventListener('submit', (event) => { event.preventDefault(); withSubmitLock(form, async () => {
+      const values = Object.fromEntries(new FormData(form).entries());
+      assert(validateProduct(values.product), '제품을 확인해 주세요.');
+      assert(validatePlan(values.product, values.plan), '플랜을 선택해 주세요.');
+      const report = getLastProductReport(values.product);
+      const payload = { ...values, reportId: values.reportId || report?.id || '', reportCode: values.reportCode || report?.code || '', link: values.link || report?.scannedWebsite || report?.website || '' };
+      await startCheckout(payload, 'product-checkout-result');
+    }).catch((error)=>showResult('product-checkout-result', createFriendlyError(error,'결제 시작 실패'))); });
+  }
+
+  function bindDemoForm(){
+    const form = document.getElementById('demo-form');
+    if (!form) return;
+    form.addEventListener('submit', (event) => { event.preventDefault(); withSubmitLock(form, async () => {
+      const values = Object.fromEntries(new FormData(form).entries());
+      assert(clean(values.website), '사이트 주소를 입력하세요.');
+      const res = await postIfConfigured(veridionScanEndpoint(), values);
+      if (!(res.ok && res.json?.report)) throw new Error(res.json?.detail || res.text || '즉시 분석에 실패했습니다.');
+      applyStatePayload(res.json?.state);
+      const report = res.json.report;
+      setLastVeridionReport(report);
+      showResult('demo-result', renderVeridionRemoteReport(report, values) + buildDemoSaveBox(null, false));
+    }).catch((error)=>showResult('demo-result', createFriendlyError(error,'즉시 분석 실패'))); });
+  }
+
+  function bindCheckoutForm(){
+    const form = document.getElementById('checkout-form');
+    if (!form) return;
+    form.addEventListener('submit', (event) => { event.preventDefault(); withSubmitLock(form, async () => {
+      const values = Object.fromEntries(new FormData(form).entries());
+      await startCheckout(values, 'checkout-result');
+    }).catch((error)=>showResult('checkout-result', createFriendlyError(error,'결제 시작 실패'))); });
+  }
+
+  function bindContactForm(){
+    const form = document.getElementById('contact-form');
+    if (!form) return;
+    form.addEventListener('submit', (event) => { event.preventDefault(); withSubmitLock(form, async () => {
+      const payload = Object.fromEntries(new FormData(form).entries());
+      const res = await postIfConfigured(config.integration?.contact_endpoint || '/api/public/contact-requests', payload);
+      if (res.ok && res.json?.contact) { applyStatePayload(res.json?.state); showResult('contact-result', `문의가 저장되었습니다. 조회 코드 ${esc(res.json.contact.code)}`); }
+      else throw new Error(res.json?.detail || res.text || '문의 저장 실패');
+    }).catch((error)=>showResult('contact-result', createFriendlyError(error,'문의 저장 실패'))); });
+  }
+
+  function bindPortalLookup(){
+    const form = document.getElementById('portal-lookup-form');
+    if (!form) return;
+    form.addEventListener('submit', (event) => { event.preventDefault(); withSubmitLock(form, async () => {
+      const payload = Object.fromEntries(new FormData(form).entries());
+      const res = await postIfConfigured(config.integration?.portal_lookup_endpoint || '/api/public/portal/lookup', payload);
+      if (res.ok) { applyStatePayload(res.json?.state); const order = res.json?.order; showResult('portal-lookup-result', order ? `조회 코드 ${esc(order.code)} · 상태 ${esc(orderStatusLabel(order.status))}` : '일치하는 결과를 찾지 못했습니다.'); }
+      else throw new Error(res.json?.detail || res.text || '조회 실패');
+    }).catch((error)=>showResult('portal-lookup-result', createFriendlyError(error,'조회 실패'))); });
+  }
+
+  async function bindPaymentResultPages(){
+    if (pageKey === 'payment-success') {
+      const target = document.getElementById('payment-success-result');
+      const params = new URLSearchParams(location.search);
+      const orderId = params.get('orderId');
+      const paymentKey = params.get('paymentKey') || `mock_${orderId || ''}`;
+      const amount = Number(params.get('amount') || 0);
+      if (!orderId || !amount) { if (target) target.innerHTML = '결제 정보가 없어 확인할 수 없습니다.'; return; }
+      try {
+        const res = await postIfConfigured(config.integration?.toss_confirm_endpoint || '/api/public/payments/toss/confirm', { orderId, paymentKey, amount });
+        if (!(res.ok && res.json?.order)) throw new Error(res.json?.detail || res.text || '결제 확인 실패');
+        applyStatePayload(res.json?.state);
+        const order = res.json.order;
+        if (order.status === 'intake_required') {
+          target.innerHTML = `<strong>결제는 완료되었습니다.</strong><br>이제 진행 정보만 입력하면 결과 제공을 시작합니다.` + intakeFormMarkup(order);
+          const intakeForm = document.getElementById('payment-intake-form');
+          intakeForm?.addEventListener('submit', (event) => { event.preventDefault(); withSubmitLock(intakeForm, async () => {
+            const payload = Object.fromEntries(new FormData(intakeForm).entries());
+            const intake = await postIfConfigured(`/api/public/orders/${encodeURIComponent(order.id)}/intake`, payload);
+            if (!(intake.ok && intake.json?.order)) throw new Error(intake.json?.detail || intake.text || '진행 정보 저장 실패');
+            applyStatePayload(intake.json?.state);
+            const done = intake.json.order;
+            target.innerHTML = `<strong>진행 정보가 저장되었습니다.</strong><br>조회 코드 <span class="inline-code">${esc(done.code)}</span> · 상태 ${esc(orderStatusLabel(done.status))}<br><a class="button" href="${portalHref(done)}">고객 포털 열기</a>`;
+          }).catch((error)=>{ target.innerHTML = createFriendlyError(error,'진행 정보 저장 실패'); }); });
+        } else {
+          target.innerHTML = `<strong>결제 확인 완료</strong><br>조회 코드 <span class="inline-code">${esc(order.code)}</span> · 상태 ${esc(orderStatusLabel(order.status))}<br><a class="button" href="${portalHref(order)}">고객 포털 열기</a>`;
+        }
+      } catch (error) { if (target) target.innerHTML = createFriendlyError(error,'결제 확인 실패'); }
+    }
+    if (pageKey === 'payment-fail') {
+      const target = document.getElementById('payment-fail-result');
+      const params = new URLSearchParams(location.search);
+      if (target) target.innerHTML = `결제가 완료되지 않았습니다. ${esc(params.get('message') || '잠시 후 다시 시도해 주세요.')}`;
+    }
+  }
+
   function fillCheckoutFromDemo(values){
     const form = document.getElementById('product-checkout-form');
     if (!form) return;
@@ -919,7 +1088,7 @@
         <div class="actions">
           <a class="button" href="${productPageHref(focus.key, '#demo')}">무료 데모 보기</a>
           <a class="button secondary" href="${base}products/${focus.key}/plans/index.html">가격 보기</a>
-          <a class="button ghost" href="${base}products/${focus.key}/board/index.html">게시판 보기</a>
+          <a class="button ghost" href="${base}products/${focus.key}/board/index.html">자료실 보기</a>
         </div>
       </article>
       <article class="card strong">
@@ -943,7 +1112,7 @@
         <p>${esc(item.summary || item.problem || '')}</p>
         <div class="actions">
           <a class="button soft" href="${base}products/${item.key}/index.html">모듈 상세 보기</a>
-          <a class="button ghost" href="${base}products/${item.key}/board/index.html">모듈 게시판</a>
+          <a class="button ghost" href="${base}products/${item.key}/board/index.html">자료실 보기</a>
         </div>
       </article>
     `).join('');
@@ -969,7 +1138,7 @@
     const faqRoot = document.getElementById('product-faq');
     if (faqRoot) faqRoot.innerHTML = (product.faqs || []).map((item) => `<article class="faq-card"><span class="tag">Q</span><h3>${esc(item.q)}</h3><p>${esc(item.a)}</p></article>`).join('');
     const actions = document.getElementById('product-actions');
-    if (actions) actions.innerHTML = `<a class="button" href="#demo">실제 데모</a><a class="button secondary" href="#order">플랜/결제</a><a class="button ghost" href="#delivery">전달 범위</a><a class="button ghost" href="${base}products/${product.key}/board/index.html">관련 글</a>`;
+    if (actions) actions.innerHTML = `<a class="button" href="#demo">실제 데모</a><a class="button secondary" href="#order">플랜/결제</a><a class="button ghost" href="#delivery">전달 범위</a><a class="button ghost" href="${base}products/${product.key}/board/index.html">자료실</a>`;
     const basis = document.getElementById('product-pricing-basis');
     if (basis) basis.textContent = product.pricing_basis || '';
     renderProductDemoWorkspace();
@@ -1022,6 +1191,280 @@
     }); });
   }
 
+
+function renderHeader(){
+  const header = document.getElementById('site-header'); if (!header) return;
+  const quickLinks = renderProductSubLinks('sub-link');
+  header.innerHTML = `<div class="container nav-wrap"><div class="nav-left"><button class="mobile-nav-toggle" type="button" aria-expanded="false" aria-controls="mobile-drawer" data-nav-toggle="1">메뉴</button><a class="brand" href="${base}index.html"><span class="brand-mark">V</span><span class="brand-copy"><strong>Veridion</strong><span>온라인 개인사업자용 법률·규제 리스크 방어막</span></span></a></div><nav class="nav-links">${renderNavLinks('top-link')}<button class="button ghost admin-link-inline" type="button" data-admin-entry="1">관계자</button></nav></div><div class="container subnav"><span class="subnav-label">제품</span>${quickLinks}</div>`;
+}
+
+function renderSidebar(){
+  let shell = document.getElementById('side-nav-shell');
+  if (!shell) {
+    shell = document.createElement('aside');
+    shell.id = 'side-nav-shell';
+    shell.className = 'side-nav-shell';
+    document.body.prepend(shell);
+  }
+  shell.innerHTML = '';
+  document.body.classList.remove('with-side-nav');
+  if (!document.getElementById('mobile-nav-backdrop')) {
+    const backdrop = document.createElement('button');
+    backdrop.type = 'button';
+    backdrop.id = 'mobile-nav-backdrop';
+    backdrop.className = 'mobile-nav-backdrop';
+    backdrop.setAttribute('aria-hidden', 'true');
+    document.body.appendChild(backdrop);
+  }
+  let drawer = document.getElementById('mobile-drawer');
+  if (!drawer) {
+    drawer = document.createElement('aside');
+    drawer.id = 'mobile-drawer';
+    drawer.className = 'mobile-drawer';
+    document.body.appendChild(drawer);
+  }
+  drawer.innerHTML = `<div class="mobile-drawer-card"><div class="mobile-drawer-top"><strong>메뉴</strong><button class="mobile-nav-close" type="button" data-nav-close="1">닫기</button></div><button class="side-admin-button" type="button" data-admin-entry="1">관계자</button><nav class="side-nav-links"><div class="side-group"><span class="side-group-title">메인 메뉴</span>${renderNavLinks('side-link')}</div><div class="side-group"><span class="side-group-title">제품</span>${renderProductSubLinks('side-sublink')}<a href="${base}products/veridion/demo/index.html" class="side-sublink ${path.includes('/products/veridion/demo/') ? 'active' : ''}">즉시 데모</a></div></nav></div>`;
+}
+
+function orderStatusLabel(status){ return ({payment_pending:'결제 대기', intake_required:'진행 정보 입력 필요', draft_ready:'자동 실행 준비', published:'콘텐츠 발행 완료', delivered:'결과 전달 완료'})[clean(status)] || (clean(status) || '확인 필요'); }
+
+function updatePlanSummary(form, summaryId){
+  const summary = document.getElementById(summaryId);
+  if (!form || !summary) return;
+  const productKey = clean(form.elements?.product?.value || product?.key || document.body?.dataset?.product || '');
+  const planName = clean(form.elements?.plan?.value || 'Starter');
+  summary.innerHTML = `<strong>현재 선택 요약</strong><br>${esc(productName(productKey))} · ${esc(planName)} · ${esc(planPrice(productKey, planName))}${planNote(productKey, planName) ? `<br><small>${esc(planNote(productKey, planName))}</small>` : ''}`;
+}
+
+function buildDemoSaveBox(entry, remoteSaved){
+  if (!entry) return `<div class="demo-save-box"><strong>다음 단계</strong><br>지금은 저장 없이 결과만 먼저 확인하셨습니다. 원하시면 바로 결제로 넘어가실 수 있습니다.</div>`;
+  return `<div class="demo-save-box"><strong>저장 완료</strong><br>샘플 코드 <span class="inline-code">${esc(entry.code || '-') }</span>${remoteSaved ? ' · 서버에 기록되었습니다.' : ' · 브라우저에 임시 저장했습니다.'}</div>`;
+}
+
+function renderProductDemoWorkspace(){
+  const root = document.getElementById('product-demo-shell');
+  if (!root || !product) return;
+  if (product.key === 'veridion') {
+    root.innerHTML = `<form id="product-demo-form" class="stack-form"><div class="form-grid"><div class="span-2"><label>사이트 주소</label><input name="website" placeholder="https://example.com" inputmode="url" autocomplete="url" required></div><div><label>업종</label><select name="industry"><option value="commerce">이커머스</option><option value="beauty">뷰티·웰니스</option><option value="healthcare">의료·건강</option><option value="education">교육·서비스</option><option value="saas">B2B SaaS</option></select></div><div><label>주요 운영 국가</label><input name="market" placeholder="예: 대한민국"></div><div class="span-2"><label>중점 확인 포인트</label><input name="focus" placeholder="예: 광고표현, 개인정보, 결제고지"></div></div><div class="actions"><button class="button" type="submit">즉시 분석하기</button><a class="button ghost" href="#order">바로 결제</a></div></form>`;
+    return;
+  }
+  if (product.key === 'clearport') {
+    root.innerHTML = `<form id="product-demo-form" class="stack-form"><div class="form-grid"><div><label>제출 유형</label><input name="submissionType" placeholder="예: 입찰, 등록, 제휴"></div><div><label>마감일</label><input name="deadline" type="date"></div><div><label>제출처</label><input name="targetOrg" placeholder="예: 공공기관, 거래처"></div><div><label>팀 규모</label><input name="teamSize" placeholder="예: 2인 운영팀"></div><div class="span-2"><label>막히는 지점</label><input name="blocker" placeholder="예: 서류 누락, 회신 지연"></div></div><div class="actions"><button class="button" type="submit">샘플 결과 보기</button></div></form>`;
+    return;
+  }
+  if (product.key === 'grantops') {
+    root.innerHTML = `<form id="product-demo-form" class="stack-form"><div class="form-grid"><div><label>사업/공모명</label><input name="projectName" placeholder="예: 창업 지원사업"></div><div><label>마감일</label><input name="deadline" type="date"></div><div><label>현재 진행률</label><select name="progress"><option>자료 수집 전</option><option>초안 작성 중</option><option>검토 중</option><option>마감 직전</option></select></div><div><label>참여 인원</label><input name="contributors" placeholder="예: 3명"></div><div class="span-2"><label>지연 포인트</label><input name="delayPoint" placeholder="예: 증빙 수집, 승인 지연"></div></div><div class="actions"><button class="button" type="submit">샘플 결과 보기</button></div></form>`;
+    return;
+  }
+  root.innerHTML = `<form id="product-demo-form" class="stack-form"><div class="form-grid"><div><label>문서 종류</label><input name="docType" placeholder="예: 제안서, 보고서"></div><div><label>현재 버전 상태</label><select name="versionState"><option>최신본이 정리되어 있음</option><option>초안만 있음</option><option>수정본이 여러 개 흩어져 있음</option></select></div><div><label>승인 단계</label><input name="approvalSteps" placeholder="예: 3단계"></div><div><label>주요 채널</label><input name="channel" placeholder="예: 이메일, 메신저"></div><div class="span-2"><label>가장 큰 문제</label><input name="draftPain" placeholder="예: 최신본 혼선, 승인 지연"></div></div><div class="actions"><button class="button" type="submit">샘플 결과 보기</button></div></form>`;
+}
+
+async function requestMockOrLivePayment(order, payment){
+  const confirmUrl = config.integration?.toss_confirm_endpoint || '/api/public/payments/toss/confirm';
+  const successPath = payment?.successUrl || `${location.origin}${base.replace('./','/') }payments/toss/success/index.html`;
+  const failPath = payment?.failUrl || `${location.origin}${base.replace('./','/') }payments/toss/fail/index.html`;
+  if (payment?.enabled && !payment?.mock && window.TossPayments) {
+    const clientKey = payment.clientKey;
+    const toss = window.TossPayments(clientKey);
+    await toss.requestPayment('카드', {
+      amount: Number(order.amount || 0),
+      orderId: order.id,
+      orderName: `${order.productName || productName(order.product)} ${order.plan || 'Starter'}`,
+      customerName: order.name || '결제 고객',
+      customerEmail: order.email || 'checkout@nv0.kr',
+      successUrl: successPath,
+      failUrl: failPath,
+    });
+    return null;
+  }
+  const confirm = await postIfConfigured(confirmUrl, { orderId: order.id, paymentKey: `mock_${order.id}`, amount: order.amount });
+  if (confirm.mode === 'remote' && confirm.ok && confirm.json?.order) {
+    applyStatePayload(confirm.json?.state);
+    const url = `${base}payments/toss/success/index.html?orderId=${encodeURIComponent(confirm.json.order.id)}&paymentKey=${encodeURIComponent(confirm.json.order.paymentKey || `mock_${confirm.json.order.id}`)}&amount=${encodeURIComponent(confirm.json.order.amount || 0)}`;
+    location.href = url;
+    return confirm.json.order;
+  }
+  throw new Error(confirm.json?.detail || confirm.text || '결제 승인 처리에 실패했습니다.');
+}
+
+async function bindProductCheckoutForm(){
+  const form = document.getElementById('product-checkout-form');
+  if (!form) return;
+  if (form.dataset.bound === '1') return;
+  form.dataset.bound = '1';
+  form.addEventListener('submit', (event) => { event.preventDefault(); withSubmitLock(form, async () => {
+    const values = Object.fromEntries(new FormData(form).entries());
+    const payload = { product: values.product || product?.key, plan: values.plan || 'Starter', billing: values.billing || 'one-time', paymentMethod: values.paymentMethod || 'toss' };
+    const reserve = await postIfConfigured(config.integration?.reserve_order_endpoint || '/api/public/orders/reserve', payload);
+    if (reserve.mode === 'remote' && reserve.ok && reserve.json?.order) {
+      applyStatePayload(reserve.json?.state);
+      await requestMockOrLivePayment(reserve.json.order, reserve.json.payment || paymentRuntime());
+      return;
+    }
+    if (reserve.mode === 'remote') throw new Error(reserve.json?.detail || reserve.text || '결제 준비에 실패했습니다.');
+    const local = createOrder({ ...payload, company:'결제 후 입력', name:'결제 후 입력', email:'checkout@nv0.kr' });
+    location.href = `${base}payments/toss/success/index.html?orderId=${encodeURIComponent(local.id)}&paymentKey=${encodeURIComponent(`mock_${local.id}`)}&amount=${encodeURIComponent(local.amount || 0)}`;
+  }); });
+}
+
+async function bindDemoForm(){
+  const form = document.getElementById('demo-form');
+  if (!form || form.dataset.bound === '1') return;
+  form.dataset.bound = '1';
+  form.addEventListener('submit', (event) => { event.preventDefault(); withSubmitLock(form, async () => {
+    const values = Object.fromEntries(new FormData(form).entries());
+    assert(clean(values.website), '사이트 주소를 입력하세요.');
+    const scan = await postIfConfigured(veridionScanEndpoint(), values);
+    if (scan.mode === 'remote' && scan.ok && scan.json?.report) {
+      applyStatePayload(scan.json?.state);
+      setLastVeridionReport(scan.json.report);
+      showResult('demo-result', renderVeridionRemoteReport(scan.json.report, values));
+      return;
+    }
+    throw new Error(scan.json?.detail || scan.text || '즉시 분석에 실패했습니다.');
+  }).catch((error)=>showResult('demo-result', `<div class="empty-box">${esc(createFriendlyError(error,'즉시 분석에 실패했습니다.'))}</div>`)); });
+}
+
+async function bindCheckoutForm(){
+  const form = document.getElementById('checkout-form');
+  if (!form || form.dataset.bound === '1') return;
+  form.dataset.bound = '1';
+  form.addEventListener('submit', (event) => { event.preventDefault(); withSubmitLock(form, async () => {
+    const values = Object.fromEntries(new FormData(form).entries());
+    const payload = { product: values.product, plan: values.plan || 'Starter', billing: values.billing || 'one-time', paymentMethod: values.paymentMethod || 'toss' };
+    const reserve = await postIfConfigured(config.integration?.reserve_order_endpoint || '/api/public/orders/reserve', payload);
+    if (reserve.mode === 'remote' && reserve.ok && reserve.json?.order) {
+      applyStatePayload(reserve.json?.state);
+      await requestMockOrLivePayment(reserve.json.order, reserve.json.payment || paymentRuntime());
+      return;
+    }
+    throw new Error(reserve.json?.detail || reserve.text || '결제 준비에 실패했습니다.');
+  }).catch((error)=>showResult('checkout-result', `<div class="empty-box">${esc(createFriendlyError(error,'결제 준비에 실패했습니다.'))}</div>`)); });
+}
+
+async function bindContactForm(){
+  const form = document.getElementById('contact-form');
+  if (!form || form.dataset.bound === '1') return;
+  form.dataset.bound = '1';
+  form.addEventListener('submit', (event) => { event.preventDefault(); withSubmitLock(form, async () => {
+    const values = Object.fromEntries(new FormData(form).entries());
+    const remote = await postIfConfigured(config.integration?.contact_endpoint || '/api/public/contact-requests', values);
+    if (remote.mode === 'remote' && remote.ok) { applyStatePayload(remote.json?.state); showResult('contact-result', '<div class="notice"><strong>확인 요청을 접수했습니다.</strong><br>운영 조건을 검토한 뒤 안내드리겠습니다.</div>'); return; }
+    const entry = createContact(values); showResult('contact-result', `<div class="notice"><strong>확인 요청을 저장했습니다.</strong><br>코드 <span class="inline-code">${esc(entry.code)}</span></div>`);
+  }).catch((error)=>showResult('contact-result', `<div class="empty-box">${esc(createFriendlyError(error,'요청 접수에 실패했습니다.'))}</div>`)); });
+}
+
+async function bindPortalLookup(){
+  const form = document.getElementById('portal-lookup-form');
+  if (!form || form.dataset.bound === '1') return;
+  form.dataset.bound = '1';
+  form.addEventListener('submit', (event) => { event.preventDefault(); withSubmitLock(form, async () => {
+    const values = Object.fromEntries(new FormData(form).entries());
+    const remote = await postIfConfigured(config.integration?.portal_lookup_endpoint || '/api/public/portal/lookup', values);
+    const payload = remote.mode === 'remote' && remote.ok ? remote.json : { order: lookupOrder(values.email, values.code), publications: [] };
+    const order = payload?.order;
+    if (!order) { showResult('portal-result', '<div class="empty-box">일치하는 조회 내역을 찾지 못했습니다.</div>'); return; }
+    showResult('portal-result', `<div class="notice"><strong>${esc(order.productName || productName(order.product))}</strong><br>상태: ${esc(orderStatusLabel(order.status))}<br>조회 코드 <span class="inline-code">${esc(order.code)}</span><br><a href="${portalHref(order)}">포털 링크 열기</a></div>`);
+    const mock = document.getElementById('portal-mock');
+    if (mock) mock.innerHTML = `<div class="mock-step"><strong>${esc(orderStatusLabel(order.status))}</strong><span>${esc(order.plan || '-')} · ${esc(order.email || '')}</span></div>`;
+  }).catch((error)=>showResult('portal-result', `<div class="empty-box">${esc(createFriendlyError(error,'조회에 실패했습니다.'))}</div>`)); });
+}
+
+function renderPaymentSuccessState(order){
+  const resultId = 'payment-success-result';
+  if (!order) { showResult(resultId, '<div class="empty-box">결제 정보를 찾지 못했습니다.</div>'); return; }
+  if (clean(order.status) === 'intake_required') {
+    const websiteField = clean(order.product) === 'veridion' ? '<div class="span-2"><label>사이트 주소</label><input name="website" placeholder="https://example.com" inputmode="url" autocomplete="url" required></div>' : '';
+    showResult(resultId, `<div class="notice"><strong>결제가 완료되었습니다.</strong><br>서비스 진행에 필요한 정보만 입력해 주세요.</div><form id="payment-intake-form" class="stack-form"><div class="form-grid"><div><label>회사명</label><input name="company" placeholder="회사명" value="${esc(order.company || '')}" required></div><div><label>담당자명</label><input name="name" placeholder="담당자명" value="${esc(order.name || '')}" required></div><div><label>이메일</label><input name="email" type="email" placeholder="email@company.com" value="${esc(order.email || '')}" required></div>${websiteField}<div class="span-2"><label>추가 요청(선택)</label><input name="note" placeholder="꼭 포함할 기준, 참고할 점"></div></div><div class="actions"><button class="button" type="submit">진행 정보 저장</button></div></form>`);
+    const form = document.getElementById('payment-intake-form');
+    form?.addEventListener('submit', (event) => { event.preventDefault(); withSubmitLock(form, async () => {
+      const values = Object.fromEntries(new FormData(form).entries());
+      const remote = await postIfConfigured(`/api/public/orders/${encodeURIComponent(order.id)}/intake`, values);
+      if (remote.mode === 'remote' && remote.ok && remote.json?.order) {
+        applyStatePayload(remote.json?.state);
+        renderPaymentSuccessState(remote.json.order);
+        return;
+      }
+      throw new Error(remote.json?.detail || remote.text || '진행 정보 저장에 실패했습니다.');
+    }).catch((error)=>showResult(resultId, `<div class="empty-box">${esc(createFriendlyError(error,'진행 정보 저장에 실패했습니다.'))}</div>`)); });
+    return;
+  }
+  showResult(resultId, `<div class="notice"><strong>결제가 완료되었습니다.</strong><br>${esc(orderStatusLabel(order.status))} · 조회 코드 <span class="inline-code">${esc(order.code || '-')}</span><br><a href="${portalHref(order)}">고객 포털에서 결과 확인하기</a></div>`);
+}
+
+async function bindPaymentResultPages(){
+  const success = document.getElementById('payment-success-result');
+  if (success) {
+    const params = new URLSearchParams(location.search);
+    const orderId = clean(params.get('orderId'));
+    const paymentKey = clean(params.get('paymentKey'));
+    const amount = Number(params.get('amount') || 0);
+    if (!orderId) { showResult('payment-success-result', '<div class="empty-box">결제 승인 정보가 없습니다.</div>'); return; }
+    const confirm = await postIfConfigured(config.integration?.toss_confirm_endpoint || '/api/public/payments/toss/confirm', { orderId, paymentKey: paymentKey || `mock_${orderId}`, amount });
+    if (confirm.mode === 'remote' && confirm.ok && confirm.json?.order) { applyStatePayload(confirm.json?.state); renderPaymentSuccessState(confirm.json.order); return; }
+    const localOrder = read(STORE.orders).find((item)=>item.id===orderId); renderPaymentSuccessState(localOrder);
+  }
+  const fail = document.getElementById('payment-fail-result');
+  if (fail) {
+    const params = new URLSearchParams(location.search);
+    showResult('payment-fail-result', `<div class="empty-box">결제가 완료되지 않았습니다.${params.get('message') ? `<br>${esc(params.get('message'))}` : ''}</div>`);
+  }
+}
+
+function toBase64(file){ return new Promise((resolve, reject) => { const reader = new FileReader(); reader.onload = () => resolve(String(reader.result || '').split(',').pop() || ''); reader.onerror = () => reject(reader.error || new Error('파일을 읽지 못했습니다.')); reader.readAsDataURL(file); }); }
+
+function bindAdminActions(){
+  const root = document.getElementById('admin-console'); if (!root) return;
+  const settingsForm = document.getElementById('admin-board-settings-form');
+  const publicationForm = document.getElementById('admin-publication-form');
+  const assetForm = document.getElementById('admin-asset-form');
+  const publishAll = document.getElementById('admin-publish-all');
+  const loadSettings = async () => {
+    if (!getAdminToken()) return;
+    const res = await fetch('/api/admin/board-settings', { headers: headersFor('/api/admin/board-settings', { 'Accept':'application/json' }) });
+    if (!res.ok) return;
+    const payload = await res.json();
+    const settings = payload.settings || {};
+    if (settingsForm) {
+      if (settingsForm.elements.ctaLabel) settingsForm.elements.ctaLabel.value = settings.ctaLabel || '';
+      if (settingsForm.elements.ctaHref) settingsForm.elements.ctaHref.value = settings.ctaHref || '';
+      if (settingsForm.elements.autoPublishAllProducts) settingsForm.elements.autoPublishAllProducts.checked = Boolean(settings.autoPublishAllProducts);
+    }
+  };
+  loadSettings().catch(()=>{});
+  settingsForm?.addEventListener('submit', (event) => { event.preventDefault(); withSubmitLock(settingsForm, async () => {
+    const values = Object.fromEntries(new FormData(settingsForm).entries());
+    values.autoPublishAllProducts = settingsForm.elements.autoPublishAllProducts?.checked ? 1 : 0;
+    const res = await postIfConfigured('/api/admin/board-settings', values);
+    if (res.mode === 'remote' && res.ok) { applyStatePayload(res.json?.state); showResult('admin-action-result', '자료실 CTA 자동 발행 설정을 저장했습니다.'); return; }
+    throw new Error(res.json?.detail || res.text || '설정 저장에 실패했습니다.');
+  }).catch((error)=>showResult('admin-action-result', esc(createFriendlyError(error,'설정 저장에 실패했습니다.')))); });
+  publishAll?.addEventListener('click', () => { withSubmitLock(settingsForm || publishAll.closest('form') || root, async () => {
+    const res = await postIfConfigured('/api/admin/actions/publish-now', {});
+    if (res.mode === 'remote' && res.ok) { applyStatePayload(res.json?.state); renderAdminSummary(); renderPublicBoard(); renderProductBoard(); showResult('admin-action-result', '전체 제품 자료실 글을 즉시 발행했습니다.'); return; }
+    throw new Error(res.json?.detail || res.text || '즉시 발행에 실패했습니다.');
+  }).catch((error)=>showResult('admin-action-result', esc(createFriendlyError(error,'즉시 발행에 실패했습니다.')))); });
+  publicationForm?.addEventListener('submit', (event) => { event.preventDefault(); withSubmitLock(publicationForm, async () => {
+    const values = Object.fromEntries(new FormData(publicationForm).entries());
+    const res = await postIfConfigured('/api/admin/library/publications', values);
+    if (res.mode === 'remote' && res.ok) { applyStatePayload(res.json?.state); renderAdminSummary(); renderPublicBoard(); renderProductBoard(); showResult('admin-action-result', '자료실 글을 등록했습니다.'); publicationForm.reset(); return; }
+    throw new Error(res.json?.detail || res.text || '자료실 글 등록에 실패했습니다.');
+  }).catch((error)=>showResult('admin-action-result', esc(createFriendlyError(error,'자료실 글 등록에 실패했습니다.')))); });
+  assetForm?.addEventListener('submit', (event) => { event.preventDefault(); withSubmitLock(assetForm, async () => {
+    const fd = new FormData(assetForm); const file = fd.get('file');
+    if (!(file instanceof File) || !file.size) throw new Error('업로드할 파일을 선택하세요.');
+    const payload = { product: fd.get('product'), title: fd.get('title'), filename: file.name, mimeType: file.type, contentBase64: await toBase64(file) };
+    const res = await postIfConfigured('/api/admin/library/assets', payload);
+    if (res.mode === 'remote' && res.ok && res.json?.asset) {
+      applyStatePayload(res.json?.state);
+      if (publicationForm?.elements.assetUrl) publicationForm.elements.assetUrl.value = res.json.asset.url || '';
+      showResult('admin-action-result', `파일 업로드를 완료했습니다. ${res.json.asset.url || ''}`);
+      assetForm.reset();
+      return;
+    }
+    throw new Error(res.json?.detail || res.text || '파일 업로드에 실패했습니다.');
+  }).catch((error)=>showResult('admin-action-result', esc(createFriendlyError(error,'파일 업로드에 실패했습니다.')))); });
+}
   function bindConsentGuard(form){
     if (!form || form.dataset.consentBound === '1') return;
     form.dataset.consentBound = '1';
@@ -1049,7 +1492,7 @@
   function updatePlanSummary(form, summaryId){
     const summary = document.getElementById(summaryId);
     if (!form || !summary) return;
-    const productKey = clean(form.elements?.product?.value || product?.key || body?.dataset?.product || '');
+    const productKey = clean(form.elements?.product?.value || product?.key || document.body?.dataset?.product || '');
     const planName = clean(form.elements?.plan?.value || 'Starter');
     const note = clean(form.elements?.note?.value || form.elements?.context?.value || '');
     summary.innerHTML = `<strong>현재 선택 요약</strong><br>${esc(productName(productKey))} · ${esc(planName)} · ${esc(planPrice(productKey, planName))}${note ? `<br><span>${esc(note)}</span>` : ''}${planNote(productKey, planName) ? `<br><small>${esc(planNote(productKey, planName))}</small>` : ''}`;

@@ -1,20 +1,71 @@
-# NV0 게시판 전용 감사 리포트
+# NV0 최종 감사 리포트
 
 ## 1. 산출물 수량
-- 모드: board
-- 정적 HTML 페이지 수: 5
-- 활성 API route 수: 17
-- 소스상 선언 route 수: 37
-- 현재 모드 기준 비활성 route 수: 20
+- 모드: full
+- 정적 HTML 페이지 수: 56
+- 활성 API route 수: 38
+- 소스상 선언 route 수: 42
+- 현재 모드 기준 비활성 route 수: 4
 - 테스트/검증 스크립트 수: 9
 - 소스 TODO/FIXME/XXX 표기 수: 0
 
 ## 2. 페이지 목록
 - admin/index.html
+- auth/index.html
+- billing/index.html
 - board/index.html
 - board/post/index.html
+- cases/index.html
+- checkout/index.html
+- company/index.html
+- contact/index.html
+- demo/index.html
+- docs/clearport/index.html
+- docs/draftforge/index.html
+- docs/grantops/index.html
+- docs/index.html
+- docs/veridion/index.html
+- engine/index.html
+- faq/index.html
+- guides/index.html
 - index.html
+- legal/cookies/index.html
 - legal/privacy/index.html
+- legal/refund/index.html
+- modules/index.html
+- onboarding/index.html
+- payments/toss/fail/index.html
+- payments/toss/success/index.html
+- portal/index.html
+- pricing/index.html
+- products/clearport/board/index.html
+- products/clearport/delivery/index.html
+- products/clearport/demo/index.html
+- products/clearport/faq/index.html
+- products/clearport/index.html
+- products/clearport/plans/index.html
+- products/draftforge/board/index.html
+- products/draftforge/delivery/index.html
+- products/draftforge/demo/index.html
+- products/draftforge/faq/index.html
+- products/draftforge/index.html
+- products/draftforge/plans/index.html
+- products/grantops/board/index.html
+- products/grantops/delivery/index.html
+- products/grantops/demo/index.html
+- products/grantops/faq/index.html
+- products/grantops/index.html
+- products/grantops/plans/index.html
+- products/index.html
+- products/veridion/board/index.html
+- products/veridion/delivery/index.html
+- products/veridion/demo/index.html
+- products/veridion/faq/index.html
+- products/veridion/index.html
+- products/veridion/plans/index.html
+- resources/index.html
+- service/index.html
+- solutions/index.html
 
 ## 3. 활성 API 목록
 - GET /healthz
@@ -31,14 +82,10 @@
 - GET /api/admin/export
 - POST /api/admin/import
 - GET /api/public/board/feed
-- POST /api/admin/actions/publish-now
-- POST /api/admin/actions/reseed-board
-- POST /api/admin/actions/reset
-
-## 4. 현재 모드에서 비활성 처리되는 route
 - POST /api/public/orders
 - POST /api/public/orders/reserve
 - POST /api/public/payments/toss/confirm
+- POST /api/public/orders/{order_id}/intake
 - POST /api/public/payments/toss/webhook
 - POST /api/public/veridion/scan
 - POST /api/public/clearport/analyze
@@ -52,6 +99,15 @@
 - POST /api/public/auth/logout
 - GET /api/public/auth/me
 - POST /api/public/portal/history
+- GET /api/admin/board-settings
+- POST /api/admin/board-settings
+- POST /api/admin/library/publications
+- POST /api/admin/library/assets
+- POST /api/admin/actions/publish-now
+- POST /api/admin/actions/reseed-board
+- POST /api/admin/actions/reset
+
+## 4. 현재 모드에서 비활성 처리되는 route
 - POST /api/admin/actions/seed-demo
 - POST /api/admin/orders/{order_id}/advance
 - POST /api/admin/orders/{order_id}/toggle-payment
@@ -74,4 +130,5 @@
 - 3. 실제 도메인/SSL 운영 전환
 
 ## 7. 판정
-- 게시판 전용 운영 범위와 410 차단 정책은 검증 완료
+- 즉시 시연 / 결제 진입 / 자동 발행 / 포털 확인 흐름은 코드 및 로컬 검증 기준 완료
+- 실제 상용 결제는 실키 환경에서 마지막 1회만 추가 확인 필요

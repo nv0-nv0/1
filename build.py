@@ -4,6 +4,8 @@ from pathlib import Path
 from html import escape
 from textwrap import dedent
 import shutil
+import subprocess
+import sys
 from scripts.generate_compat_pages import generate_compat_pages
 from scripts.board_only_postbuild import apply_board_only_overrides
 from scripts.page_overrides import apply_page_overrides
@@ -66,16 +68,16 @@ def static_header_markup(prefix: str, resolved_key: str, page_path: str) -> str:
     quick_links = ''.join([
         f'<a href="{prefix}products/veridion/index.html" class="sub-link {product_sub_guide}">안내</a>',
         f'<a href="{prefix}products/veridion/plans/index.html" class="sub-link {product_sub_plans}">가격</a>',
-        f'<a href="{prefix}products/veridion/board/index.html" class="sub-link {product_sub_board}">게시판(자동발행)</a>',
+        f'<a href="{prefix}products/veridion/board/index.html" class="sub-link {product_sub_board}">자료실</a>',
     ])
     nav_links = ''.join([
         f'<a href="{prefix}index.html" class="top-link {home_active}">홈</a>',
         f'<a href="{prefix}products/veridion/index.html" class="top-link {product_active}">제품</a>',
-        f'<a href="{prefix}board/index.html" class="top-link {board_active}">게시판</a>',
+        f'<a href="{prefix}board/index.html" class="top-link {board_active}">자료실</a>',
         f'<a href="{prefix}company/index.html" class="top-link {company_active}">회사소개</a>',
         f'<a href="{prefix}auth/index.html" class="top-link {auth_active}">로그인(회원가입)</a>',
     ])
-    return f'<button class="admin-fab" type="button" data-admin-entry="1" title="권한 확인 후 관리자 메뉴로 들어갑니다">관계자</button><div class="container nav-wrap"><div class="nav-left"><button class="mobile-nav-toggle" type="button" aria-expanded="false" aria-controls="mobile-drawer" data-nav-toggle="1">메뉴</button><a class="brand" href="{prefix}index.html"><span class="brand-mark">V</span><span class="brand-copy"><strong>Veridion</strong><span>온라인 개인사업자용 법률·규제 리스크 방어막</span></span></a></div><nav class="nav-links">{nav_links}</nav></div><div class="container subnav"><span class="subnav-label">제품</span>{quick_links}</div>'
+    return f'<div class="container nav-wrap"><div class="nav-left"><button class="mobile-nav-toggle" type="button" aria-expanded="false" aria-controls="mobile-drawer" data-nav-toggle="1">메뉴</button><a class="brand" href="{prefix}index.html"><span class="brand-mark">V</span><span class="brand-copy"><strong>Veridion</strong><span>온라인 개인사업자용 법률·규제 리스크 방어막</span></span></a></div><nav class="nav-links">{nav_links}<button class="button ghost admin-link-inline" type="button" data-admin-entry="1">관계자</button></nav></div><div class="container subnav"><span class="subnav-label">제품</span>{quick_links}</div>'
 
 
 def static_side_nav_markup(prefix: str, resolved_key: str, page_path: str) -> str:
@@ -91,17 +93,17 @@ def static_side_nav_markup(prefix: str, resolved_key: str, page_path: str) -> st
     main_links = ''.join([
         f'<a href="{prefix}index.html" class="side-link {home_active}">홈</a>',
         f'<a href="{prefix}products/veridion/index.html" class="side-link {product_active}">제품</a>',
-        f'<a href="{prefix}board/index.html" class="side-link {board_active}">게시판</a>',
+        f'<a href="{prefix}board/index.html" class="side-link {board_active}">자료실</a>',
         f'<a href="{prefix}company/index.html" class="side-link {company_active}">회사소개</a>',
         f'<a href="{prefix}auth/index.html" class="side-link {auth_active}">로그인(회원가입)</a>',
     ])
     product_links = ''.join([
         f'<a href="{prefix}products/veridion/index.html" class="side-sublink {product_sub_guide}">안내</a>',
         f'<a href="{prefix}products/veridion/plans/index.html" class="side-sublink {product_sub_plans}">가격</a>',
-        f'<a href="{prefix}products/veridion/board/index.html" class="side-sublink {product_sub_board}">게시판(자동발행)</a>',
+        f'<a href="{prefix}products/veridion/board/index.html" class="side-sublink {product_sub_board}">자료실</a>',
         f'<a href="{prefix}products/veridion/demo/index.html" class="side-sublink {demo_active}">즉시 시연</a>',
     ])
-    return f'<div class="side-nav-card"><button class="side-admin-button" type="button" data-admin-entry="1">관계자</button><a class="side-brand" href="{prefix}index.html"><span class="brand-mark">V</span><span><strong>Veridion</strong><small>리스크 점검 · 발행 · 이력 관리</small></span></a><nav class="side-nav-links"><div class="side-group"><span class="side-group-title">메인 메뉴</span>{main_links}</div><div class="side-group"><span class="side-group-title">제품</span>{product_links}</div></nav></div>'
+    return ''
 
 
 def static_footer_markup(prefix: str) -> str:
@@ -112,13 +114,13 @@ def static_footer_markup(prefix: str) -> str:
     representative = info.get('representative_name', '')
     biz_no = info.get('registration_number', '')
     address = info.get('business_address', '')
-    return f'<div class="container footer-grid"><div><div class="brand"><span class="brand-mark">N0</span><span class="brand-copy"><strong>{escape(brand.get("name", "NV0"))}</strong><span>데모, 가격, 전달물을 먼저 보고 바로 판단할 수 있게 정리했습니다.</span></span></div><small style="margin-top:14px">공개 화면은 제품 이해와 구매 판단에 집중하고, 내부 운영 기능은 뒤로 분리했습니다.</small></div><div><strong>빠른 이동</strong><small><a href="{prefix}products/index.html">제품</a><br><a href="{prefix}board/index.html">게시판</a><br><a href="{prefix}company/index.html">회사소개</a><br><a href="{prefix}pricing/index.html">가격</a><br><a href="{prefix}faq/index.html">FAQ</a></small></div><div><strong>안내/정책</strong><small>상호: {escape(operator)}<br>{f"대표자: {escape(representative)}<br>" if representative else ""}{f"사업자등록번호: {escape(biz_no)}<br>" if biz_no else ""}<a href="mailto:{escape(email)}">{escape(email)}</a><br>{f"{escape(address)}<br>" if address else ""}{escape(notice)}<br>시행일 2026-04-15 · 최종 개정일 2026-04-15<br><a href="{prefix}portal/index.html">고객 포털</a><br><a href="{prefix}auth/index.html">로그인(회원가입)</a><br><a href="{prefix}legal/privacy/index.html">개인정보처리방침</a><br><a href="{prefix}legal/terms/index.html">이용약관</a><br><a href="{prefix}legal/refund/index.html">환불 정책</a><br><a href="{prefix}legal/cookies/index.html">쿠키 및 저장 안내</a></small></div></div>'
+    return f'<div class="container footer-grid"><div><div class="brand"><span class="brand-mark">N0</span><span class="brand-copy"><strong>{escape(brand.get("name", "NV0"))}</strong><span>데모, 가격, 전달물을 먼저 보고 바로 판단할 수 있게 정리했습니다.</span></span></div><small style="margin-top:14px">공개 화면은 제품 이해와 구매 판단에 집중하고, 내부 운영 기능은 뒤로 분리했습니다.</small></div><div><strong>빠른 이동</strong><small><a href="{prefix}products/index.html">제품</a><br><a href="{prefix}board/index.html">자료실</a><br><a href="{prefix}company/index.html">회사소개</a><br><a href="{prefix}pricing/index.html">가격</a><br><a href="{prefix}faq/index.html">FAQ</a></small></div><div><strong>안내/정책</strong><small>상호: {escape(operator)}<br>{f"대표자: {escape(representative)}<br>" if representative else ""}{f"사업자등록번호: {escape(biz_no)}<br>" if biz_no else ""}<a href="mailto:{escape(email)}">{escape(email)}</a><br>{f"{escape(address)}<br>" if address else ""}{escape(notice)}<br>시행일 2026-04-15 · 최종 개정일 2026-04-15<br><a href="{prefix}portal/index.html">고객 포털</a><br><a href="{prefix}auth/index.html">로그인(회원가입)</a><br><a href="{prefix}legal/privacy/index.html">개인정보처리방침</a><br><a href="{prefix}legal/terms/index.html">이용약관</a><br><a href="{prefix}legal/refund/index.html">환불 정책</a><br><a href="{prefix}legal/cookies/index.html">쿠키 및 저장 안내</a></small></div></div>'
 
 
 def doc(title: str, description: str, body_class: str, body: str, depth: int = 0, page_key: str | None = None, product_key: str | None = None, page_path: str = '/'):
     prefix = rel_prefix(depth)
     resolved_key = page_key or body_class
-    attrs = [f'class="{body_class} with-side-nav"', f'data-page="{resolved_key}"']
+    attrs = [f'class="{body_class}"', f'data-page="{resolved_key}"']
     if product_key:
         attrs.append(f'data-product="{product_key}"')
     canonical = page_url(page_path)
@@ -155,7 +157,6 @@ def doc(title: str, description: str, body_class: str, body: str, depth: int = 0
   <script defer src="{prefix}assets/site.js"></script>
 </head>
 <body {' '.join(attrs)}>
-<aside id="side-nav-shell" class="side-nav-shell">{side_nav_markup}</aside>
 <header class="site-header" id="site-header">{header_markup}</header>
 {body}
 <footer class="footer" id="site-footer">{footer_markup}</footer>
@@ -201,7 +202,7 @@ def home_page() -> str:
                 <div class="actions">
                   <a class="button" href="./products/veridion/demo/index.html">무료 데모 바로 실행</a>
                   <a class="button secondary" href="./products/veridion/plans/index.html">가격과 발행 범위 보기</a>
-                  <a class="button ghost" href="./board/index.html">자동발행 게시판 보기</a>
+                  <a class="button ghost" href="./board/index.html">자료실 보기</a>
                 </div>
                 <div class="live-strip" id="live-stats"></div>
               </div>
@@ -269,7 +270,7 @@ def products_page() -> str:
               <span class="kicker">Products</span>
               <h1>현재 공개 판매와 검증은 Veridion 한 제품에 집중합니다</h1>
               <p class="lead">상단 메뉴의 제품은 Veridion을 뜻합니다. 무료 데모로 먼저 리스크를 확인하고, 가격과 발행 범위를 본 뒤 결제와 이력 조회까지 같은 흐름으로 이어지게 구성했습니다.</p>
-              <div class="actions"><a class="button" href="{prefix}products/veridion/demo/index.html">무료 데모</a><a class="button secondary" href="{prefix}products/veridion/plans/index.html">가격 보기</a><a class="button ghost" href="{prefix}products/veridion/board/index.html">게시판 보기</a></div>
+              <div class="actions"><a class="button" href="{prefix}products/veridion/demo/index.html">무료 데모</a><a class="button secondary" href="{prefix}products/veridion/plans/index.html">가격 보기</a><a class="button ghost" href="{prefix}products/veridion/board/index.html">자료실 보기</a></div>
             </div>
             <div class="card accent"><span class="tag" style="background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.12);color:#fff">분리 모듈 원칙</span><h3 style="font-size:1.72rem;margin:16px 0 10px">다른 제품은 숨기지 않고, 다만 공개 판매 흐름에서만 분리합니다</h3><p>ClearPort, GrantOps, DraftForge는 분리 모듈 허브에서 따로 관리합니다. 기능은 유지하되 공개 주력 제품 흐름을 흐리지 않도록 구조를 분리했습니다.</p></div>
           </div>
@@ -281,8 +282,8 @@ def products_page() -> str:
 
 def board_page() -> str:
     prefix = rel_prefix(1)
-    return doc(f"게시판 | {brand['name']}", 'Veridion 자동발행 게시판', 'board', dedent(f'''
-        <main><section class="section"><div class="container page-hero"><div class="card strong"><div class="crumbs"><a href="{prefix}index.html">HOME</a><span class="sep">/</span><span>게시판</span></div><span class="kicker">자동발행 게시판</span><h1>Veridion 이해를 돕는 자동발행 글을 한곳에서 봅니다</h1><p class="lead">게시판은 내부 공지판이 아니라 구매 판단을 돕는 공개 허브입니다. 글을 읽다가 바로 제품 설명, 무료 데모, 가격 확인으로 이어질 수 있도록 설계했습니다.</p><div class="actions"><a class="button secondary" href="{prefix}products/veridion/index.html">제품 안내</a><a class="button" href="{prefix}products/veridion/demo/index.html">무료 데모</a><a class="button ghost" href="{prefix}products/veridion/plans/index.html">가격 보기</a></div></div><div class="card accent"><span class="tag" style="background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.12);color:#fff">운영 원칙</span><h3 style="font-size:1.72rem;margin:16px 0 10px">게시판은 Veridion 중심으로 노출하고, 다른 제품은 분리 모듈로 관리합니다</h3><p>공개 허브에서는 Veridion 관련 자동발행 글을 우선 노출합니다. 다른 제품은 내부 개발과 검증을 이어 가되, 공개 메인 흐름에서는 분리합니다.</p></div></div></section><section class="section compact"><div class="container"><div class="board-grid" id="public-board-grid"></div><div id="public-post-detail"></div><div class="small-actions" style="margin-top:18px"><a href="{prefix}modules/index.html">분리 모듈 허브 보기</a></div></div></section></main>
+    return doc(f"자료실 | {brand['name']}", 'Veridion 자료실', 'board', dedent(f'''
+        <main><section class="section"><div class="container page-hero"><div class="card strong"><div class="crumbs"><a href="{prefix}index.html">HOME</a><span class="sep">/</span><span>자료실</span></div><span class="kicker">자료실</span><h1>Veridion 자료와 글을 한곳에서 확인합니다</h1><p class="lead">자료실은 구매 판단에 필요한 글과 운영 자료를 한곳에 모아둔 공개 허브입니다. 글을 읽다가 바로 제품 설명, 즉시 데모, 결제로 이어질 수 있게 구성했습니다.</p><div class="actions"><a class="button secondary" href="{prefix}products/veridion/index.html">제품 안내</a><a class="button" href="{prefix}products/veridion/demo/index.html">무료 데모</a><a class="button ghost" href="{prefix}products/veridion/plans/index.html">가격 보기</a></div></div><div class="card accent"><span class="tag" style="background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.12);color:#fff">운영 원칙</span><h3 style="font-size:1.72rem;margin:16px 0 10px">자료실은 Veridion 중심으로 운영하고, 다른 제품 자료도 같은 구조로 확장합니다</h3><p>공개 허브에서는 Veridion 관련 글과 자료를 먼저 보여 주고, 관리자에서는 제품별 CTA 홍보 글과 자료 업로드를 함께 운영할 수 있도록 구성합니다.</p></div></div></section><section class="section compact"><div class="container"><div class="board-grid" id="public-board-grid"></div><div id="public-post-detail"></div><div class="small-actions" style="margin-top:18px"><a href="{prefix}modules/index.html">분리 모듈 허브 보기</a></div></div></section></main>
     '''), depth=1, page_key='board', page_path='/board/index.html')
 
 def modules_page() -> str:
@@ -362,19 +363,20 @@ def auth_page() -> str:
     '''), depth=1, page_key='auth', page_path='/auth/index.html')
 
 
+
 def demo_page() -> str:
     prefix = rel_prefix(1)
-    options = ''.join(f'<option value="{escape(item["key"])}">{escape(item["name"])} · {escape(item["headline"])}' '</option>' for item in products)
-    return doc(f"빠른 체험 | {brand['name']}", '제품 빠른 체험', 'demo', dedent(f'''
-        <main><section class="section"><div class="container form-shell"><article class="card strong"><div class="crumbs"><a href="{prefix}index.html">HOME</a><span class="sep">/</span><span>데모</span></div><span class="kicker">Quick demo</span><h1>관심 있는 제품을 골라 샘플 결과를 먼저 확인해 보세요</h1><p class="lead">샘플 결과를 먼저 보고 맞는 제품인지 판단하실 수 있습니다. 필요하시면 이어서 제품 상세, 가격, 결제까지 같은 흐름으로 진행하실 수 있습니다.</p><form id="demo-form"><div class="form-grid"><div><label>제품</label><select name="product" data-prefill="product" required>{options}</select></div><div><label>회사명</label><input name="company" placeholder="회사명" autocomplete="organization" required></div><div><label>담당자명</label><input name="name" placeholder="담당자명" autocomplete="name" required></div><div><label>이메일</label><input name="email" type="email" placeholder="email@company.com" autocomplete="email" inputmode="email" required></div><div><label>연락처</label><input name="phone" placeholder="예: 010-1234-5678" inputmode="tel" autocomplete="tel"></div><div><label>팀 규모</label><input name="team" placeholder="예: 3인 운영팀" autocomplete="organization-title"></div><div><label>목표</label><input name="goal" placeholder="예: 첫 화면에서 바로 이해되게" required></div><div><label>핵심 키워드</label><input name="keywords" placeholder="예: 신뢰, CTA, 전환"></div><div><label>참고 링크</label><input name="link" placeholder="예: https://example.com" inputmode="url" autocomplete="url"></div><div><label>긴급도</label><select name="urgency"><option value="">선택</option><option>일반</option><option>이번 주 안</option><option>오늘 필요</option></select></div></div><div class="actions"><button class="button" type="submit">샘플 결과 확인하고 저장하기</button></div></form><div class="result-box" id="demo-result" role="status" aria-live="polite"></div></article><article class="card"><span class="tag">바로가기</span><h3>맞는 제품을 골라 바로 이어서 확인하세요</h3><div class="story-grid" id="module-matrix"></div></article></div></section></main>
+    return doc(f"즉시 데모 | {brand['name']}", '사이트 주소를 넣으면 Veridion 위험 요약을 바로 보는 데모', 'demo', dedent(f'''
+        <main><section class="section"><div class="container form-shell"><article class="card strong"><div class="crumbs"><a href="{prefix}index.html">HOME</a><span class="sep">/</span><span>즉시 데모</span></div><span class="kicker">Instant demo</span><h1>사이트 주소를 넣으면 즉시 위험 요약을 보여드립니다</h1><p class="lead">저장형 폼이 아니라 실제 사이트 기준 즉시 진단 화면입니다. 위기 점수, 예상 과태료, 문제 영역별 건수, 상위 위험 항목을 먼저 확인한 뒤 결제 여부를 판단하실 수 있습니다.</p><form id="demo-form" class="stack-form"><input type="hidden" name="product" value="veridion"><div class="form-grid"><div class="span-2"><label>사이트 주소</label><input name="website" placeholder="https://example.com" inputmode="url" autocomplete="url" required></div><div><label>업종</label><select name="industry"><option value="commerce">이커머스</option><option value="beauty">뷰티·웰니스</option><option value="healthcare">의료·건강</option><option value="education">교육·서비스</option><option value="saas">B2B SaaS</option></select></div><div><label>주요 운영 국가</label><input name="market" placeholder="예: 대한민국"></div><div><label>중점 확인 포인트</label><input name="focus" placeholder="예: 광고표현, 개인정보, 결제고지"></div></div><div class="actions"><button class="button" type="submit">즉시 분석하기</button><a class="button ghost" href="{prefix}checkout/index.html?product=veridion&plan=Starter">바로 결제</a></div></form><div class="result-box" id="demo-result" role="status" aria-live="polite"></div></article><article class="card accent"><span class="tag" style="background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.12);color:#fff">무료 데모에서 먼저 보는 항목</span><h3 style="font-size:1.72rem;margin:16px 0 10px">위기 점수, 예상 과태료, 문제 영역 수를 바로 확인합니다</h3><ul class="clean inverse-list"><li>실제 읽은 페이지 기준 요약</li><li>위기 점수와 상위 위험 신호</li><li>예상 노출/과태료 범위</li><li>문제 영역별 건수</li></ul></article></div></section></main>
     '''), depth=1, page_key='demo', page_path='/demo/index.html')
+
 
 
 def checkout_page() -> str:
     prefix = rel_prefix(1)
-    options = ''.join(f'<option value="{escape(item["key"])}">{escape(item["name"])} · {escape(item["plans"][0]["price"])}부터' '</option>' for item in products)
-    return doc(f"결제 | {brand['name']}", '제품 결제 및 결제 진입', 'checkout', dedent(f'''
-        <main><section class="section"><div class="container form-shell"><article class="card strong"><div class="crumbs"><a href="{prefix}index.html">HOME</a><span class="sep">/</span><span>결제</span></div><span class="kicker">Checkout</span><h1>선택한 제품을 바로 결제하고 전달 상태까지 확인하실 수 있습니다</h1><p class="lead">플랜을 고른 뒤 결제를 진행하시면 전달 자료 준비와 확인 흐름이 바로 이어집니다. 결제 후에는 결과 상태와 관련 자료를 고객 포털에서 확인하실 수 있습니다.</p><form id="checkout-form"><div class="form-grid"><div><label>제품</label><select name="product" data-prefill="product" required>{options}</select></div><div><label>플랜</label><select name="plan" data-prefill="plan" required><option value="Starter">Starter</option><option value="Growth">Growth</option><option value="Scale">Scale</option></select></div><div><label>결제 유형</label><select name="billing"><option value="one-time">1회 결제형</option></select></div><div><label>결제 방식</label><select name="paymentMethod" required><option value="toss">Toss 결제</option></select></div><div><label>회사명</label><input name="company" placeholder="회사명" autocomplete="organization" required></div><div><label>담당자명</label><input name="name" placeholder="담당자명" autocomplete="name" required></div><div><label>이메일</label><input name="email" type="email" placeholder="email@company.com" autocomplete="email" inputmode="email" required></div><div><label>연락처</label><input name="phone" placeholder="예: 010-1234-5678" inputmode="tel" autocomplete="tel"></div><div><label>참고 링크</label><input name="link" placeholder="예: https://example.com" inputmode="url" autocomplete="url"></div><div><label>긴급도</label><select name="urgency"><option value="">선택</option><option>일반</option><option>이번 주 안</option><option>오늘 필요</option></select></div><div><label>희망 회신 시간</label><input name="reply_time" placeholder="예: 평일 오후 2시 이후"></div><div><label>추가 요청</label><input name="note" placeholder="예: 원하는 톤, 꼭 포함할 내용" autocomplete="off"></div></div><div class="actions"><button class="button" type="submit">이 내용으로 결제 진행하기</button></div><p class="micro-copy">결제 전 더 확인할 내용이 있으면 <a href="{prefix}legal/terms/index.html">이용약관</a>, <a href="{prefix}legal/refund/index.html">환불정책</a>, <a href="{prefix}contact/index.html">추가 확인</a>을 먼저 확인해 주세요.</p></form><div class="result-box" id="checkout-result" role="status" aria-live="polite"></div></article><article class="card accent"><span class="tag" style="background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.12);color:#fff">결제 안내</span><h3 style="font-size:1.72rem;margin:16px 0 10px">결제가 끝나면 확인과 전달 흐름이 바로 이어집니다</h3><ul class="clean inverse-list"><li>플랜 확인</li><li>결제 진행</li><li>결제 완료 확인</li><li>결과물 준비</li><li>전달 상태 확인</li></ul></article></div></section></main>
+    options = ''.join(f'<option value="{escape(item["key"])}">{escape(item["name"])} · {escape(item["headline"])}' '</option>' for item in products)
+    return doc(f"결제 | {brand['name']}", '제품과 플랜만 고르고 바로 외부 결제로 넘어가는 페이지', 'checkout', dedent(f'''
+        <main><section class="section"><div class="container form-shell"><article class="card strong"><div class="crumbs"><a href="{prefix}index.html">HOME</a><span class="sep">/</span><span>결제</span></div><span class="kicker">Checkout</span><h1>제품과 플랜만 고르고 바로 외부 결제로 넘어갑니다</h1><p class="lead">결제 전에는 꼭 필요한 선택만 남겼습니다. 회사명, 담당자명, 이메일, 사이트 주소 같은 진행 정보는 결제 완료 후 한 번에 입력하도록 분리했습니다.</p><form id="checkout-form" class="stack-form"><input type="hidden" name="billing" value="one-time"><input type="hidden" name="paymentMethod" value="toss"><div class="form-grid"><div><label>제품</label><select name="product" data-prefill="product" required>{options}</select></div><div><label>플랜</label><select name="plan" data-prefill="plan" required><option value="Starter">Starter</option><option value="Growth">Growth</option><option value="Scale">Scale</option></select></div></div><div class="consent-panel"><div class="consent-copy"><strong>개인정보 수집·이용 안내</strong><p>결제 준비와 결제 완료 후 진행 정보 수집, 결과 제공, 고객 포털 안내를 위해 필요한 최소 정보만 사용합니다. 자세한 내용은 <a href="{prefix}legal/privacy/index.html">개인정보처리방침</a>에서 확인하실 수 있습니다.</p></div><label class="consent-check"><input type="checkbox" name="privacyConsent" value="yes" required data-consent-required="1"> <span>개인정보 수집·이용에 동의합니다.</span></label><small data-consent-message>동의 후에만 결제를 진행할 수 있습니다.</small></div><div class="notice" id="checkout-plan-summary" data-plan-summary="checkout" aria-live="polite">선택한 제품과 플랜 요약이 여기에 표시됩니다.</div><div class="actions"><button class="button" type="submit">외부 결제로 바로 이동</button></div></form><div class="result-box" id="checkout-result" role="status" aria-live="polite"></div></article><article class="card accent"><span class="tag" style="background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.12);color:#fff">결제 후 진행 순서</span><h3 style="font-size:1.72rem;margin:16px 0 10px">결제 후 필요한 정보만 입력하고 바로 결과 흐름으로 이어집니다</h3><ul class="clean inverse-list"><li>제품과 플랜 선택</li><li>외부 결제 진행</li><li>회사명·담당자명·이메일·사이트 주소 입력</li><li>결과 준비 및 포털 연결</li></ul></article></div></section></main>
     '''), depth=1, page_key='checkout', page_path='/checkout/index.html')
 
 
@@ -424,19 +426,19 @@ def admin_page() -> str:
                 <span class="tag">관리 메뉴</span>
                 <nav class="admin-side-links">
                   <a href="#admin-overview">개요</a>
-                  <a href="#admin-automation">자동발행 설정</a>
+                  <a href="#admin-automation">자료실 설정</a>
                   <a href="#admin-orders-section">주문/결제</a>
                   <a href="#admin-requests-section">요청</a>
-                  <a href="#admin-publications-section">공개 글</a>
+                  <a href="#admin-publications-section">자료실 관리</a>
                 </nav>
                 <div class="result-box" id="admin-action-result">수동 보정 버튼은 기본 비활성화 상태입니다. 주문·결제·전달·콘텐츠 연결은 자동 흐름으로만 동작합니다.</div>
               </aside>
               <div class="admin-main-stack">
                 <section id="admin-overview" class="admin-section"><div class="admin-grid" id="admin-summary"></div></section>
-                <section id="admin-automation" class="admin-section"><div class="record-grid" id="admin-automation-grid"></div></section>
+                <section id="admin-automation" class="admin-section"><div class="record-grid" id="admin-automation-grid"></div><div class="card strong"><h3>자료실 CTA 자동 발행 설정</h3><form id="admin-board-settings-form" class="stack-form"><div class="form-grid"><div><label>기본 CTA 문구</label><input name="ctaLabel" placeholder="예: 제품 설명 보기"></div><div><label>기본 CTA 링크</label><input name="ctaHref" placeholder="예: /products/veridion/index.html#intro"></div></div><label class="consent-check"><input type="checkbox" name="autoPublishAllProducts" value="1"> <span>전체 제품에 동일 CTA 자동 발행 적용</span></label><div class="actions"><button class="button" type="submit">설정 저장</button><button class="button ghost" type="button" id="admin-publish-all">전체 제품 글 즉시 발행</button></div></form></div></section>
                 <section id="admin-orders-section" class="admin-section"><div class="admin-stack" id="admin-orders"></div></section>
                 <section id="admin-requests-section" class="admin-section"><div class="record-grid" id="admin-requests"></div></section>
-                <section id="admin-publications-section" class="admin-section"><div class="record-grid" id="admin-publications"></div><div class="card strong"><div class="mock-progress" id="admin-feed"></div></div></section>
+                <section id="admin-publications-section" class="admin-section"><div class="card strong"><h3>자료 직접 등록</h3><form id="admin-publication-form" class="stack-form"><div class="form-grid"><div><label>제품</label><select name="product"><option value="veridion">Veridion</option><option value="clearport">ClearPort</option><option value="grantops">GrantOps</option><option value="draftforge">DraftForge</option></select></div><div><label>제목</label><input name="title" placeholder="자료 제목"></div><div><label>요약</label><input name="summary" placeholder="짧은 소개"></div><div><label>CTA 문구</label><input name="ctaLabel" placeholder="예: 제품 설명 보기"></div><div><label>CTA 링크</label><input name="ctaHref" placeholder="예: /products/veridion/index.html#intro"></div><div><label>자료 URL(선택)</label><input name="assetUrl" placeholder="업로드 후 자동 입력 가능"></div><div class="span-2"><label>본문</label><textarea name="body" rows="6" placeholder="직접 작성할 글 또는 자료 설명"></textarea></div></div><div class="actions"><button class="button" type="submit">글 등록</button></div></form></div><div class="card strong"><h3>파일 업로드</h3><form id="admin-asset-form" class="stack-form"><div class="form-grid"><div><label>제품</label><select name="product"><option value="veridion">Veridion</option><option value="clearport">ClearPort</option><option value="grantops">GrantOps</option><option value="draftforge">DraftForge</option></select></div><div><label>자료 제목</label><input name="title" placeholder="예: 체크리스트 PDF"></div><div class="span-2"><label>파일 선택</label><input type="file" name="file"></div></div><div class="actions"><button class="button" type="submit">파일 올리기</button></div></form></div><div class="record-grid" id="admin-publications"></div><div class="card strong"><div class="mock-progress" id="admin-feed"></div></div></section>
               </div>
             </div>
           </section>
@@ -447,7 +449,7 @@ def admin_page() -> str:
 def toss_success_page() -> str:
     prefix = rel_prefix(3)
     return doc(f"결제 승인 | {brand['name']}", 'Toss 결제 승인 처리', 'payment-success', dedent(f'''
-        <main><section class="section"><div class="container form-shell"><article class="card strong"><div class="crumbs"><a href="{prefix}index.html">HOME</a><span class="sep">/</span><span>결제 승인</span></div><span class="kicker">결제 완료</span><h1>결제가 완료되면 전달 상태 확인하기 화면으로 바로 이어집니다</h1><p class="lead">결제 승인 정보를 확인한 뒤, 전달 자료와 관련 안내를 바로 보실 수 있게 연결합니다.</p><div class="result-box" id="payment-success-result" style="display:block">결제 정보를 확인하고 있습니다.</div><div class="actions"><a class="button secondary" href="{prefix}portal/index.html">전달 상태 확인하기</a><a class="button ghost" href="{prefix}products/index.html">다른 제품 둘러보기</a></div></article></div></section></main>
+        <main><section class="section"><div class="container form-shell"><article class="card strong"><div class="crumbs"><a href="{prefix}index.html">HOME</a><span class="sep">/</span><span>결제 승인</span></div><span class="kicker">결제 완료</span><h1>결제 승인 후 필요한 진행 정보만 이어서 입력합니다</h1><p class="lead">결제 승인이 끝나면 회사명, 담당자명, 이메일, 사이트 주소 같은 진행 정보를 한 번에 입력하고 바로 결과 흐름으로 이어집니다.</p><div class="result-box" id="payment-success-result" style="display:block">결제 정보를 확인하고 있습니다.</div><div class="actions"><a class="button secondary" href="{prefix}portal/index.html">전달 상태 확인하기</a><a class="button ghost" href="{prefix}products/index.html">다른 제품 둘러보기</a></div></article></div></section></main>
     '''), depth=3, page_key='payment-success', page_path='/payments/toss/success/index.html')
 
 
@@ -504,7 +506,7 @@ def product_page(product: dict) -> str:
               <article class="card strong demo-main-card">
                 <span class="tag theme-chip">실제 데모</span>
                 <h3>입력하면 어떤 결과가 나오는지 바로 보이게 만들었습니다</h3>
-                <p class="lead demo-intro-copy">소개 문장보다, 어떤 입력을 넣었을 때 어떤 결과가 나오는지를 먼저 확인하실 수 있습니다. 저장이 필요할 때만 회사명과 이메일을 남기시면 됩니다.</p>
+                <p class="lead demo-intro-copy">소개 문장보다, 사이트 주소나 핵심 조건을 넣었을 때 어떤 결과가 나오는지를 먼저 확인하실 수 있습니다. Veridion은 URL 즉시 진단형으로 바로 결과를 보여줍니다.</p>
                 <div id="product-demo-shell"></div>
                 <div class="result-box" id="product-demo-result" role="status" aria-live="polite"></div>
               </article>
@@ -518,35 +520,30 @@ def product_page(product: dict) -> str:
             </div>
           </section>
 
-          <section class="section compact" id="order">
-            <div class="container module-layout">
-              <article class="card strong">
-                <span class="tag theme-chip">플랜/결제</span>
-                <h3>데모로 맞는지 확인한 뒤 바로 결제할 수 있습니다</h3>
-                <form id="product-checkout-form" class="stack-form">
-                  <input type="hidden" name="product" value="{escape(product['key'])}">
-                  <div class="form-grid">
-                    <div><label>플랜</label><select name="plan" data-prefill="plan" required><option value="Starter">Starter</option><option value="Growth">Growth</option><option value="Scale">Scale</option></select></div>
-                    <div><label>결제 유형</label><select name="billing"><option value="one-time">1회 결제형</option></select></div>
-                    <div><label>결제 방식</label><select name="paymentMethod" required><option value="toss">Toss 결제</option></select></div>
-                    <div><label>회사명</label><input name="company" placeholder="회사명" autocomplete="organization" required></div>
-                    <div><label>담당자명</label><input name="name" placeholder="담당자명" autocomplete="name" required></div>
-                    <div><label>이메일</label><input name="email" type="email" placeholder="email@company.com" autocomplete="email" inputmode="email" required></div>
-                    <div><label>연락처</label><input name="phone" placeholder="예: 010-1234-5678" inputmode="tel" autocomplete="tel"></div>
-                    <div><label>참고 링크</label><input name="link" placeholder="예: https://example.com" inputmode="url" autocomplete="url"></div>
-                    <div><label>긴급도</label><select name="urgency"><option value="">선택</option><option>일반</option><option>이번 주 안</option><option>오늘 필요</option></select></div>
-                    <div><label>추가 요청</label><input name="note" placeholder="예: 꼭 포함할 기준이나 원하는 결과" autocomplete="off"></div>
-                  </div>
-                  <div class="consent-panel"><div class="consent-copy"><strong>개인정보 수집·이용 안내</strong><p>입력하신 정보는 제품별 주문 등록, 결제 준비, 결과 제공을 위해 사용합니다. 자세한 내용은 <a href="../../legal/privacy/index.html">개인정보처리방침</a>에서 확인하실 수 있습니다.</p></div><label class="consent-check"><input type="checkbox" name="privacyConsent" value="yes" required data-consent-required="1"> <span>개인정보 수집·이용에 동의합니다.</span></label><small data-consent-message>동의 후에만 주문과 결제를 진행할 수 있습니다.</small></div>
-                  <div class="notice" id="product-checkout-plan-summary" data-plan-summary="product" aria-live="polite">선택한 제품과 플랜 요약이 여기에 표시됩니다.</div>
-                  <div class="actions"><button class="button" type="submit">이 내용으로 결제 진행하기</button><a class="button secondary" href="#delivery">전달 범위 먼저 보기</a></div>
-                  <p class="micro-copy">데모에서 입력한 기본 정보는 결제 단계로 자연스럽게 이어질 수 있습니다.</p>
-                </form>
-                <div class="result-box" id="product-checkout-result" role="status" aria-live="polite"></div>
-              </article>
-              <article class="card"><span class="tag">플랜 요약</span><h3>현재 제공 중인 플랜</h3><div class="plan-grid" id="plan-grid"></div></article>
-            </div>
-          </section>
+
+<section class="section compact" id="order">
+  <div class="container module-layout">
+    <article class="card strong">
+      <span class="tag theme-chip">플랜/결제</span>
+      <h3>플랜만 고르고 바로 외부 결제로 넘어갑니다</h3>
+      <form id="product-checkout-form" class="stack-form">
+        <input type="hidden" name="product" value="{escape(product['key'])}">
+        <input type="hidden" name="billing" value="one-time">
+        <input type="hidden" name="paymentMethod" value="toss">
+        <div class="form-grid">
+          <div><label>플랜</label><select name="plan" data-prefill="plan" required><option value="Starter">Starter</option><option value="Growth">Growth</option><option value="Scale">Scale</option></select></div>
+        </div>
+        <div class="consent-panel"><div class="consent-copy"><strong>개인정보 수집·이용 안내</strong><p>결제 준비와 결제 완료 후 진행 정보 수집, 결과 제공을 위해 필요한 최소 정보만 사용합니다. 자세한 내용은 <a href="../../legal/privacy/index.html">개인정보처리방침</a>에서 확인하실 수 있습니다.</p></div><label class="consent-check"><input type="checkbox" name="privacyConsent" value="yes" required data-consent-required="1"> <span>개인정보 수집·이용에 동의합니다.</span></label><small data-consent-message>동의 후에만 결제를 진행할 수 있습니다.</small></div>
+        <div class="notice" id="product-checkout-plan-summary" data-plan-summary="product" aria-live="polite">선택한 제품과 플랜 요약이 여기에 표시됩니다.</div>
+        <div class="actions"><button class="button" type="submit">외부 결제로 바로 이동</button><a class="button secondary" href="#delivery">전달 범위 먼저 보기</a></div>
+        <p class="micro-copy">결제 후 회사명, 담당자명, 이메일, 사이트 주소 같은 진행 정보만 한 번에 입력하시면 됩니다.</p>
+      </form>
+      <div class="result-box" id="product-checkout-result" role="status" aria-live="polite"></div>
+    </article>
+    <article class="card"><span class="tag">플랜 요약</span><h3>현재 제공 중인 플랜</h3><div class="plan-grid" id="plan-grid"></div></article>
+  </div>
+</section>
+
 
           <section class="section compact" id="delivery">
             <div class="container module-layout">
@@ -565,7 +562,7 @@ def product_page(product: dict) -> str:
           </section>
 
           <section class="section compact" id="board">
-            <div class="container"><div class="section-head"><div><h2>{escape(product['name'])} 관련 글</h2></div><p>이 제품이 필요한 상황을 더 읽어보고 싶다면 아래 글을 참고해 주세요. 다만 가장 빠른 판단은 위 데모에서 하실 수 있습니다.</p></div><div class="board-grid" id="product-board-grid"></div><div id="product-post-detail"></div></div>
+            <div class="container"><div class="section-head"><div><h2>{escape(product['name'])} 자료실</h2></div><p>이 제품이 필요한 상황을 더 읽어보고 싶다면 아래 글과 자료를 참고해 주세요. 가장 빠른 판단은 위 즉시 데모에서 하실 수 있습니다.</p></div><div class="board-grid" id="product-board-grid"></div><div id="product-post-detail"></div></div>
           </section>
 
           <section class="section compact" id="faq"><div class="container"><div class="section-head"><div><h2>자주 묻는 질문</h2></div><p>결제 전에 자주 나오는 질문을 한곳에 모아두었습니다.</p></div><div class="faq-grid" id="product-faq"></div></div></section>
@@ -573,8 +570,8 @@ def product_page(product: dict) -> str:
     '''), depth=2, page_key='product', product_key=product['key'], page_path=f'/products/{product["key"]}/index.html')
 
 def product_board_page(product: dict) -> str:
-    return doc(f"{product['name']} 게시판 | {brand['name']}", f"{product['name']} 콘텐츠 허브", product['theme'], dedent(f'''
-        <main><section class="section"><div class="container page-hero"><div class="card strong"><div class="crumbs"><a href="../../../index.html">HOME</a><span class="sep">/</span><a href="../../../products/index.html">제품</a><span class="sep">/</span><a href="../../{escape(product['key'])}/index.html">{escape(product['name'])}</a><span class="sep">/</span><span>게시판</span></div><span class="tag theme-chip">관련 글 모음</span><h1>{escape(product['name'])} 콘텐츠 허브</h1><p class="lead">이 제품과 관련된 글을 먼저 읽고, 바로 제품 설명·실제 데모·결제로 이어질 수 있게 구성했습니다.</p><div class="actions"><a class="button" href="../../{escape(product['key'])}/index.html#demo">데모 시연</a><a class="button secondary" href="../../{escape(product['key'])}/index.html#intro">제품 설명 보기</a><a class="button ghost" href="../../{escape(product['key'])}/index.html#order">결제 진행</a></div></div><div class="card theme-panel"><span class="tag" style="background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.12);color:#fff">게시판 안내</span><h3 style="font-size:1.7rem;margin:16px 0 10px">구매 전 가볍게 읽어보기 좋은 글을 모아두었습니다</h3><p>{escape(product['summary'])}</p></div></div></section><section class="section compact"><div class="container"><div class="board-grid" id="product-board-grid"></div><div id="product-post-detail"></div></div></section></main>
+    return doc(f"{product['name']} 자료실 | {brand['name']}", f"{product['name']} 자료실", product['theme'], dedent(f'''
+        <main><section class="section"><div class="container page-hero"><div class="card strong"><div class="crumbs"><a href="../../../index.html">HOME</a><span class="sep">/</span><a href="../../../products/index.html">제품</a><span class="sep">/</span><a href="../../{escape(product['key'])}/index.html">{escape(product['name'])}</a><span class="sep">/</span><span>자료실</span></div><span class="tag theme-chip">자료실</span><h1>{escape(product['name'])} 자료실</h1><p class="lead">이 제품과 관련된 글과 자료를 먼저 확인하고, 바로 제품 설명·실제 데모·결제로 이어질 수 있게 구성했습니다.</p><div class="actions"><a class="button" href="../../{escape(product['key'])}/index.html#demo">데모 시연</a><a class="button secondary" href="../../{escape(product['key'])}/index.html#intro">제품 설명 보기</a><a class="button ghost" href="../../{escape(product['key'])}/index.html#order">결제 진행</a></div></div><div class="card theme-panel"><span class="tag" style="background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.12);color:#fff">자료실 안내</span><h3 style="font-size:1.7rem;margin:16px 0 10px">구매 전 참고할 글과 자료를 함께 모아두었습니다</h3><p>{escape(product['summary'])}</p></div></div></section><section class="section compact"><div class="container"><div class="board-grid" id="product-board-grid"></div><div id="product-post-detail"></div></div></section></main>
     '''), depth=3, page_key='product-board', product_key=product['key'], page_path=f'/products/{product["key"]}/board/index.html')
 
 
@@ -609,6 +606,7 @@ def main() -> None:
         write(DIST / 'products' / item['key'] / 'board' / 'index.html', product_board_page(item))
     generate_compat_pages(DIST, DATA)
     apply_page_overrides(DIST, DATA)
+    subprocess.run([sys.executable, str(ROOT / "scripts" / "finalize_dist_patch.py")], check=True)
     board_only_mode = os.getenv('NV0_BOARD_ONLY_MODE', '0').lower() in {'1', 'true', 'yes', 'on'}
     if board_only_mode:
         apply_board_only_overrides(DIST, DATA, SRC)
