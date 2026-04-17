@@ -77,7 +77,7 @@ def static_header_markup(prefix: str, resolved_key: str, page_path: str) -> str:
         f'<a href="{prefix}company/index.html" class="top-link {company_active}">회사소개</a>',
         f'<a href="{prefix}auth/index.html" class="top-link {auth_active}">로그인(회원가입)</a>',
     ])
-    return f'<div class="container nav-wrap"><div class="nav-left"><button class="mobile-nav-toggle" type="button" aria-expanded="false" aria-controls="mobile-drawer" data-nav-toggle="1">메뉴</button><a class="brand" href="{prefix}index.html"><span class="brand-mark">V</span><span class="brand-copy"><strong>Veridion</strong><span>온라인 개인사업자용 법률·규제 리스크 방어막</span></span></a></div><nav class="nav-links">{nav_links}<button class="button ghost admin-link-inline" type="button" data-admin-entry="1">관계자</button></nav></div><div class="container subnav"><span class="subnav-label">제품</span>{quick_links}</div>'
+    return f'<div class="container nav-wrap"><div class="nav-left"><button class="mobile-nav-toggle" type="button" aria-expanded="false" aria-controls="mobile-drawer" data-nav-toggle="1">메뉴</button><a class="brand" href="{prefix}index.html"><span class="brand-mark">V</span><span class="brand-copy"><strong>Veridion</strong><span>온라인 개인사업자용 법률·규제 리스크 방어막</span></span></a></div><nav class="nav-links">{nav_links}<button class="button ghost admin-link-inline" type="button" data-admin-entry="1" title="관리 메뉴를 엽니다">관리</button></nav></div><div class="container subnav"><span class="subnav-label">제품</span>{quick_links}</div>'
 
 
 def static_side_nav_markup(prefix: str, resolved_key: str, page_path: str) -> str:
@@ -157,6 +157,8 @@ def doc(title: str, description: str, body_class: str, body: str, depth: int = 0
   <script defer src="{prefix}assets/site.js"></script>
 </head>
 <body {' '.join(attrs)}>
+<button class="admin-fab" type="button" data-admin-entry="1" aria-label="관리 메뉴 열기">관리</button>
+<div id="admin-access-modal-root"></div>
 <header class="site-header" id="site-header">{header_markup}</header>
 {body}
 <footer class="footer" id="site-footer">{footer_markup}</footer>
@@ -367,7 +369,7 @@ def auth_page() -> str:
 def demo_page() -> str:
     prefix = rel_prefix(1)
     return doc(f"즉시 데모 | {brand['name']}", '사이트 주소를 넣으면 Veridion 위험 요약을 바로 보는 데모', 'demo', dedent(f'''
-        <main><section class="section"><div class="container form-shell"><article class="card strong"><div class="crumbs"><a href="{prefix}index.html">HOME</a><span class="sep">/</span><span>즉시 데모</span></div><span class="kicker">Instant demo</span><h1>사이트 주소를 넣으면 즉시 위험 요약을 보여드립니다</h1><p class="lead">저장형 폼이 아니라 실제 사이트 기준 즉시 진단 화면입니다. 위기 점수, 예상 과태료, 문제 영역별 건수, 상위 위험 항목을 먼저 확인한 뒤 결제 여부를 판단하실 수 있습니다.</p><form id="demo-form" class="stack-form"><input type="hidden" name="product" value="veridion"><div class="form-grid"><div class="span-2"><label>사이트 주소</label><input name="website" placeholder="https://example.com" inputmode="url" autocomplete="url" required></div><div><label>업종</label><select name="industry"><option value="commerce">이커머스</option><option value="beauty">뷰티·웰니스</option><option value="healthcare">의료·건강</option><option value="education">교육·서비스</option><option value="saas">B2B SaaS</option></select></div><div><label>주요 운영 국가</label><input name="market" placeholder="예: 대한민국"></div><div><label>중점 확인 포인트</label><input name="focus" placeholder="예: 광고표현, 개인정보, 결제고지"></div></div><div class="actions"><button class="button" type="submit">즉시 분석하기</button><a class="button ghost" href="{prefix}checkout/index.html?product=veridion&plan=Starter">바로 결제</a></div></form><div class="result-box" id="demo-result" role="status" aria-live="polite"></div></article><article class="card accent"><span class="tag" style="background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.12);color:#fff">무료 데모에서 먼저 보는 항목</span><h3 style="font-size:1.72rem;margin:16px 0 10px">위기 점수, 예상 과태료, 문제 영역 수를 바로 확인합니다</h3><ul class="clean inverse-list"><li>실제 읽은 페이지 기준 요약</li><li>위기 점수와 상위 위험 신호</li><li>예상 노출/과태료 범위</li><li>문제 영역별 건수</li></ul></article></div></section></main>
+        <main><section class="section"><div class="container form-shell"><article class="card strong"><div class="crumbs"><a href="{prefix}index.html">HOME</a><span class="sep">/</span><span>즉시 데모</span></div><span class="kicker">Instant demo</span><h1>사이트 주소를 넣으면 즉시 위험 요약을 보여드립니다</h1><p class="lead">저장형 폼이 아니라 실제 사이트 기준 즉시 진단 화면입니다. 위기 점수, 예상 과태료, 문제 영역별 건수, 상위 위험 항목을 먼저 확인한 뒤 결제 여부를 판단하실 수 있습니다.</p><form id="demo-form" class="stack-form"><input type="hidden" name="product" value="veridion"><div class="form-grid"><div class="span-2"><label>사이트 주소</label><input name="website" placeholder="https://example.com" inputmode="url" autocomplete="url" required></div><div><label>업종</label><select name="industry"><option value="commerce">이커머스</option><option value="beauty">뷰티·웰니스</option><option value="healthcare">의료·건강</option><option value="education">교육·서비스</option><option value="saas">B2B SaaS</option></select></div><div><label>주요 운영 국가</label><input name="market" placeholder="예: 대한민국"></div><div><label>중점 확인 사항</label><select name="focus" data-demo-field="focus"><option value="전체 리스크 빠르게 보기">전체 리스크 빠르게 보기</option><option value="개인정보·회원가입 동선">개인정보·회원가입 동선</option><option value="결제·환불·청약철회 고지">결제·환불·청약철회 고지</option><option value="광고·표시 문구">광고·표시 문구</option><option value="약관·정책 문서 일치">약관·정책 문서 일치</option><option value="민감 업종·표현 위험">민감 업종·표현 위험</option></select></div></div><div class="actions"><button class="button" type="submit">즉시 분석하기</button><a class="button ghost" href="{prefix}checkout/index.html?product=veridion&plan=Starter">바로 결제</a></div></form><div class="result-box" id="demo-result" role="status" aria-live="polite"></div></article><article class="card accent"><span class="tag" style="background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.12);color:#fff">무료 데모에서 먼저 보는 항목</span><h3 style="font-size:1.72rem;margin:16px 0 10px">위기 점수, 예상 과태료, 문제 영역 수를 바로 확인합니다</h3><ul class="clean inverse-list"><li>실제 읽은 페이지 기준 요약</li><li>위기 점수와 상위 위험 신호</li><li>예상 노출/과태료 범위</li><li>문제 영역별 건수</li></ul></article></div></section></main>
     '''), depth=1, page_key='demo', page_path='/demo/index.html')
 
 
@@ -376,7 +378,7 @@ def checkout_page() -> str:
     prefix = rel_prefix(1)
     options = ''.join(f'<option value="{escape(item["key"])}">{escape(item["name"])} · {escape(item["headline"])}' '</option>' for item in products)
     return doc(f"결제 | {brand['name']}", '제품과 플랜만 고르고 바로 외부 결제로 넘어가는 페이지', 'checkout', dedent(f'''
-        <main><section class="section"><div class="container form-shell"><article class="card strong"><div class="crumbs"><a href="{prefix}index.html">HOME</a><span class="sep">/</span><span>결제</span></div><span class="kicker">Checkout</span><h1>제품과 플랜만 고르고 바로 외부 결제로 넘어갑니다</h1><p class="lead">결제 전에는 꼭 필요한 선택만 남겼습니다. 회사명, 담당자명, 이메일, 사이트 주소 같은 진행 정보는 결제 완료 후 한 번에 입력하도록 분리했습니다.</p><form id="checkout-form" class="stack-form"><input type="hidden" name="billing" value="one-time"><input type="hidden" name="paymentMethod" value="toss"><div class="form-grid"><div><label>제품</label><select name="product" data-prefill="product" required>{options}</select></div><div><label>플랜</label><select name="plan" data-prefill="plan" required><option value="Starter">Starter</option><option value="Growth">Growth</option><option value="Scale">Scale</option></select></div></div><div class="consent-panel"><div class="consent-copy"><strong>개인정보 수집·이용 안내</strong><p>결제 준비와 결제 완료 후 진행 정보 수집, 결과 제공, 고객 포털 안내를 위해 필요한 최소 정보만 사용합니다. 자세한 내용은 <a href="{prefix}legal/privacy/index.html">개인정보처리방침</a>에서 확인하실 수 있습니다.</p></div><label class="consent-check"><input type="checkbox" name="privacyConsent" value="yes" required data-consent-required="1"> <span>개인정보 수집·이용에 동의합니다.</span></label><small data-consent-message>동의 후에만 결제를 진행할 수 있습니다.</small></div><div class="notice" id="checkout-plan-summary" data-plan-summary="checkout" aria-live="polite">선택한 제품과 플랜 요약이 여기에 표시됩니다.</div><div class="actions"><button class="button" type="submit">외부 결제로 바로 이동</button></div></form><div class="result-box" id="checkout-result" role="status" aria-live="polite"></div></article><article class="card accent"><span class="tag" style="background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.12);color:#fff">결제 후 진행 순서</span><h3 style="font-size:1.72rem;margin:16px 0 10px">결제 후 필요한 정보만 입력하고 바로 결과 흐름으로 이어집니다</h3><ul class="clean inverse-list"><li>제품과 플랜 선택</li><li>외부 결제 진행</li><li>회사명·담당자명·이메일·사이트 주소 입력</li><li>결과 준비 및 포털 연결</li></ul></article></div></section></main>
+        <main><section class="section"><div class="container form-shell"><article class="card strong"><div class="crumbs"><a href="{prefix}index.html">HOME</a><span class="sep">/</span><span>결제</span></div><span class="kicker">Checkout</span><h1>제품과 플랜만 고르고 바로 외부 결제로 넘어갑니다</h1><p class="lead">결제 전에는 꼭 필요한 선택만 남겼습니다. 회사명, 담당자명, 이메일, 사이트 주소 같은 진행 정보는 결제 완료 후 한 번에 입력하도록 분리했습니다.</p><form id="checkout-form" class="stack-form"><input type="hidden" name="billing" value="one-time"><input type="hidden" name="paymentMethod" value="toss"><div class="form-grid"><div><label>제품</label><select name="product" data-prefill="product" required>{options}</select></div><div><label>플랜</label><select name="plan" data-prefill="plan" required><option value="Lite">Lite</option><option value="Starter">Starter</option><option value="Growth">Growth</option><option value="Scale">Scale</option></select></div></div><div class="consent-panel"><div class="consent-copy"><strong>개인정보 수집·이용 안내</strong><p>결제 준비와 결제 완료 후 진행 정보 수집, 결과 제공, 고객 포털 안내를 위해 필요한 최소 정보만 사용합니다. 자세한 내용은 <a href="{prefix}legal/privacy/index.html">개인정보처리방침</a>에서 확인하실 수 있습니다.</p></div><label class="consent-check"><input type="checkbox" name="privacyConsent" value="yes" required data-consent-required="1"> <span>개인정보 수집·이용에 동의합니다.</span></label><small data-consent-message>동의 후에만 결제를 진행할 수 있습니다.</small></div><div class="notice" id="checkout-plan-summary" data-plan-summary="checkout" aria-live="polite">선택한 제품과 플랜 요약이 여기에 표시됩니다.</div><div class="actions"><button class="button" type="submit">외부 결제로 바로 이동</button></div></form><div class="result-box" id="checkout-result" role="status" aria-live="polite"></div></article><article class="card accent"><span class="tag" style="background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.12);color:#fff">결제 후 진행 순서</span><h3 style="font-size:1.72rem;margin:16px 0 10px">결제 후 필요한 정보만 입력하고 바로 결과 흐름으로 이어집니다</h3><ul class="clean inverse-list"><li>제품과 플랜 선택</li><li>외부 결제 진행</li><li>회사명·담당자명·이메일·사이트 주소 입력</li><li>결과 준비 및 포털 연결</li></ul></article></div></section></main>
     '''), depth=1, page_key='checkout', page_path='/checkout/index.html')
 
 
@@ -397,19 +399,19 @@ def portal_page() -> str:
 
 def admin_page() -> str:
     prefix = rel_prefix(1)
-    return doc(f"관리자 허브 | {brand['name']}", '운영 관리자 허브', 'admin', dedent(f'''
+    return doc(f"관리 허브 | {brand['name']}", '운영 관리 허브', 'admin', dedent(f'''
         <main id="admin-console">
           <section class="section">
             <div class="container page-hero">
               <div class="card strong">
-                <div class="crumbs"><a href="{prefix}index.html">HOME</a><span class="sep">/</span><span>관리자 허브</span></div>
+                <div class="crumbs"><a href="{prefix}index.html">HOME</a><span class="sep">/</span><span>관리 허브</span></div>
                 <span class="kicker">Admin hub</span>
-                <h1>관리 기능은 관리자 허브로만 모으고, 공개 화면에서는 감췄습니다</h1>
+                <h1>관리 기능은 관리 허브로만 모으고, 공개 화면에서는 감췄습니다</h1>
                 <p class="lead">비밀키가 있어야 운영 화면을 열 수 있습니다. 주문·결제·전달·포털 연결은 자동으로 이어지며, 이 화면에서는 자동화 상태 확인과 운영 안전성 점검만 합니다.</p>
-                <div class="result-box admin-gate" id="admin-gate-result">관리자 비밀키를 입력하면 운영 메뉴가 열립니다.</div>
+                <div class="result-box admin-gate" id="admin-gate-result">관리 비밀키를 입력하면 운영 메뉴가 열립니다.</div>
                 <div class="auth-inline admin-auth-inline">
-                  <input id="admin-token-input" placeholder="관리자 비밀키" autocomplete="off" spellcheck="false">
-                  <button class="button secondary" type="button" id="admin-token-save">관리자 열기</button>
+                  <input id="admin-token-input" placeholder="관리 비밀키" autocomplete="off" spellcheck="false">
+                  <button class="button secondary" type="button" id="admin-token-save">관리 열기</button>
                   <button class="button ghost" type="button" id="admin-token-clear">토큰 지우기</button>
                 </div>
               </div>
@@ -531,7 +533,7 @@ def product_page(product: dict) -> str:
         <input type="hidden" name="billing" value="one-time">
         <input type="hidden" name="paymentMethod" value="toss">
         <div class="form-grid">
-          <div><label>플랜</label><select name="plan" data-prefill="plan" required><option value="Starter">Starter</option><option value="Growth">Growth</option><option value="Scale">Scale</option></select></div>
+          <div><label>플랜</label><select name="plan" data-prefill="plan" required><option value="Lite">Lite</option><option value="Starter">Starter</option><option value="Growth">Growth</option><option value="Scale">Scale</option></select></div>
         </div>
         <div class="consent-panel"><div class="consent-copy"><strong>개인정보 수집·이용 안내</strong><p>결제 준비와 결제 완료 후 진행 정보 수집, 결과 제공을 위해 필요한 최소 정보만 사용합니다. 자세한 내용은 <a href="../../legal/privacy/index.html">개인정보처리방침</a>에서 확인하실 수 있습니다.</p></div><label class="consent-check"><input type="checkbox" name="privacyConsent" value="yes" required data-consent-required="1"> <span>개인정보 수집·이용에 동의합니다.</span></label><small data-consent-message>동의 후에만 결제를 진행할 수 있습니다.</small></div>
         <div class="notice" id="product-checkout-plan-summary" data-plan-summary="product" aria-live="polite">선택한 제품과 플랜 요약이 여기에 표시됩니다.</div>

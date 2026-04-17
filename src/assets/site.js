@@ -99,9 +99,78 @@
       return false;
     }
   }
+  function ensureAdminAccessModal(){
+    let root = document.getElementById('admin-access-modal-root');
+    if (!root) {
+      root = document.createElement('div');
+      root.id = 'admin-access-modal-root';
+      document.body.prepend(root);
+    }
+    if (!root.innerHTML.trim()) {
+      root.innerHTML = `<div class="admin-access-modal" id="admin-access-modal" hidden><div class="admin-access-backdrop" data-admin-close="1"></div><div class="admin-access-dialog" role="dialog" aria-modal="true" aria-labelledby="admin-access-title"><div class="admin-access-top"><strong id="admin-access-title">관리 메뉴 열기</strong><button class="admin-access-close" type="button" data-admin-close="1">닫기</button></div><p class="admin-access-copy">관리 비밀키를 입력하면 관리자 허브로 들어갑니다.</p><form id="admin-access-form" class="admin-access-form"><label>관리 비밀키<input id="admin-access-input" name="token" type="password" autocomplete="off" spellcheck="false" placeholder="관리 비밀키"></label><div class="actions"><button class="button" type="submit">관리 열기</button><button class="button ghost" type="button" data-admin-clear="1">토큰 지우기</button></div><div class="result-box" id="admin-access-result">비밀키를 입력하기 전에는 관리자 기능이 열리지 않습니다.</div></form></div></div>`;
+    }
+    const modal = document.getElementById('admin-access-modal');
+    const input = document.getElementById('admin-access-input');
+    const form = document.getElementById('admin-access-form');
+    const result = document.getElementById('admin-access-result');
+    const close = () => {
+      if (!modal) return;
+      modal.hidden = true;
+      document.body.classList.remove('modal-open');
+    };
+    root.querySelectorAll('[data-admin-close="1"]').forEach((button) => {
+      if (button.dataset.bound === '1') return;
+      button.dataset.bound = '1';
+      button.addEventListener('click', close);
+    });
+    const clearButton = root.querySelector('[data-admin-clear="1"]');
+    if (clearButton && clearButton.dataset.bound !== '1') {
+      clearButton.dataset.bound = '1';
+      clearButton.addEventListener('click', () => {
+        setAdminToken('');
+        if (input) input.value = '';
+        if (result) result.textContent = '저장된 비밀키를 지웠습니다.';
+      });
+    }
+    if (form && form.dataset.bound !== '1') {
+      form.dataset.bound = '1';
+      form.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        const token = clean(input?.value || '');
+        if (!token) {
+          if (result) result.textContent = '비밀키를 입력해야 관리자 화면으로 들어갈 수 있습니다.';
+          input?.focus();
+          return;
+        }
+        setAdminToken(token);
+        const ok = await verifyAdminTokenForEntry();
+        if (!ok) {
+          setAdminToken('');
+          if (result) result.textContent = '비밀키가 맞지 않습니다. 다시 확인해 주세요.';
+          input?.focus();
+          return;
+        }
+        if (result) result.textContent = '비밀키가 확인되었습니다. 관리자 허브로 이동합니다.';
+        close();
+        if (root.dataset.redirect !== 'false') window.location.href = `${base}admin/index.html`;
+      });
+    }
+    return { modal, input, result };
+  }
   async function requestAdminAccess(redirect = true){
+    const modalUi = ensureAdminAccessModal();
+    if (modalUi?.modal) {
+      modalUi.modal.hidden = false;
+      document.body.classList.add('modal-open');
+      if (modalUi.input) modalUi.input.value = getAdminToken();
+      const modalRoot = document.getElementById('admin-access-modal-root');
+      if (modalRoot) modalRoot.dataset.redirect = redirect === false ? 'false' : 'true';
+      if (modalUi.result) modalUi.result.textContent = '관리 비밀키를 입력하면 관리자 기능이 열립니다.';
+      setTimeout(() => modalUi.input?.focus(), 10);
+      return false;
+    }
     const current = getAdminToken();
-    const input = window.prompt('관리자 비밀키를 입력하세요.', current || '');
+    const input = window.prompt('관리 비밀키를 입력하세요.', current || '');
     if (input === null) return false;
     const token = clean(input);
     if (!token) { window.alert('비밀키를 입력해야 관리자 화면으로 들어갈 수 있습니다.'); return false; }
@@ -499,7 +568,7 @@
   function renderHeader(){
     const header = document.getElementById('site-header'); if (!header) return;
     const quickLinks = renderProductSubLinks('sub-link');
-    header.innerHTML = `<div class="container nav-wrap"><div class="nav-left"><button class="mobile-nav-toggle" type="button" aria-expanded="false" aria-controls="mobile-drawer" data-nav-toggle="1">메뉴</button><a class="brand" href="${base}index.html"><span class="brand-mark">V</span><span class="brand-copy"><strong>Veridion</strong><span>온라인 개인사업자용 법률·규제 리스크 방어막</span></span></a></div><nav class="nav-links">${renderNavLinks('top-link')}<button class="admin-entry" type="button" data-admin-entry="1" title="권한 확인 후 관리자 메뉴로 들어갑니다">관리자</button></nav></div><div class="container subnav"><span class="subnav-label">제품</span>${quickLinks}</div>`;
+    header.innerHTML = `<div class="container nav-wrap"><div class="nav-left"><button class="mobile-nav-toggle" type="button" aria-expanded="false" aria-controls="mobile-drawer" data-nav-toggle="1">메뉴</button><a class="brand" href="${base}index.html"><span class="brand-mark">V</span><span class="brand-copy"><strong>Veridion</strong><span>온라인 개인사업자용 법률·규제 리스크 방어막</span></span></a></div><nav class="nav-links">${renderNavLinks('top-link')}<button class="admin-entry" type="button" data-admin-entry="1" title="권한 확인 후 관리자 메뉴로 들어갑니다">관리</button></nav></div><div class="container subnav"><span class="subnav-label">제품</span>${quickLinks}</div>`;
   }
 
   function renderSidebar(){
@@ -521,7 +590,7 @@
       drawer.className = 'mobile-drawer';
       document.body.appendChild(drawer);
     }
-    drawer.innerHTML = `<div class="mobile-drawer-card"><div class="mobile-drawer-top"><strong>메뉴</strong><button class="mobile-nav-close" type="button" data-nav-close="1">닫기</button></div><button class="side-admin-button" type="button" data-admin-entry="1">관리자</button><nav class="side-nav-links"><div class="side-group"><span class="side-group-title">메인 메뉴</span>${renderNavLinks('side-link')}</div><div class="side-group"><span class="side-group-title">제품</span>${renderProductSubLinks('side-sublink')}<a href="${base}products/veridion/demo/index.html" class="side-sublink ${path.includes('/products/veridion/demo/') ? 'active' : ''}">즉시 시연</a></div></nav></div>`;
+    drawer.innerHTML = `<div class="mobile-drawer-card"><div class="mobile-drawer-top"><strong>메뉴</strong><button class="mobile-nav-close" type="button" data-nav-close="1">닫기</button></div><button class="side-admin-button" type="button" data-admin-entry="1" title="관리 메뉴를 엽니다">관리</button><nav class="side-nav-links"><div class="side-group"><span class="side-group-title">메인 메뉴</span>${renderNavLinks('side-link')}</div><div class="side-group"><span class="side-group-title">제품</span>${renderProductSubLinks('side-sublink')}<a href="${base}products/veridion/demo/index.html" class="side-sublink ${path.includes('/products/veridion/demo/') ? 'active' : ''}">즉시 시연</a></div></nav></div>`;
   }
 
   function bindNavChrome(){
@@ -559,7 +628,7 @@
         const meRes = await fetch('/api/public/auth/me', { headers: headers(token) });
         if (!meRes.ok) throw new Error('로그인 상태를 확인하지 못했습니다.');
         const me = await meRes.json();
-        if (meBox) meBox.innerHTML = `<div class="notice"><strong>${esc(me.account?.name || me.account?.email || '관계자')}</strong><br>${esc(me.account?.company || '회사 정보 없음')} · ${esc(me.account?.email || '')}</div>`;
+        if (meBox) meBox.innerHTML = `<div class="notice"><strong>${esc(me.account?.name || me.account?.email || '사용자')}</strong><br>${esc(me.account?.company || '회사 정보 없음')} · ${esc(me.account?.email || '')}</div>`;
         const historyRes = await fetch('/api/public/portal/history', { method:'POST', headers: headers(token) });
         const history = historyRes.ok ? await historyRes.json() : { orders: me.orders || [] };
         paintOrders(history.orders || me.orders || []);
@@ -651,7 +720,7 @@
     if (catalogRoot) {
       if (!items.length) { catalogRoot.innerHTML = '<div class="empty-box">현재 이 제품과 직접 연결된 확장 서비스가 없습니다. 기본 제품만으로도 시작하실 수 있습니다.</div>'; return; }
       const topCategories = categories.sort((a,b) => grouped[b].length - grouped[a].length).slice(0, 6);
-      catalogRoot.innerHTML = topCategories.map((category, idx) => `<details class="fold-card" ${idx === 0 ? 'open' : ''}><summary><strong>${esc(category)}</strong><span>${grouped[category].length}개 연결</span></summary><div><div class="story-grid">${grouped[category].slice(0, 8).map((item) => `<article class="story-card"><span class="tag">${esc(item.id || '')}</span><h3>${esc(item.name || '')}</h3><p>${esc(item.summary || '')}</p><div class="small-actions"><span>주력 제품: ${esc(products[item.lead_product]?.name || item.lead_product || '공통')}</span></div></article>`).join('')}</div></div></details>`).join('');
+      catalogRoot.innerHTML = topCategories.map((category, idx) => `<details class="fold-card" ${idx === 0 ? 'open' : ''}><summary><strong>${esc(category)}</strong><span>${grouped[category].length}개 연결</span></summary><div><div class="story-grid">${grouped[category].slice(0, 8).map((item) => `<article class="story-card"><span class="tag">${esc(item.id || '')}</span><h3>${esc(item.name || '')}</h3><p>${esc(item.summary || '')}</p><ul class="clean"><li>서비스 단계: ${esc(item.service_stage || '기본정리')}</li><li>서비스 유형: ${esc(item.service_type || '정리형')}</li><li>시작가: ${esc(item.price_from || '문의')}</li></ul><div class="small-actions"><span>주력 제품: ${esc(products[item.lead_product]?.name || item.lead_product || '공통')}</span><span>${esc(item.pricing_note || '')}</span></div></article>`).join('')}</div></div></details>`).join('');
     }
   }
   function renderServiceCatalog(){
@@ -659,33 +728,39 @@
     const statsRoot = document.getElementById('service-catalog-stats');
     const categoryFilter = document.getElementById('service-category-filter');
     const productFilter = document.getElementById('service-product-filter');
+    const stageFilter = document.getElementById('service-stage-filter');
     const searchInput = document.getElementById('service-search');
     const fallback = document.getElementById('service-catalog-fallback');
-    if (!root || !statsRoot || !categoryFilter || !productFilter || !searchInput) return;
+    if (!root || !statsRoot || !categoryFilter || !productFilter || !stageFilter || !searchInput) return;
     if (fallback) fallback.hidden = true;
     const categories = [...new Set(serviceCatalog.map((item) => item.category || '기타 확장 서비스'))].sort();
     const productKeys = [...new Set(serviceCatalog.flatMap((item) => [item.lead_product, ...(item.fit_products || [])]).filter(Boolean))].filter((key) => products[key]).sort();
+    const stages = [...new Set(serviceCatalog.map((item) => item.service_stage || '기본정리'))];
     categoryFilter.innerHTML = `<option value="">전체 카테고리</option>${categories.map((item) => `<option value="${esc(item)}">${esc(item)}</option>`).join('')}`;
     productFilter.innerHTML = `<option value="">전체 제품</option>${productKeys.map((key) => `<option value="${esc(key)}">${esc(products[key].name)}</option>`).join('')}`;
+    stageFilter.innerHTML = `<option value="">전체 서비스 단계</option>${stages.map((item) => `<option value="${esc(item)}">${esc(item)}</option>`).join('')}`;
     const render = () => {
       const query = clean(searchInput.value).toLowerCase();
       const category = clean(categoryFilter.value);
       const productKey = clean(productFilter.value);
+      const stage = clean(stageFilter.value);
       const items = serviceCatalog.filter((item) => {
         const haystack = `${item.id || ''} ${item.name || ''} ${item.category || ''} ${item.summary || ''} ${item.lead_product || ''} ${(item.fit_products || []).join(' ')}`.toLowerCase();
         const matchQuery = !query || haystack.includes(query);
         const matchCategory = !category || (item.category || '') === category;
         const fit = Array.isArray(item.fit_products) ? item.fit_products : [];
         const matchProduct = !productKey || item.lead_product === productKey || fit.includes(productKey);
-        return matchQuery && matchCategory && matchProduct;
+        const matchStage = !stage || (item.service_stage || '기본정리') === stage;
+        return matchQuery && matchCategory && matchProduct && matchStage;
       });
       const grouped = groupServices(items);
       const categoriesCount = Object.keys(grouped).length;
       const leadCount = items.filter((item) => item.lead_product).length;
-      statsRoot.innerHTML = `<article class="admin-card"><span class="tag">검색 결과</span><h3>${items.length}</h3><p>현재 조건에 맞는 확장 서비스</p></article><article class="admin-card"><span class="tag">카테고리</span><h3>${categoriesCount}</h3><p>현재 조건에서 남은 범주 수</p></article><article class="admin-card"><span class="tag">주력 제안</span><h3>${leadCount}</h3><p>핵심 제품에 바로 붙일 수 있는 항목</p></article>`;
-      root.innerHTML = items.length ? items.slice(0, 120).map((item) => `<article class="story-card"><span class="tag">${esc(item.id || '')}</span><h3>${esc(item.name || '')}</h3><p>${esc(item.summary || '')}</p><ul class="clean"><li>카테고리: ${esc(item.category || '기타')}</li><li>주력 제품: ${esc(products[item.lead_product]?.name || item.lead_product || '공통')}</li><li>연결 제품: ${esc((item.fit_products || []).map((key) => products[key]?.name || key).join(', ') || '공통 제안형')}</li></ul></article>`).join('') : '<div class="empty-box">조건에 맞는 확장 서비스가 없습니다. 검색어를 줄이거나 카테고리를 전체로 바꿔 보세요.</div>';
+      const priceBands = [...new Set(items.map((item) => item.price_band).filter(Boolean))].length;
+      statsRoot.innerHTML = `<article class="admin-card"><span class="tag">검색 결과</span><h3>${items.length}</h3><p>현재 조건에 맞는 확장 서비스</p></article><article class="admin-card"><span class="tag">카테고리</span><h3>${categoriesCount}</h3><p>현재 조건에서 남은 범주 수</p></article><article class="admin-card"><span class="tag">가격대</span><h3>${priceBands}</h3><p>현재 조건에서 남은 시작가 구간</p></article><article class="admin-card"><span class="tag">주력 제안</span><h3>${leadCount}</h3><p>핵심 제품에 바로 붙일 수 있는 항목</p></article>`;
+      root.innerHTML = items.length ? items.slice(0, 120).map((item) => `<article class="story-card"><span class="tag">${esc(item.id || '')}</span><h3>${esc(item.name || '')}</h3><p>${esc(item.summary || '')}</p><ul class="clean"><li>카테고리: ${esc(item.category || '기타')}</li><li>서비스 단계: ${esc(item.service_stage || '기본정리')}</li><li>서비스 유형: ${esc(item.service_type || '정리형')}</li><li>시작가: ${esc(item.price_from || '문의')}</li><li>연결 제품: ${esc((item.fit_products || []).map((key) => products[key]?.name || key).join(', ') || '공통 제안형')}</li></ul><div class="small-actions"><span>주력 제품: ${esc(products[item.lead_product]?.name || item.lead_product || '공통')}</span><span>${esc(item.pricing_note || '')}</span></div></article>`).join('') : '<div class="empty-box">조건에 맞는 확장 서비스가 없습니다. 검색어를 줄이거나 카테고리/단계를 전체로 바꿔 보세요.</div>';
     };
-    [searchInput, categoryFilter, productFilter].forEach((node) => node.addEventListener('input', render));
+    [searchInput, categoryFilter, productFilter, stageFilter].forEach((node) => node.addEventListener('input', render));
     render();
   }
   function quickDemoContent(targetProduct, index){
@@ -767,10 +842,10 @@
     const root = document.getElementById('product-demo-shell');
     if (!root || !product) return;
     if (product.key === 'veridion') {
-      root.innerHTML = `<form id="product-demo-form" class="stack-form"><div class="form-grid"><div class="span-2"><label>사이트 주소</label><input name="website" data-demo-field="website" placeholder="https://example.com" inputmode="url" autocomplete="url" required></div><div><label>업종</label><select name="industry" data-demo-field="industry"><option value="commerce">이커머스</option><option value="beauty">뷰티·웰니스</option><option value="healthcare">의료·건강</option><option value="education">교육·서비스</option><option value="saas">B2B SaaS</option></select></div><div><label>운영 국가</label><input name="market" data-demo-field="market" placeholder="예: 대한민국"></div><div class="span-2"><label>중점 확인 포인트</label><input name="focus" data-demo-field="focus" placeholder="예: 광고표현, 개인정보, 결제고지"></div></div><div class="actions"><button class="button" type="submit">즉시 분석하기</button><a class="button ghost" href="#order">바로 결제</a></div></form>`;
+      root.innerHTML = `<form id="product-demo-form" class="stack-form"><div class="form-grid"><div class="span-2"><label>사이트 주소</label><input name="website" data-demo-field="website" placeholder="https://example.com" inputmode="url" autocomplete="url" required></div><div><label>업종</label><select name="industry" data-demo-field="industry"><option value="commerce">이커머스</option><option value="beauty">뷰티·웰니스</option><option value="healthcare">의료·건강</option><option value="education">교육·서비스</option><option value="saas">B2B SaaS</option></select></div><div><label>운영 국가</label><input name="market" data-demo-field="market" placeholder="예: 대한민국"></div><div><label>중점 확인 사항</label><select name="focus" data-demo-field="focus"><option value="전체 리스크 빠르게 보기">전체 리스크 빠르게 보기</option><option value="개인정보·회원가입 동선">개인정보·회원가입 동선</option><option value="결제·환불·청약철회 고지">결제·환불·청약철회 고지</option><option value="광고·표시 문구">광고·표시 문구</option><option value="약관·정책 문서 일치">약관·정책 문서 일치</option><option value="민감 업종·표현 위험">민감 업종·표현 위험</option></select></div></div><div class="actions"><button class="button" type="submit">즉시 분석하기</button><a class="button ghost" href="#order">바로 결제</a></div></form>`;
       return;
     }
-    root.innerHTML = `<form id="product-demo-form" class="stack-form"><div class="form-grid"><div><label>회사명(선택)</label><input name="company" data-demo-field="company" placeholder="예: 샘플 브랜드"></div><div><label>중점 확인 포인트</label><input name="focus" data-demo-field="focus" placeholder="예: 현재 운영 병목"></div></div><div class="actions"><button class="button" type="submit">즉시 분석하기</button><a class="button ghost" href="#order">바로 결제</a></div></form>`;
+    root.innerHTML = `<form id="product-demo-form" class="stack-form"><div class="form-grid"><div><label>회사명(선택)</label><input name="company" data-demo-field="company" placeholder="예: 샘플 브랜드"></div><div><label>중점 확인 사항</label><select name="focus" data-demo-field="focus"><option value="전체 리스크 빠르게 보기">전체 리스크 빠르게 보기</option><option value="개인정보·회원가입 동선">개인정보·회원가입 동선</option><option value="결제·환불·청약철회 고지">결제·환불·청약철회 고지</option><option value="광고·표시 문구">광고·표시 문구</option><option value="약관·정책 문서 일치">약관·정책 문서 일치</option><option value="민감 업종·표현 위험">민감 업종·표현 위험</option></select></div></div><div class="actions"><button class="button" type="submit">즉시 분석하기</button><a class="button ghost" href="#order">바로 결제</a></div></form>`;
   }
 
   function intakeFormMarkup(order){
@@ -1195,7 +1270,7 @@
 function renderHeader(){
   const header = document.getElementById('site-header'); if (!header) return;
   const quickLinks = renderProductSubLinks('sub-link');
-  header.innerHTML = `<div class="container nav-wrap"><div class="nav-left"><button class="mobile-nav-toggle" type="button" aria-expanded="false" aria-controls="mobile-drawer" data-nav-toggle="1">메뉴</button><a class="brand" href="${base}index.html"><span class="brand-mark">V</span><span class="brand-copy"><strong>Veridion</strong><span>온라인 개인사업자용 법률·규제 리스크 방어막</span></span></a></div><nav class="nav-links">${renderNavLinks('top-link')}<button class="button ghost admin-link-inline" type="button" data-admin-entry="1">관계자</button></nav></div><div class="container subnav"><span class="subnav-label">제품</span>${quickLinks}</div>`;
+  header.innerHTML = `<div class="container nav-wrap"><div class="nav-left"><button class="mobile-nav-toggle" type="button" aria-expanded="false" aria-controls="mobile-drawer" data-nav-toggle="1">메뉴</button><a class="brand" href="${base}index.html"><span class="brand-mark">V</span><span class="brand-copy"><strong>Veridion</strong><span>온라인 개인사업자용 법률·규제 리스크 방어막</span></span></a></div><nav class="nav-links">${renderNavLinks('top-link')}<button class="button ghost admin-link-inline" type="button" data-admin-entry="1" title="관리 메뉴를 엽니다">관리</button></nav></div><div class="container subnav"><span class="subnav-label">제품</span>${quickLinks}</div>`;
 }
 
 function renderSidebar(){
@@ -1223,10 +1298,24 @@ function renderSidebar(){
     drawer.className = 'mobile-drawer';
     document.body.appendChild(drawer);
   }
-  drawer.innerHTML = `<div class="mobile-drawer-card"><div class="mobile-drawer-top"><strong>메뉴</strong><button class="mobile-nav-close" type="button" data-nav-close="1">닫기</button></div><button class="side-admin-button" type="button" data-admin-entry="1">관계자</button><nav class="side-nav-links"><div class="side-group"><span class="side-group-title">메인 메뉴</span>${renderNavLinks('side-link')}</div><div class="side-group"><span class="side-group-title">제품</span>${renderProductSubLinks('side-sublink')}<a href="${base}products/veridion/demo/index.html" class="side-sublink ${path.includes('/products/veridion/demo/') ? 'active' : ''}">즉시 데모</a></div></nav></div>`;
+  drawer.innerHTML = `<div class="mobile-drawer-card"><div class="mobile-drawer-top"><strong>메뉴</strong><button class="mobile-nav-close" type="button" data-nav-close="1">닫기</button></div><button class="side-admin-button" type="button" data-admin-entry="1" title="관리 메뉴를 엽니다">관리</button><nav class="side-nav-links"><div class="side-group"><span class="side-group-title">메인 메뉴</span>${renderNavLinks('side-link')}</div><div class="side-group"><span class="side-group-title">제품</span>${renderProductSubLinks('side-sublink')}<a href="${base}products/veridion/demo/index.html" class="side-sublink ${path.includes('/products/veridion/demo/') ? 'active' : ''}">즉시 데모</a></div></nav></div>`;
 }
 
 function orderStatusLabel(status){ return ({payment_pending:'결제 대기', intake_required:'진행 정보 입력 필요', draft_ready:'자동 실행 준비', published:'콘텐츠 발행 완료', delivered:'결과 전달 완료'})[clean(status)] || (clean(status) || '확인 필요'); }
+
+function syncPlanOptionsForForm(form){
+  if (!form) return;
+  const select = form.elements?.plan;
+  if (!select || select.tagName !== 'SELECT') return;
+  const productKey = clean(form.elements?.product?.value || product?.key || document.body?.dataset?.product || '');
+  const target = products[productKey];
+  const plans = Array.isArray(target?.plans) ? target.plans : [];
+  if (!plans.length) return;
+  const previous = clean(select.value);
+  select.innerHTML = plans.map((item) => `<option value="${esc(item.name)}">${esc(item.name)} · ${esc(item.price || '')}</option>`).join('');
+  const fallback = (plans.find((item) => item.recommended)?.name) || plans[0].name;
+  select.value = plans.some((item) => item.name === previous) ? previous : fallback;
+}
 
 function updatePlanSummary(form, summaryId){
   const summary = document.getElementById(summaryId);
@@ -1245,7 +1334,7 @@ function renderProductDemoWorkspace(){
   const root = document.getElementById('product-demo-shell');
   if (!root || !product) return;
   if (product.key === 'veridion') {
-    root.innerHTML = `<form id="product-demo-form" class="stack-form"><div class="form-grid"><div class="span-2"><label>사이트 주소</label><input name="website" placeholder="https://example.com" inputmode="url" autocomplete="url" required></div><div><label>업종</label><select name="industry"><option value="commerce">이커머스</option><option value="beauty">뷰티·웰니스</option><option value="healthcare">의료·건강</option><option value="education">교육·서비스</option><option value="saas">B2B SaaS</option></select></div><div><label>주요 운영 국가</label><input name="market" placeholder="예: 대한민국"></div><div class="span-2"><label>중점 확인 포인트</label><input name="focus" placeholder="예: 광고표현, 개인정보, 결제고지"></div></div><div class="actions"><button class="button" type="submit">즉시 분석하기</button><a class="button ghost" href="#order">바로 결제</a></div></form>`;
+    root.innerHTML = `<form id="product-demo-form" class="stack-form"><div class="form-grid"><div class="span-2"><label>사이트 주소</label><input name="website" placeholder="https://example.com" inputmode="url" autocomplete="url" required></div><div><label>업종</label><select name="industry"><option value="commerce">이커머스</option><option value="beauty">뷰티·웰니스</option><option value="healthcare">의료·건강</option><option value="education">교육·서비스</option><option value="saas">B2B SaaS</option></select></div><div><label>주요 운영 국가</label><input name="market" placeholder="예: 대한민국"></div><div><label>중점 확인 사항</label><select name="focus" data-demo-field="focus"><option value="전체 리스크 빠르게 보기">전체 리스크 빠르게 보기</option><option value="개인정보·회원가입 동선">개인정보·회원가입 동선</option><option value="결제·환불·청약철회 고지">결제·환불·청약철회 고지</option><option value="광고·표시 문구">광고·표시 문구</option><option value="약관·정책 문서 일치">약관·정책 문서 일치</option><option value="민감 업종·표현 위험">민감 업종·표현 위험</option></select></div></div><div class="actions"><button class="button" type="submit">즉시 분석하기</button><a class="button ghost" href="#order">바로 결제</a></div></form>`;
     return;
   }
   if (product.key === 'clearport') {
@@ -1499,10 +1588,10 @@ function bindAdminActions(){
   }
   function bindPlanSummaries(){
     const checkoutForm = document.getElementById('checkout-form');
-    if (checkoutForm) { const sync = () => updatePlanSummary(checkoutForm, 'checkout-plan-summary'); checkoutForm.addEventListener('change', sync); checkoutForm.addEventListener('input', sync); sync(); }
+    if (checkoutForm) { const sync = () => { syncPlanOptionsForForm(checkoutForm); updatePlanSummary(checkoutForm, 'checkout-plan-summary'); }; checkoutForm.addEventListener('change', sync); checkoutForm.addEventListener('input', sync); sync(); }
     const productCheckoutForm = document.getElementById('product-checkout-form');
-    if (productCheckoutForm) { const sync = () => updatePlanSummary(productCheckoutForm, 'product-checkout-plan-summary'); productCheckoutForm.addEventListener('change', sync); productCheckoutForm.addEventListener('input', sync); sync(); }
+    if (productCheckoutForm) { const sync = () => { syncPlanOptionsForForm(productCheckoutForm); updatePlanSummary(productCheckoutForm, 'product-checkout-plan-summary'); }; productCheckoutForm.addEventListener('change', sync); productCheckoutForm.addEventListener('input', sync); sync(); }
   }
-  document.addEventListener('DOMContentLoaded', async () => { await loadSystemConfig(); if ((pageKey === 'checkout' || pageKey === 'product') && paymentRuntime()?.enabled && !paymentRuntime()?.mock) await loadTossScript(); const stateSynced = await syncRemoteState(); if (!stateSynced) { const boardSynced = await loadBoardFeed(); if (!boardSynced) ensureSeedData(); } else if (!read(STORE.publications).length) { const boardSynced = await loadBoardFeed(); if (!boardSynced) ensureSeedData(); } else { ensureSeedData(); } renderHeader(); renderSidebar(); bindNavChrome(); bindAdminEntry(); renderFooter(); buildHomeProducts(); buildModuleMatrix(); fillProductSlots(); buildPlans(); setPrefills(); renderPublicBoard(); renderProductBoard(); renderLiveStats(); renderWorkspaceCards(); renderProductServices(); renderServiceCatalog(); bindProductDemoForm(); await bindProductCheckoutForm(); bindDemoForm(); bindCheckoutForm(); bindContactForm(); bindPortalLookup(); bindAdminTokenControls(); bindQuickDemoButtons(); attachConsentGuards(); bindPlanSummaries(); await bindPaymentResultPages(); await bootstrapAdminGate(); renderAdminSummary(); bindAdminActions(); });
+  document.addEventListener('DOMContentLoaded', async () => { await loadSystemConfig(); if ((pageKey === 'checkout' || pageKey === 'product') && paymentRuntime()?.enabled && !paymentRuntime()?.mock) await loadTossScript(); const stateSynced = await syncRemoteState(); if (!stateSynced) { const boardSynced = await loadBoardFeed(); if (!boardSynced) ensureSeedData(); } else if (!read(STORE.publications).length) { const boardSynced = await loadBoardFeed(); if (!boardSynced) ensureSeedData(); } else { ensureSeedData(); } renderHeader(); renderSidebar(); ensureAdminAccessModal(); bindNavChrome(); bindAdminEntry(); renderFooter(); buildHomeProducts(); buildModuleMatrix(); fillProductSlots(); buildPlans(); setPrefills(); renderPublicBoard(); renderProductBoard(); renderLiveStats(); renderWorkspaceCards(); renderProductServices(); renderServiceCatalog(); bindProductDemoForm(); await bindProductCheckoutForm(); bindDemoForm(); bindCheckoutForm(); bindContactForm(); bindPortalLookup(); bindAdminTokenControls(); bindQuickDemoButtons(); attachConsentGuards(); bindPlanSummaries(); await bindPaymentResultPages(); await bootstrapAdminGate(); renderAdminSummary(); bindAdminActions(); });
   window.NV0App = { read, write, lookupOrder, createOrder, createDemo, createContact, createLookup, ensureSeedData, renderAdminSummary, advanceOrder, toggleOrderPayment, republishOrder, validateEmail, validateProduct, validatePlan, setAdminToken, getAdminToken, loadSystemConfig, publicBoardHref, productBoardHref, portalHref };
 })();
