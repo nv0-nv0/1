@@ -123,6 +123,12 @@
       button.dataset.bound = '1';
       button.addEventListener('click', close);
     });
+    if (modal && modal.dataset.escapeBound !== '1') {
+      modal.dataset.escapeBound = '1';
+      modal.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape') close();
+      });
+    }
     const clearButton = root.querySelector('[data-admin-clear="1"]');
     if (clearButton && clearButton.dataset.bound !== '1') {
       clearButton.dataset.bound = '1';
@@ -150,21 +156,10 @@
           input?.focus();
           return;
         }
-        if (result) result.textContent = root.dataset.redirect === 'false'
-          ? '비밀키가 확인되었습니다. 이 화면에서 운영 메뉴를 엽니다.'
-          : '비밀키가 확인되었습니다. 관리자 허브로 이동합니다.';
+        if (result) result.textContent = root.dataset.redirect === 'false' ? '비밀키가 확인되었습니다. 현재 화면에서 관리자 기능을 엽니다.' : '비밀키가 확인되었습니다. 관리자 허브로 이동합니다.';
         close();
-        if (root.dataset.redirect !== 'false') {
-          window.location.href = `${base}admin/index.html`;
-          return;
-        }
-        await bootstrapAdminGate();
-        renderAdminSummary();
-        bindAdminActions();
-        const tokenInput = document.getElementById('admin-token-input');
-        if (tokenInput) tokenInput.value = getAdminToken();
-        const shell = document.getElementById('admin-shell');
-        shell?.scrollIntoView({ behavior:'smooth', block:'start' });
+        if (root.dataset.redirect !== 'false') window.location.href = `${base}admin/index.html`;
+        else await bootstrapAdminGate();
       });
     }
     return { modal, input, result };
@@ -177,9 +172,7 @@
       if (modalUi.input) modalUi.input.value = getAdminToken();
       const modalRoot = document.getElementById('admin-access-modal-root');
       if (modalRoot) modalRoot.dataset.redirect = redirect === false ? 'false' : 'true';
-      if (modalUi.result) modalUi.result.textContent = redirect === false
-        ? '관리 비밀키를 입력하면 이 화면에서 바로 운영 메뉴를 엽니다.'
-        : '관리 비밀키를 입력하면 관리자 허브로 이동합니다.';
+      if (modalUi.result) modalUi.result.textContent = '관리 비밀키를 입력하면 관리자 기능이 열립니다.';
       setTimeout(() => modalUi.input?.focus(), 10);
       return false;
     }
@@ -195,7 +188,15 @@
       window.alert('비밀키가 맞지 않습니다. 다시 확인해 주세요.');
       return false;
     }
-    if (redirect) window.location.href = `${base}admin/index.html`;
+    if (redirect) {
+      window.location.href = `${base}admin/index.html`;
+      return true;
+    }
+    await bootstrapAdminGate();
+    const tokenInput = document.getElementById('admin-token-input');
+    if (tokenInput) tokenInput.value = getAdminToken();
+    const gate = document.getElementById('admin-gate-result');
+    if (gate && !clean(gate.textContent || '')) gate.textContent = '관리자 비밀키를 확인했습니다. 현재 화면에서 운영 메뉴를 엽니다.';
     return true;
   }
   function boardCtaMarkup(item){ const href = esc(item.ctaHref || `${base}products/${item.product}/index.html#intro`); const label = esc(item.ctaLabel || '제품 설명 보기'); return `<a class="button soft" href="${href}">${label}</a>`; }
@@ -271,6 +272,18 @@
       return true;
     } catch { return false; }
   }
+  function enhanceDocumentChrome(){
+    const main = document.querySelector('main');
+    if (main && !main.id) main.id = 'main-content';
+    if (!document.querySelector('.skip-link')) {
+      const link = document.createElement('a');
+      link.className = 'skip-link';
+      link.href = '#main-content';
+      link.textContent = '본문 바로가기';
+      document.body.prepend(link);
+    }
+  }
+
   function bindAdminTokenControls(){
     const input = document.getElementById('admin-token-input');
     const save = document.getElementById('admin-token-save');
@@ -582,7 +595,7 @@
   function renderHeader(){
     const header = document.getElementById('site-header'); if (!header) return;
     const quickLinks = renderProductSubLinks('sub-link');
-    header.innerHTML = `<div class="container nav-wrap"><div class="nav-left"><button class="mobile-nav-toggle" type="button" aria-expanded="false" aria-controls="mobile-drawer" data-nav-toggle="1">메뉴</button><a class="brand" href="${base}index.html"><span class="brand-mark">V</span><span class="brand-copy"><strong>Veridion</strong><span>온라인 개인사업자용 법률·규제 리스크 방어막</span></span></a></div><nav class="nav-links">${renderNavLinks('top-link')}<button class="admin-entry" type="button" data-admin-entry="1" title="권한 확인 후 관리자 메뉴로 들어갑니다">관리</button></nav></div><div class="container subnav"><span class="subnav-label">제품</span>${quickLinks}</div>`;
+    header.innerHTML = `<div class="container nav-wrap"><div class="nav-left"><button class="mobile-nav-toggle" type="button" aria-expanded="false" aria-controls="mobile-drawer" data-nav-toggle="1">메뉴</button><a class="brand" href="${base}index.html"><span class="brand-mark">V</span><span class="brand-copy"><strong>Veridion</strong><span>온라인 개인사업자용 법률·규제 리스크 방어막</span></span></a></div><nav class="nav-links">${renderNavLinks('top-link')}<a class="admin-entry" href="${base}admin/index.html" data-admin-entry="1" data-admin-href="${base}admin/index.html" title="권한 확인 후 관리자 메뉴로 들어갑니다">관리</a></nav></div><div class="container subnav"><span class="subnav-label">제품</span>${quickLinks}</div>`;
   }
 
   function renderSidebar(){
@@ -604,7 +617,7 @@
       drawer.className = 'mobile-drawer';
       document.body.appendChild(drawer);
     }
-    drawer.innerHTML = `<div class="mobile-drawer-card"><div class="mobile-drawer-top"><strong>메뉴</strong><button class="mobile-nav-close" type="button" data-nav-close="1">닫기</button></div><button class="side-admin-button" type="button" data-admin-entry="1" title="관리 메뉴를 엽니다">관리</button><nav class="side-nav-links"><div class="side-group"><span class="side-group-title">메인 메뉴</span>${renderNavLinks('side-link')}</div><div class="side-group"><span class="side-group-title">제품</span>${renderProductSubLinks('side-sublink')}<a href="${base}products/veridion/demo/index.html" class="side-sublink ${path.includes('/products/veridion/demo/') ? 'active' : ''}">즉시 시연</a></div></nav></div>`;
+    drawer.innerHTML = `<div class="mobile-drawer-card"><div class="mobile-drawer-top"><strong>메뉴</strong><button class="mobile-nav-close" type="button" data-nav-close="1">닫기</button></div><a class="side-admin-button" href="${base}admin/index.html" data-admin-entry="1" data-admin-href="${base}admin/index.html" title="관리 메뉴를 엽니다">관리</a><nav class="side-nav-links"><div class="side-group"><span class="side-group-title">메인 메뉴</span>${renderNavLinks('side-link')}</div><div class="side-group"><span class="side-group-title">제품</span>${renderProductSubLinks('side-sublink')}<a href="${base}products/veridion/demo/index.html" class="side-sublink ${path.includes('/products/veridion/demo/') ? 'active' : ''}">즉시 시연</a></div></nav></div>`;
   }
 
   function bindNavChrome(){
@@ -694,29 +707,36 @@
     await refreshSession();
   }
 
-  async function openAdminEntryFromTrigger(trigger){
+  function adminEntryRedirectTarget(trigger){
+    return trigger?.dataset?.adminHref || `${base}admin/index.html`;
+  }
+  async function handleAdminEntryActivation(trigger, event){
     if (!trigger) return false;
-    const stayOnPage = path.includes('/admin/') || trigger.dataset.adminStay === '1';
-    await requestAdminAccess(!stayOnPage);
-    return true;
+    if (event) event.preventDefault();
+    const redirectToAdmin = !path.includes('/admin/');
+    const ok = await requestAdminAccess(redirectToAdmin);
+    if (ok && redirectToAdmin) {
+      const href = adminEntryRedirectTarget(trigger);
+      if (href) window.location.href = href;
+    }
+    return ok;
   }
   function bindAdminEntry(){
     document.querySelectorAll('[data-admin-entry]').forEach((trigger) => {
       if (trigger.dataset.bound === '1') return;
       trigger.dataset.bound = '1';
       trigger.addEventListener('click', async (event) => {
-        event.preventDefault();
-        await openAdminEntryFromTrigger(trigger);
+        await handleAdminEntryActivation(trigger, event);
       });
     });
-    if (document.body?.dataset.adminEntryDelegated === '1') return;
-    document.body.dataset.adminEntryDelegated = '1';
-    document.addEventListener('click', async (event) => {
-      const trigger = event.target.closest('[data-admin-entry]');
-      if (!trigger || trigger.dataset.bound === '1') return;
-      event.preventDefault();
-      await openAdminEntryFromTrigger(trigger);
-    });
+    if (!document.body.dataset.adminEntryDelegated) {
+      document.body.dataset.adminEntryDelegated = '1';
+      document.addEventListener('click', async (event) => {
+        const trigger = event.target instanceof Element ? event.target.closest('[data-admin-entry]') : null;
+        if (!trigger || trigger.dataset.bound === '1') return;
+        await handleAdminEntryActivation(trigger, event);
+      });
+    }
   }
   function renderFooter(){
     const footer = document.getElementById('site-footer'); if (!footer) return;
@@ -1297,7 +1317,7 @@
 function renderHeader(){
   const header = document.getElementById('site-header'); if (!header) return;
   const quickLinks = renderProductSubLinks('sub-link');
-  header.innerHTML = `<div class="container nav-wrap"><div class="nav-left"><button class="mobile-nav-toggle" type="button" aria-expanded="false" aria-controls="mobile-drawer" data-nav-toggle="1">메뉴</button><a class="brand" href="${base}index.html"><span class="brand-mark">V</span><span class="brand-copy"><strong>Veridion</strong><span>온라인 개인사업자용 법률·규제 리스크 방어막</span></span></a></div><nav class="nav-links">${renderNavLinks('top-link')}<button class="button ghost admin-link-inline" type="button" data-admin-entry="1" title="관리 메뉴를 엽니다">관리</button></nav></div><div class="container subnav"><span class="subnav-label">제품</span>${quickLinks}</div>`;
+  header.innerHTML = `<div class="container nav-wrap"><div class="nav-left"><button class="mobile-nav-toggle" type="button" aria-expanded="false" aria-controls="mobile-drawer" data-nav-toggle="1">메뉴</button><a class="brand" href="${base}index.html"><span class="brand-mark">V</span><span class="brand-copy"><strong>Veridion</strong><span>온라인 개인사업자용 법률·규제 리스크 방어막</span></span></a></div><nav class="nav-links">${renderNavLinks('top-link')}<a class="button ghost admin-link-inline" href="${base}admin/index.html" data-admin-entry="1" data-admin-href="${base}admin/index.html" title="관리 메뉴를 엽니다">관리</a></nav></div><div class="container subnav"><span class="subnav-label">제품</span>${quickLinks}</div>`;
 }
 
 function renderSidebar(){
@@ -1325,7 +1345,7 @@ function renderSidebar(){
     drawer.className = 'mobile-drawer';
     document.body.appendChild(drawer);
   }
-  drawer.innerHTML = `<div class="mobile-drawer-card"><div class="mobile-drawer-top"><strong>메뉴</strong><button class="mobile-nav-close" type="button" data-nav-close="1">닫기</button></div><button class="side-admin-button" type="button" data-admin-entry="1" title="관리 메뉴를 엽니다">관리</button><nav class="side-nav-links"><div class="side-group"><span class="side-group-title">메인 메뉴</span>${renderNavLinks('side-link')}</div><div class="side-group"><span class="side-group-title">제품</span>${renderProductSubLinks('side-sublink')}<a href="${base}products/veridion/demo/index.html" class="side-sublink ${path.includes('/products/veridion/demo/') ? 'active' : ''}">즉시 데모</a></div></nav></div>`;
+  drawer.innerHTML = `<div class="mobile-drawer-card"><div class="mobile-drawer-top"><strong>메뉴</strong><button class="mobile-nav-close" type="button" data-nav-close="1">닫기</button></div><a class="side-admin-button" href="${base}admin/index.html" data-admin-entry="1" data-admin-href="${base}admin/index.html" title="관리 메뉴를 엽니다">관리</a><nav class="side-nav-links"><div class="side-group"><span class="side-group-title">메인 메뉴</span>${renderNavLinks('side-link')}</div><div class="side-group"><span class="side-group-title">제품</span>${renderProductSubLinks('side-sublink')}<a href="${base}products/veridion/demo/index.html" class="side-sublink ${path.includes('/products/veridion/demo/') ? 'active' : ''}">즉시 데모</a></div></nav></div>`;
 }
 
 function orderStatusLabel(status){ return ({payment_pending:'결제 대기', intake_required:'진행 정보 입력 필요', draft_ready:'자동 실행 준비', published:'콘텐츠 발행 완료', delivered:'결과 전달 완료'})[clean(status)] || (clean(status) || '확인 필요'); }
@@ -1619,6 +1639,6 @@ function bindAdminActions(){
     const productCheckoutForm = document.getElementById('product-checkout-form');
     if (productCheckoutForm) { const sync = () => { syncPlanOptionsForForm(productCheckoutForm); updatePlanSummary(productCheckoutForm, 'product-checkout-plan-summary'); }; productCheckoutForm.addEventListener('change', sync); productCheckoutForm.addEventListener('input', sync); sync(); }
   }
-  document.addEventListener('DOMContentLoaded', async () => { await loadSystemConfig(); if ((pageKey === 'checkout' || pageKey === 'product') && paymentRuntime()?.enabled && !paymentRuntime()?.mock) await loadTossScript(); const stateSynced = await syncRemoteState(); if (!stateSynced) { const boardSynced = await loadBoardFeed(); if (!boardSynced) ensureSeedData(); } else if (!read(STORE.publications).length) { const boardSynced = await loadBoardFeed(); if (!boardSynced) ensureSeedData(); } else { ensureSeedData(); } renderHeader(); renderSidebar(); ensureAdminAccessModal(); bindNavChrome(); bindAdminEntry(); renderFooter(); buildHomeProducts(); buildModuleMatrix(); fillProductSlots(); buildPlans(); setPrefills(); renderPublicBoard(); renderProductBoard(); renderLiveStats(); renderWorkspaceCards(); renderProductServices(); renderServiceCatalog(); bindProductDemoForm(); await bindProductCheckoutForm(); bindDemoForm(); bindCheckoutForm(); bindContactForm(); bindPortalLookup(); bindAdminTokenControls(); bindQuickDemoButtons(); attachConsentGuards(); bindPlanSummaries(); await bindPaymentResultPages(); await bootstrapAdminGate(); renderAdminSummary(); bindAdminActions(); });
+  document.addEventListener('DOMContentLoaded', async () => { await loadSystemConfig(); if ((pageKey === 'checkout' || pageKey === 'product') && paymentRuntime()?.enabled && !paymentRuntime()?.mock) await loadTossScript(); const stateSynced = await syncRemoteState(); if (!stateSynced) { const boardSynced = await loadBoardFeed(); if (!boardSynced) ensureSeedData(); } else if (!read(STORE.publications).length) { const boardSynced = await loadBoardFeed(); if (!boardSynced) ensureSeedData(); } else { ensureSeedData(); } enhanceDocumentChrome(); renderHeader(); renderSidebar(); ensureAdminAccessModal(); bindNavChrome(); bindAdminEntry(); renderFooter(); buildHomeProducts(); buildModuleMatrix(); fillProductSlots(); buildPlans(); setPrefills(); renderPublicBoard(); renderProductBoard(); renderLiveStats(); renderWorkspaceCards(); renderProductServices(); renderServiceCatalog(); bindProductDemoForm(); await bindProductCheckoutForm(); bindDemoForm(); bindCheckoutForm(); bindContactForm(); bindPortalLookup(); bindAdminTokenControls(); bindQuickDemoButtons(); attachConsentGuards(); bindPlanSummaries(); await bindPaymentResultPages(); await bootstrapAdminGate(); renderAdminSummary(); bindAdminActions(); });
   window.NV0App = { read, write, lookupOrder, createOrder, createDemo, createContact, createLookup, ensureSeedData, renderAdminSummary, advanceOrder, toggleOrderPayment, republishOrder, validateEmail, validateProduct, validatePlan, setAdminToken, getAdminToken, loadSystemConfig, publicBoardHref, productBoardHref, portalHref };
 })();

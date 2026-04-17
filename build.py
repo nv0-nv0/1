@@ -77,7 +77,7 @@ def static_header_markup(prefix: str, resolved_key: str, page_path: str) -> str:
         f'<a href="{prefix}company/index.html" class="top-link {company_active}">회사소개</a>',
         f'<a href="{prefix}auth/index.html" class="top-link {auth_active}">로그인(회원가입)</a>',
     ])
-    return f'<div class="container nav-wrap"><div class="nav-left"><button class="mobile-nav-toggle" type="button" aria-expanded="false" aria-controls="mobile-drawer" data-nav-toggle="1">메뉴</button><a class="brand" href="{prefix}index.html"><span class="brand-mark">V</span><span class="brand-copy"><strong>Veridion</strong><span>온라인 개인사업자용 법률·규제 리스크 방어막</span></span></a></div><nav class="nav-links">{nav_links}<button class="button ghost admin-link-inline" type="button" data-admin-entry="1" title="관리 메뉴를 엽니다">관리</button></nav></div><div class="container subnav"><span class="subnav-label">제품</span>{quick_links}</div>'
+    return f'<div class="container nav-wrap"><div class="nav-left"><button class="mobile-nav-toggle" type="button" aria-expanded="false" aria-controls="mobile-drawer" data-nav-toggle="1">메뉴</button><a class="brand" href="{prefix}index.html"><span class="brand-mark">V</span><span class="brand-copy"><strong>Veridion</strong><span>온라인 개인사업자용 법률·규제 리스크 방어막</span></span></a></div><nav class="nav-links" aria-label="주요 메뉴">{nav_links}<a class="button ghost admin-link-inline" href="{prefix}admin/index.html" data-admin-entry="1" data-admin-href="{prefix}admin/index.html" title="관리 메뉴를 엽니다">관리</a></nav></div><div class="container subnav" aria-label="제품 바로가기"><span class="subnav-label">제품</span>{quick_links}</div>'
 
 
 def static_side_nav_markup(prefix: str, resolved_key: str, page_path: str) -> str:
@@ -157,7 +157,8 @@ def doc(title: str, description: str, body_class: str, body: str, depth: int = 0
   <script defer src="{prefix}assets/site.js"></script>
 </head>
 <body {' '.join(attrs)}>
-<button class="admin-fab" type="button" data-admin-entry="1" aria-label="관리 메뉴 열기">관리</button>
+<a class="skip-link" href="#main-content">본문 바로가기</a>
+<a class="admin-fab" href="{prefix}admin/index.html" data-admin-entry="1" data-admin-href="{prefix}admin/index.html" aria-label="관리 메뉴 열기">관리</a>
 <div id="admin-access-modal-root"></div>
 <header class="site-header" id="site-header">{header_markup}</header>
 {body}
