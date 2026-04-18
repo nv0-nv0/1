@@ -885,6 +885,103 @@
     });
   }
 
+  function detectCountryCodeFromWebsite(value){
+    const url = String(value || '').trim().toLowerCase();
+    if (!url) return '';
+    if (/(\.co\.kr|\.or\.kr|\.go\.kr|\.ac\.kr|\.kr)(?:[\/:?#]|$)/.test(url)) return 'KR';
+    if (/(\.co\.jp|\.ne\.jp|\.or\.jp|\.jp)(?:[\/:?#]|$)/.test(url)) return 'JP';
+    if (/(\.com\.cn|\.cn)(?:[\/:?#]|$)/.test(url)) return 'CN';
+    if (/(\.com\.sg|\.com\.my|\.co\.id|\.co\.th|\.ph|\.vn)(?:[\/:?#]|$)/.test(url)) return 'SEA';
+    if (/(\.de|\.fr|\.it|\.es|\.nl|\.eu)(?:[\/:?#]|$)/.test(url)) return 'EU';
+    if (/(\.com|\.io|\.ai|\.us)(?:[\/:?#]|$)/.test(url)) return 'US';
+    return '';
+  }
+
+  function recommendVeridionFocus(industry, country){
+    const key = `${clean(industry) || 'commerce'}:${clean(country) || 'KR'}`;
+    const map = {
+      'commerce:KR': '결제·환불·청약철회 고지',
+      'commerce:US': '결제·환불·청약철회 고지',
+      'commerce:JP': '결제·환불·청약철회 고지',
+      'commerce:CN': '결제·환불·청약철회 고지',
+      'commerce:EU': '개인정보·회원가입 동선',
+      'commerce:SEA': '결제·환불·청약철회 고지',
+      'commerce:GLOBAL': '전체 리스크 빠르게 보기',
+      'beauty:KR': '광고·표시 문구',
+      'beauty:US': '광고·표시 문구',
+      'beauty:JP': '광고·표시 문구',
+      'beauty:CN': '광고·표시 문구',
+      'beauty:EU': '광고·표시 문구',
+      'beauty:SEA': '광고·표시 문구',
+      'beauty:GLOBAL': '광고·표시 문구',
+      'healthcare:KR': '민감 업종·표현 위험',
+      'healthcare:US': '민감 업종·표현 위험',
+      'healthcare:JP': '민감 업종·표현 위험',
+      'healthcare:CN': '민감 업종·표현 위험',
+      'healthcare:EU': '민감 업종·표현 위험',
+      'healthcare:SEA': '민감 업종·표현 위험',
+      'healthcare:GLOBAL': '민감 업종·표현 위험',
+      'education:KR': '약관·정책 문서 일치',
+      'education:US': '약관·정책 문서 일치',
+      'education:JP': '약관·정책 문서 일치',
+      'education:CN': '약관·정책 문서 일치',
+      'education:EU': '개인정보·회원가입 동선',
+      'education:SEA': '약관·정책 문서 일치',
+      'education:GLOBAL': '약관·정책 문서 일치',
+      'saas:KR': '개인정보·회원가입 동선',
+      'saas:US': '개인정보·회원가입 동선',
+      'saas:JP': '개인정보·회원가입 동선',
+      'saas:CN': '개인정보·회원가입 동선',
+      'saas:EU': '개인정보·회원가입 동선',
+      'saas:SEA': '개인정보·회원가입 동선',
+      'saas:GLOBAL': '개인정보·회원가입 동선'
+    };
+    return map[key] || map[`${clean(industry) || 'commerce'}:KR`] || '전체 리스크 빠르게 보기';
+  }
+
+  function setupVeridionSmartFocus(form){
+    if (!form || form.dataset.smartFocusBound === '1') return;
+    const website = form.querySelector('[name="website"]');
+    const industry = form.querySelector('[name="industry"]');
+    const country = form.querySelector('[name="country"]');
+    const focus = form.querySelector('[name="focus"]');
+    if (!industry || !country || !focus) return;
+    form.dataset.smartFocusBound = '1';
+
+    let hint = form.querySelector('.smart-focus-note');
+    if (!hint) {
+      hint = document.createElement('div');
+      hint.className = 'notice notice-light smart-focus-note';
+      hint.style.marginTop = '12px';
+      const actions = form.querySelector('.actions');
+      form.insertBefore(hint, actions || null);
+    }
+
+    const updateHint = (reason='') => {
+      const countryLabel = country.selectedOptions?.[0]?.textContent?.trim() || '대한민국';
+      const focusLabel = focus.selectedOptions?.[0]?.textContent?.trim() || focus.value || '전체 리스크 빠르게 보기';
+      hint.innerHTML = `<strong>자동 추천 적용</strong><br>${esc(countryLabel)} 운영 기준으로 <strong>${esc(focusLabel)}</strong>을 우선 점검하도록 맞췄습니다.${reason ? ` ${esc(reason)}` : ''}`;
+    };
+
+    const syncRecommendedFocus = (reason='') => {
+      if (focus.dataset.manual === '1') { updateHint('중점 확인 사항은 수동 선택을 유지합니다.'); return; }
+      const recommended = recommendVeridionFocus(industry.value, country.value);
+      if ([...focus.options].some((opt) => opt.value === recommended)) focus.value = recommended;
+      updateHint(reason);
+    };
+
+    focus.addEventListener('change', () => { focus.dataset.manual = '1'; updateHint('중점 확인 사항은 수동 선택을 유지합니다.'); });
+    industry.addEventListener('change', () => syncRecommendedFocus('업종 기준으로 다시 추천했습니다.'));
+    country.addEventListener('change', () => { country.dataset.manual = '1'; syncRecommendedFocus('운영 국가 기준으로 다시 추천했습니다.'); });
+    website?.addEventListener('blur', () => {
+      if (country.dataset.manual === '1') return;
+      const detected = detectCountryCodeFromWebsite(website.value);
+      if (detected && country.value !== detected) { country.value = detected; syncRecommendedFocus('사이트 주소 도메인을 보고 운영 국가를 자동 반영했습니다.'); }
+    });
+
+    syncRecommendedFocus();
+  }
+
   function buildDemoSaveBox(entry, remoteSaved){
     if (entry?.code) return `<div class="demo-save-box"><strong>임시 저장 결과</strong><br>조회 코드 <span class="inline-code">${esc(entry.code)}</span> 로 데모를 다시 확인할 수 있습니다.${remoteSaved ? ' 서버에도 저장했습니다.' : ''}</div>`;
     return `<div class="demo-save-box"><strong>다음 단계</strong><br>무료 데모는 저장형 문의가 아니라 즉시 분석 화면입니다. 결제 후 진행 정보 입력 단계에서 회사명, 담당자명, 이메일, 사이트 주소를 한 번에 받습니다.</div>`;
@@ -894,7 +991,8 @@
     const root = document.getElementById('product-demo-shell');
     if (!root || !product) return;
     if (product.key === 'veridion') {
-      root.innerHTML = `<form id="product-demo-form" class="stack-form"><div class="form-grid"><div class="span-2"><label>사이트 주소</label><input name="website" data-demo-field="website" placeholder="https://example.com" inputmode="url" autocomplete="url" required></div><div><label>업종</label><select name="industry" data-demo-field="industry"><option value="commerce">이커머스</option><option value="beauty">뷰티·웰니스</option><option value="healthcare">의료·건강</option><option value="education">교육·서비스</option><option value="saas">B2B SaaS</option></select></div><div><label>운영 국가</label><input name="market" data-demo-field="market" placeholder="예: 대한민국"></div><div><label>중점 확인 사항</label><select name="focus" data-demo-field="focus"><option value="전체 리스크 빠르게 보기">전체 리스크 빠르게 보기</option><option value="개인정보·회원가입 동선">개인정보·회원가입 동선</option><option value="결제·환불·청약철회 고지">결제·환불·청약철회 고지</option><option value="광고·표시 문구">광고·표시 문구</option><option value="약관·정책 문서 일치">약관·정책 문서 일치</option><option value="민감 업종·표현 위험">민감 업종·표현 위험</option></select></div></div><div class="notice notice-light"><strong>데모에서 바로 보여주는 항목</strong><br>영역별 위반 가능 항목 수, 위기 점수, 유사 업종 대비 하위 퍼센트, 예상 최대 과태료, 결제 후 열리는 서비스 1·2까지 먼저 확인합니다.</div><div class="actions"><button class="button" type="submit">즉시 분석하기</button><a class="button ghost" href="#order">바로 결제</a></div></form>`;
+      root.innerHTML = `<form id="product-demo-form" class="stack-form"><div class="form-grid"><div class="span-2"><label>사이트 주소</label><input name="website" data-demo-field="website" placeholder="https://example.com" inputmode="url" autocomplete="url" required></div><div><label>업종</label><select name="industry" data-demo-field="industry"><option value="commerce">이커머스</option><option value="beauty">뷰티·웰니스</option><option value="healthcare">의료·건강</option><option value="education">교육·서비스</option><option value="saas">B2B SaaS</option></select></div><div><label>운영 국가</label><select name="country" data-demo-field="country"><option value="KR" selected>대한민국</option><option value="US">미국</option><option value="JP">일본</option><option value="CN">중국</option><option value="EU">유럽연합</option><option value="SEA">동남아</option><option value="GLOBAL">글로벌</option></select></div><div><label>중점 확인 사항</label><select name="focus" data-demo-field="focus"><option value="전체 리스크 빠르게 보기">전체 리스크 빠르게 보기</option><option value="개인정보·회원가입 동선">개인정보·회원가입 동선</option><option value="결제·환불·청약철회 고지">결제·환불·청약철회 고지</option><option value="광고·표시 문구">광고·표시 문구</option><option value="약관·정책 문서 일치">약관·정책 문서 일치</option><option value="민감 업종·표현 위험">민감 업종·표현 위험</option></select></div></div><div class="notice notice-light"><strong>데모에서 바로 보여주는 항목</strong><br>영역별 위반 가능 항목 수, 위기 점수, 유사 업종 대비 하위 퍼센트, 예상 최대 과태료, 결제 후 열리는 서비스 1·2까지 먼저 확인합니다.</div><div class="actions"><button class="button" type="submit">즉시 분석하기</button><a class="button ghost" href="#order">바로 결제</a></div></form>`;
+      setupVeridionSmartFocus(document.getElementById('product-demo-form'));
       return;
     }
     root.innerHTML = `<form id="product-demo-form" class="stack-form"><div class="form-grid"><div><label>회사명(선택)</label><input name="company" data-demo-field="company" placeholder="예: 샘플 브랜드"></div><div><label>중점 확인 사항</label><select name="focus" data-demo-field="focus"><option value="전체 리스크 빠르게 보기">전체 리스크 빠르게 보기</option><option value="개인정보·회원가입 동선">개인정보·회원가입 동선</option><option value="결제·환불·청약철회 고지">결제·환불·청약철회 고지</option><option value="광고·표시 문구">광고·표시 문구</option><option value="약관·정책 문서 일치">약관·정책 문서 일치</option><option value="민감 업종·표현 위험">민감 업종·표현 위험</option></select></div></div><div class="actions"><button class="button" type="submit">즉시 분석하기</button><a class="button ghost" href="#order">바로 결제</a></div></form>`;
@@ -939,6 +1037,7 @@
   function bindDemoForm(){
     const form = document.getElementById('demo-form');
     if (!form) return;
+    setupVeridionSmartFocus(form);
     form.addEventListener('submit', (event) => { event.preventDefault(); withSubmitLock(form, async () => {
       const values = Object.fromEntries(new FormData(form).entries());
       assert(clean(values.website), '사이트 주소를 입력하세요.');
@@ -1282,6 +1381,7 @@ function buildDemoUpsellBox(productKey){
   async function bindProductDemoForm(){
     const form = document.getElementById('product-demo-form');
     if (!form || !product) return;
+    if (product.key === 'veridion') setupVeridionSmartFocus(form);
     form.addEventListener('submit', (event) => { event.preventDefault(); withSubmitLock(form, async () => {
       const data = new FormData(form);
       const values = Object.fromEntries(data.entries());
@@ -1400,7 +1500,7 @@ function renderProductDemoWorkspace(){
   const root = document.getElementById('product-demo-shell');
   if (!root || !product) return;
   if (product.key === 'veridion') {
-    root.innerHTML = `<form id="product-demo-form" class="stack-form"><div class="form-grid"><div class="span-2"><label>사이트 주소</label><input name="website" placeholder="https://example.com" inputmode="url" autocomplete="url" required></div><div><label>업종</label><select name="industry"><option value="commerce">이커머스</option><option value="beauty">뷰티·웰니스</option><option value="healthcare">의료·건강</option><option value="education">교육·서비스</option><option value="saas">B2B SaaS</option></select></div><div><label>주요 운영 국가</label><input name="market" placeholder="예: 대한민국"></div><div><label>중점 확인 사항</label><select name="focus" data-demo-field="focus"><option value="전체 리스크 빠르게 보기">전체 리스크 빠르게 보기</option><option value="개인정보·회원가입 동선">개인정보·회원가입 동선</option><option value="결제·환불·청약철회 고지">결제·환불·청약철회 고지</option><option value="광고·표시 문구">광고·표시 문구</option><option value="약관·정책 문서 일치">약관·정책 문서 일치</option><option value="민감 업종·표현 위험">민감 업종·표현 위험</option></select></div></div><div class="notice notice-light"><strong>데모에서 바로 보여주는 항목</strong><br>영역별 위반 가능 항목 수, 위기 점수, 유사 업종 대비 하위 퍼센트, 예상 최대 과태료, 결제 후 열리는 서비스 1·2까지 먼저 확인합니다.</div><div class="actions"><button class="button" type="submit">즉시 분석하기</button><a class="button ghost" href="#order">바로 결제</a></div></form>`;
+    root.innerHTML = `<form id="product-demo-form" class="stack-form"><div class="form-grid"><div class="span-2"><label>사이트 주소</label><input name="website" placeholder="https://example.com" inputmode="url" autocomplete="url" required></div><div><label>업종</label><select name="industry"><option value="commerce">이커머스</option><option value="beauty">뷰티·웰니스</option><option value="healthcare">의료·건강</option><option value="education">교육·서비스</option><option value="saas">B2B SaaS</option></select></div><div><label>주요 운영 국가</label><select name="country"><option value="KR" selected>대한민국</option><option value="US">미국</option><option value="JP">일본</option><option value="CN">중국</option><option value="EU">유럽연합</option><option value="SEA">동남아</option><option value="GLOBAL">글로벌</option></select></div><div><label>중점 확인 사항</label><select name="focus" data-demo-field="focus"><option value="전체 리스크 빠르게 보기">전체 리스크 빠르게 보기</option><option value="개인정보·회원가입 동선">개인정보·회원가입 동선</option><option value="결제·환불·청약철회 고지">결제·환불·청약철회 고지</option><option value="광고·표시 문구">광고·표시 문구</option><option value="약관·정책 문서 일치">약관·정책 문서 일치</option><option value="민감 업종·표현 위험">민감 업종·표현 위험</option></select></div></div><div class="notice notice-light"><strong>데모에서 바로 보여주는 항목</strong><br>영역별 위반 가능 항목 수, 위기 점수, 유사 업종 대비 하위 퍼센트, 예상 최대 과태료, 결제 후 열리는 서비스 1·2까지 먼저 확인합니다.</div><div class="actions"><button class="button" type="submit">즉시 분석하기</button><a class="button ghost" href="#order">바로 결제</a></div></form>`;
     return;
   }
   if (product.key === 'clearport') {

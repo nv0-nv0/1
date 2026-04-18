@@ -175,6 +175,7 @@ VERIDION_COUNTRY_OPTIONS: dict[str, dict[str, Any]] = {
     "EU": {"label": "유럽연합", "legal_basis": ["GDPR", "ePrivacy Directive"]},
     "CN": {"label": "중국", "legal_basis": ["개인정보보호법(PIPL)", "전자상거래법"]},
     "SEA": {"label": "동남아", "legal_basis": ["주요국 전자상거래·개인정보 규정 요약 룰셋"]},
+    "GLOBAL": {"label": "글로벌", "legal_basis": ["주요 시장 공통 전자상거래·개인정보 준수 체크셋"]},
 }
 VERIDION_DEFAULT_COUNTRY = "KR"
 
@@ -193,6 +194,7 @@ def resolve_veridion_country(payload: dict[str, Any]) -> dict[str, Any]:
             '유럽연합': 'EU', 'EUROPEANUNION': 'EU', 'EU': 'EU',
             '중국': 'CN', 'CHINA': 'CN', 'CN': 'CN',
             '동남아': 'SEA', 'SOUTHEASTASIA': 'SEA', 'SEA': 'SEA',
+            '글로벌': 'GLOBAL', 'GLOBAL': 'GLOBAL',
         }
         country_code = aliases.get(normalized_market, VERIDION_DEFAULT_COUNTRY)
     else:
