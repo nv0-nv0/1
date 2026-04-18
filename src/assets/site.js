@@ -79,6 +79,44 @@
   function clean(value){ return String(value ?? '').trim(); }
   function normalizeEmail(value){ return clean(value).toLowerCase(); }
   function normalizeCode(value){ return clean(value).toUpperCase(); }
+  function normalizeWebsiteInput(value){
+    const raw = clean(value);
+    if (!raw) return '';
+    let next = raw.replace(/[​-‍﻿]/g, '');
+    if (!/^https?:\/\//i.test(next)) next = `https://${next}`;
+    try {
+      const url = new URL(next);
+      url.hash = '';
+      if (!url.pathname) url.pathname = '/';
+      return url.toString();
+    } catch {
+      return next;
+    }
+  }
+  function veridionOptionsFromValues(values){
+    const options = uniqueCompact(values?.options);
+    const focus = clean(values?.focus);
+    const industry = clean(values?.industry);
+    if (focus.includes('개인정보')) options.push('privacy');
+    if (focus.includes('결제') || focus.includes('환불') || industry === 'commerce') options.push('commerce');
+    if (focus.includes('광고') || focus.includes('표시') || focus.includes('표현') || focus.includes('민감')) options.push('claims');
+    if (industry === 'saas' || industry === 'education') options.push('privacy');
+    return uniqueCompact(options);
+  }
+  function buildVeridionFallbackHtml(values, reason=''){
+    const seeded = { ...values, website: normalizeWebsiteInput(values?.website), options: veridionOptionsFromValues(values) };
+    const result = veridionResult(seeded);
+    const notice = `<div class="notice notice-light"><strong>실시간 탐색 연결이 불안정해도 데모는 계속 진행했습니다.</strong><br>${esc(seeded.website || values?.website || '입력 URL')} 기준으로 URL·업종·국가·중점 항목을 바탕으로 우선 점검 결과를 먼저 만들었습니다.${reason ? ` ${esc(reason)}` : ''}</div>`;
+    return notice + `
+      <div class="demo-result-shell">
+        ${demoSummaryHeader(result.headline, result.summary, result.score)}
+        ${renderKpis(result.kpis)}
+        ${renderDemoAlerts(result.alerts)}
+        ${result.extra}
+        <div class="demo-save-box"><strong>안내</strong><br>현재 결과는 입력값 기반 즉시 프리뷰입니다. 서버 연결이 정상인 환경에서는 실제 페이지 탐색 결과를 우선 표시합니다.</div>${buildDemoUpsellBox('veridion')}
+      </div>
+    `;
+  }
   function normalizePayload(payload){ return Object.fromEntries(Object.entries(payload || {}).map(([key, value]) => [key, typeof value === 'string' ? clean(value) : value])); }
   function withSubmitLock(form, handler){ if (!form || form.dataset.busy === '1') return false; const buttons = [...form.querySelectorAll('button, input[type="submit"]')]; const originals = buttons.map((btn) => btn.disabled); form.dataset.busy = '1'; buttons.forEach((btn) => { btn.disabled = true; }); const release = () => { delete form.dataset.busy; buttons.forEach((btn, idx) => { btn.disabled = originals[idx]; }); }; return Promise.resolve().then(handler).finally(release); }
   function assert(condition, message){ if (!condition) throw new Error(message); }
@@ -756,6 +794,15 @@
     footer.innerHTML = `<div class="container footer-grid"><div><div class="brand"><span class="brand-mark">N0</span><span class="brand-copy"><strong>${config.brand?.name || 'NV0'}</strong><span>데모, 가격, 전달물을 먼저 보고 바로 판단할 수 있게 정리했습니다.</span></span></div><small style="margin-top:14px">공개 화면은 제품 이해와 구매 판단에 집중하고, 내부 운영 기능은 뒤로 분리했습니다.</small></div><div><strong>빠른 이동</strong><small><a href="${base}products/index.html">제품</a><br><a href="${base}solutions/index.html">문제별 시작</a><br><a href="${base}pricing/index.html">가격</a><br><a href="${base}docs/index.html">문서 센터</a><br><a href="${base}service/index.html">확장 서비스</a><br><a href="${base}faq/index.html">FAQ</a></small></div><div><strong>안내/정책</strong><small>상호: ${esc(operator)}<br>${representative ? `대표자: ${esc(representative)}<br>` : ''}${bizNo ? `사업자등록번호: ${esc(bizNo)}<br>` : ''}<a href="mailto:${email}">${esc(email)}</a><br>${address ? `${esc(address)}<br>` : ''}${esc(notice)}<br>시행일 2026-04-15 · 최종 개정일 2026-04-15<br><a href="${base}portal/index.html">고객 포털</a><br><a href="${base}contact/index.html">추가 확인</a><br><a href="${base}legal/privacy/index.html">개인정보처리방침</a><br><a href="${base}legal/terms/index.html">이용약관</a><br><a href="${base}legal/refund/index.html">환불 정책</a><br><a href="${base}legal/cookies/index.html">쿠키 및 저장 안내</a></small></div></div>`;
   }
   }
+
+
+  function renderLiveStats(){
+    const root = document.getElementById('live-stats'); if (!root) return;
+    const publications = read(STORE.publications);
+    const seed = publications.filter((item) => item.source === 'seed').length;
+    const scheduled = publications.filter((item) => item.source === 'scheduled').length;
+    root.innerHTML = `<article class="mini"><strong>${Object.keys(products).length}</strong><span>발행 축</span></article><article class="mini"><strong>${publications.length}</strong><span>전체 게시글</span></article><article class="mini"><strong>${seed}</strong><span>시드 글</span></article><article class="mini"><strong>${scheduled}</strong><span>예약 발행 글</span></article>`;
+  }
   function renderWorkspaceCards(){ const root = document.getElementById('workspace-records'); if (!root) return; const orders = read(STORE.orders).slice(0, 2); const demos = read(STORE.demos).slice(0, 1); const contacts = read(STORE.contacts).slice(0, 1); const cards = []; orders.forEach((item) => cards.push(`<article class="record-card"><span class="tag">결제 접수</span><h4>${esc(item.company || item.email)}</h4><p>${esc(item.productName)} · ${esc(item.plan)} · 조회 코드 <span class="inline-code">${esc(item.code)}</span></p><div class="small-actions"><a href="${portalHref(item)}">제공 상태 확인</a><a href="${base}products/${item.product}/board/index.html">안내 글 보기</a></div></article>`)); demos.forEach((item) => cards.push(`<article class="record-card"><span class="tag">체험</span><h4>${esc(item.company || item.email)}</h4><p>${esc(item.productName)} 데모 시연 확인 · ${esc(item.code)}</p><div class="small-actions"><a href="${base}products/${item.product}/index.html">자세히 보기</a><a href="${base}products/${item.product}/index.html#order">가격/결제 보기</a></div></article>`)); contacts.forEach((item) => cards.push(`<article class="record-card"><span class="tag">추가 확인</span><h4>${esc(item.company || item.email)}</h4><p>${esc(item.productName)} · ${esc(item.issue || '')}</p><div class="small-actions"><a href="${item.product ? `${base}products/${item.product}/index.html` : `${base}company/index.html`}">제품 보기</a><a href="${item.product ? `${base}products/${item.product}/index.html#intro` : `${base}contact/index.html`}">다음 단계 확인</a></div></article>`)); root.innerHTML = cards.length ? cards.join('') : '<div class="empty-box">아직 저장된 체험이나 결제 기록이 없습니다. 먼저 제품별 샘플 결과를 확인해 보시면 다음 판단이 더 쉬워집니다.</div>'; }
   function servicesForProduct(key){ return serviceCatalog.filter((item) => item.lead_product === key || (Array.isArray(item.fit_products) && item.fit_products.includes(key))); }
   function groupServices(items){ return items.reduce((acc, item) => { const category = item.category || '기타 확장 서비스'; (acc[category] ||= []).push(item); return acc; }, {}); }
@@ -974,10 +1021,12 @@
     industry.addEventListener('change', () => syncRecommendedFocus('업종 기준으로 다시 추천했습니다.'));
     country.addEventListener('change', () => { country.dataset.manual = '1'; syncRecommendedFocus('운영 국가 기준으로 다시 추천했습니다.'); });
     website?.addEventListener('blur', () => {
+      website.value = normalizeWebsiteInput(website.value);
       if (country.dataset.manual === '1') return;
       const detected = detectCountryCodeFromWebsite(website.value);
       if (detected && country.value !== detected) { country.value = detected; syncRecommendedFocus('사이트 주소 도메인을 보고 운영 국가를 자동 반영했습니다.'); }
     });
+    website?.addEventListener('paste', () => { setTimeout(() => { website.value = normalizeWebsiteInput(website.value); }, 0); });
 
     syncRecommendedFocus();
   }
@@ -1040,14 +1089,26 @@
     setupVeridionSmartFocus(form);
     form.addEventListener('submit', (event) => { event.preventDefault(); withSubmitLock(form, async () => {
       const values = Object.fromEntries(new FormData(form).entries());
+      values.website = normalizeWebsiteInput(values.website);
+      const websiteField = form.querySelector('[name="website"]');
+      if (websiteField) websiteField.value = values.website;
+      values.country = clean(values.country) || 'KR';
+      values.countryLabel = form.querySelector('[name="country"]')?.selectedOptions?.[0]?.textContent?.trim() || '대한민국';
+      values.market = values.countryLabel;
+      values.options = veridionOptionsFromValues(values);
       assert(clean(values.website), '사이트 주소를 입력하세요.');
+      showResult('demo-result', '<div class="notice"><strong>분석 중입니다.</strong><br>사이트 주소와 운영 국가 기준으로 공개 화면을 점검하고 있습니다.</div>');
       const res = await postIfConfigured(veridionScanEndpoint(), values);
-      if (!(res.ok && res.json?.report)) throw new Error(res.json?.detail || res.text || '즉시 분석에 실패했습니다.');
-      applyStatePayload(res.json?.state);
-      const report = res.json.report;
-      setLastVeridionReport(report);
-      showResult('demo-result', renderVeridionRemoteReport(report, values) + buildDemoSaveBox(null, false));
-    }).catch((error)=>showResult('demo-result', createFriendlyError(error,'즉시 분석 실패'))); });
+      if (res.mode === 'remote' && res.ok && res.json?.report) {
+        applyStatePayload(res.json?.state);
+        const report = res.json.report;
+        setLastVeridionReport(report);
+        showResult('demo-result', renderVeridionRemoteReport(report, values) + buildDemoSaveBox(null, false));
+        return;
+      }
+      const reason = res.mode === 'remote' ? (res.json?.detail || res.text || '실제 탐색 응답이 불안정했습니다.') : (res.error || '서버 연결이 불안정했습니다.');
+      showResult('demo-result', buildVeridionFallbackHtml(values, reason) + buildDemoSaveBox(null, false));
+    }).catch((error)=>showResult('demo-result', `<div class="empty-box">${esc(createFriendlyError(error,'즉시 분석 실패'))}</div>`)); });
   }
 
   function bindCheckoutForm(){
@@ -1395,10 +1456,13 @@ function buildDemoUpsellBox(productKey){
       }
       let remoteReport = null;
       if (product.key === 'veridion') {
+        values.website = normalizeWebsiteInput(values.website);
+        const websiteField = form.querySelector('[name="website"]');
+        if (websiteField) websiteField.value = values.website;
+        values.options = veridionOptionsFromValues(values);
         const scanPayload = { website: values.website, industry: values.industry, country: values.country, market: values.market, maturity: values.maturity, pages: values.pages, focus: values.focus, options: values.options, company: values.company };
         const scan = await postIfConfigured(veridionScanEndpoint(), scanPayload);
         if (scan.mode === 'remote' && scan.ok && scan.json?.report) { applyStatePayload(scan.json?.state); remoteReport = scan.json.report; setLastProductReport('veridion', remoteReport); }
-        else if (scan.mode === 'remote') throw new Error(scan.json?.detail || scan.text || '실제 탐색 기반 점검을 준비하지 못했습니다.');
       } else if (product.key === 'clearport') {
         const res = await postIfConfigured(clearportAnalyzeEndpoint(), { submissionType: values.submissionType, deadline: values.deadline, targetOrg: values.targetOrg, teamSize: values.teamSize, blocker: values.blocker, options: values.options, company: values.company });
         if (res.mode === 'remote' && res.ok && res.json?.report) { applyStatePayload(res.json?.state); remoteReport = res.json.report; setLastProductReport('clearport', remoteReport); }
@@ -1424,7 +1488,8 @@ function buildDemoUpsellBox(productKey){
         else entry = createDemo(demoPayload);
       }
       const remoteHtml = product.key === 'veridion' ? renderVeridionRemoteReport(remoteReport, values) : product.key === 'clearport' ? renderClearportRemoteReport(remoteReport, values) : product.key === 'grantops' ? renderGrantopsRemoteReport(remoteReport, values) : renderDraftforgeRemoteReport(remoteReport, values);
-      const html = ((remoteReport ? remoteHtml : buildProductSpecificDemoResult(values)) || buildProductSpecificDemoResult(values)) + buildDemoSaveBox(entry, remoteSaved);
+      const fallbackHtml = product.key === 'veridion' ? buildVeridionFallbackHtml(values, '실시간 탐색 응답이 불안정해도 입력값 기준 프리뷰를 먼저 보여드립니다.') : buildProductSpecificDemoResult(values);
+      const html = ((remoteReport ? remoteHtml : fallbackHtml) || fallbackHtml) + buildDemoSaveBox(entry, remoteSaved);
       showResult('product-demo-result', html);
       fillCheckoutFromDemo({ company: values.company, name: values.name, email: values.email, note });
       if (remoteReport) applyProductReportToCheckout(product.key, values, remoteReport);

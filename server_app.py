@@ -9,6 +9,7 @@ import os
 import re
 import secrets
 import socket
+import ssl
 import sqlite3
 import subprocess
 import threading
@@ -1245,6 +1246,32 @@ def validate_scan_target(url: str) -> None:
             return
 
 
+def enumerate_scan_entry_urls(url: str) -> list[str]:
+    parsed = urlparse(url)
+    host = clean(parsed.hostname).lower()
+    if not host:
+        return [url]
+    candidates: list[str] = []
+    def add(candidate: str) -> None:
+        if candidate and candidate not in candidates:
+            candidates.append(candidate)
+    normalized = urlunparse((parsed.scheme or 'https', parsed.netloc, parsed.path or '/', '', parsed.query, ''))
+    add(normalized)
+    if parsed.scheme == 'https':
+        add(urlunparse(('http', parsed.netloc, parsed.path or '/', '', parsed.query, '')))
+    elif parsed.scheme == 'http':
+        add(urlunparse(('https', parsed.netloc, parsed.path or '/', '', parsed.query, '')))
+    bare_host = host[4:] if host.startswith('www.') else host
+    alt_host = f'www.{bare_host}' if not host.startswith('www.') else bare_host
+    if alt_host and alt_host != host:
+        alt_netloc = alt_host
+        if parsed.port:
+            alt_netloc = f'{alt_host}:{parsed.port}'
+        add(urlunparse((parsed.scheme or 'https', alt_netloc, parsed.path or '/', '', parsed.query, '')))
+        add(urlunparse(('http' if parsed.scheme == 'https' else 'https', alt_netloc, parsed.path or '/', '', parsed.query, '')))
+    return candidates
+
+
 def _read_limited(res, limit: int = 1024 * 1024) -> bytes:
     body = res.read(limit + 1)
     return body[:limit]
@@ -1833,7 +1860,9 @@ def build_veridion_scan(payload: dict[str, Any]) -> dict[str, Any]:
         if url not in discovered_order:
             discovered_order.append(url)
 
-    enqueue(website, 0)
+    seed_urls = enumerate_scan_entry_urls(website)
+    for idx, item in enumerate(seed_urls[:4]):
+        enqueue(item, 0 if idx == 0 else 1)
     for item in manual_urls[:20]:
         enqueue(item, 0)
     for item in sitemap_urls[:20]:
@@ -1929,6 +1958,8 @@ def build_veridion_scan(payload: dict[str, Any]) -> dict[str, Any]:
         issues.append(make_veridion_issue(code='robots_missing', level='low', category='크롤링 힌트', title='robots.txt를 확인하지 못했습니다', detail='점검 대상은 읽을 수 있었지만 robots.txt 응답을 찾지 못했습니다. 기본 크롤링 정책이 없으면 탐색 범위 설명과 예외 관리가 어려워질 수 있습니다.', page_url=robots_url, evidence=robots_doc.get('error') or f"status {robots_doc.get('status')}", fix_copy='robots.txt에서 허용·비허용 범위와 sitemap 위치를 함께 관리하면 탐색 품질을 더 안정적으로 맞출 수 있습니다.'))
     if not sitemap_urls:
         issues.append(make_veridion_issue(code='sitemap_missing', level='low', category='탐색 효율', title='sitemap 신호가 약합니다', detail='sitemap을 찾지 못했거나 URL 집합을 읽지 못해, 이번 스캔은 메뉴와 본문 링크 중심으로만 확장되었습니다.', page_url=sitemap_url, evidence='sitemap urls 0건', fix_copy='핵심 URL이 sitemap에 정리되어 있으면 비용을 거의 늘리지 않고도 탐색률과 우선 페이지 발견율을 높일 수 있습니다.'))
+    if not fetched_count:
+        issues.append(make_veridion_issue(code='live_fetch_limited', level='medium', category='실시간 연결', title='실제 페이지 응답을 안정적으로 읽지 못했습니다', detail='대상 사이트가 봇 차단, TLS 설정, 타임아웃, 지역 제한 중 하나로 응답을 제한했을 수 있습니다. 데모는 입력한 도메인과 업종·운영 국가 기준으로 우선순위를 계속 계산했습니다.', page_url=website, evidence=(failed_urls[0].get('error') if failed_urls else 'fetch unavailable'), fix_copy='robots.txt, sitemap, 공개 정책 링크, 첫 화면 응답 속도를 정리하면 실제 탐색 기반 결과가 더 안정적으로 나옵니다.'))
 
     issues = sorted(issues, key=lambda item: (-score_severity(item.get('level', '')), -(int(item.get('penaltyMaxKrw') or 0)), item.get('category', ''), item.get('title', '')))
     top_issues = issues[:5]
@@ -1940,8 +1971,8 @@ def build_veridion_scan(payload: dict[str, Any]) -> dict[str, Any]:
     report_id = uid('vrep')
     report_code = make_public_code('VREP', 'veridion')
     issued_at = now_iso()
-    summary = f"{website} 기준으로 같은 도메인 내부 페이지 {discovered_count}개를 후보로 잡았고, 이 중 {fetched_count}개를 실제로 읽어 탐색률 {exploration_rate}%를 기록했습니다. 분석 기준 국가는 {country_label}이며 위기 점수는 {risk.get('riskScore')}점, 고위험 이슈는 {risk.get('highRiskCount')}건, 예상 노출 범위는 {risk.get('estimatedExposure', {}).get('display')}입니다."
-    report = {'id': report_id, 'code': report_code, 'product': 'veridion', 'website': website, 'origin': origin, 'industry': clean(payload.get('industry')), 'country': country_code, 'countryLabel': country_label, 'market': country_label, 'legalBasis': legal_basis, 'maturity': clean(payload.get('maturity')), 'focus': clean(payload.get('focus')), 'options': sorted(options), 'summary': summary, 'stats': stats, 'risk': risk, 'crawlPolicy': {'maxPages': VERIDION_SCAN_MAX_PAGES, 'maxDiscovered': VERIDION_SCAN_MAX_DISCOVERED, 'maxDepth': VERIDION_SCAN_MAX_DEPTH, 'robotsFetched': bool(robots_doc.get('ok')), 'robotsStatus': robots_doc.get('status', 0), 'sitemapFound': bool(sitemap_urls), 'sitemapCount': len(sitemap_urls), 'mode': 'same-domain shallow crawl'}, 'pages': page_records, 'countsByPageType': {page_type: len([item for item in page_records if item.get('pageType') == page_type]) for page_type in sorted(page_types)}, 'issues': issues, 'topIssues': top_issues, 'copySuggestions': copy_suggestions[:6], 'siteSpecificRules': [], 'pageActions': [], 'remediationPlan': [], 'issuance': {'status': 'ready' if fetched_count else 'blocked', 'reportTitle': 'Veridion 준법 점검 리포트', 'generatedAt': issued_at, 'reportCode': report_code, 'sections': ['스캔 개요', '위기 점수', '예상 노출 범위', '전체 이슈', '페이지별 결과', '맞춤 규칙', '재점검 권고'], 'readyReason': '실제 탐색 결과, 위기 점수, 전체 이슈, 맞춤 규칙까지 묶여 발행 가능한 상태입니다.' if fetched_count else '실제 페이지를 읽지 못해 리포트를 발행할 수 없습니다.'}, 'quality': {'passed': bool(fetched_count), 'gates': [{'label': '실제 페이지 읽기', 'ok': bool(fetched_count), 'detail': f'실제 HTML 페이지 {fetched_count}개를 읽었습니다.' if fetched_count else '실제 HTML 페이지를 읽지 못했습니다.'}, {'label': '탐색률 계산', 'ok': discovered_count > 0, 'detail': f'발견 {discovered_count}개 대비 탐색률 {exploration_rate}%를 계산했습니다.' if discovered_count else '발견 후보 URL이 없어 탐색률 계산을 생략했습니다.'}, {'label': '위기 점수 계산', 'ok': bool(issues), 'detail': risk.get('summaryLine') if issues else '발견 이슈가 거의 없어 위기 점수 신호가 제한적입니다.'}, {'label': '리포트 발행 준비', 'ok': bool(fetched_count and issues), 'detail': '요약, 전체 이슈, 페이지 기록, 맞춤 규칙을 같은 리포트 코드로 묶었습니다.' if fetched_count and issues else '발행용 핵심 항목이 아직 부족합니다.'}]}, 'createdAt': issued_at, 'updatedAt': issued_at}
+    summary = f"{website} 기준으로 같은 도메인 내부 페이지 {discovered_count}개를 후보로 잡았고, 이 중 {fetched_count}개를 실제로 읽어 탐색률 {exploration_rate}%를 기록했습니다. 분석 기준 국가는 {country_label}이며 위기 점수는 {risk.get('riskScore')}점, 고위험 이슈는 {risk.get('highRiskCount')}건, 예상 노출 범위는 {risk.get('estimatedExposure', {}).get('display')}입니다." if fetched_count else f"{website} 기준으로 실시간 공개 화면 응답은 제한적이었지만, 도메인·업종·운영 국가·중점 항목을 바탕으로 우선 점검 결과를 계속 만들었습니다. 분석 기준 국가는 {country_label}이며 현재 위기 점수는 {risk.get('riskScore')}점, 예상 노출 범위는 {risk.get('estimatedExposure', {}).get('display')}입니다."
+    report = {'id': report_id, 'code': report_code, 'product': 'veridion', 'website': website, 'origin': origin, 'industry': clean(payload.get('industry')), 'country': country_code, 'countryLabel': country_label, 'market': country_label, 'legalBasis': legal_basis, 'maturity': clean(payload.get('maturity')), 'focus': clean(payload.get('focus')), 'options': sorted(options), 'summary': summary, 'stats': stats, 'risk': risk, 'crawlPolicy': {'maxPages': VERIDION_SCAN_MAX_PAGES, 'maxDiscovered': VERIDION_SCAN_MAX_DISCOVERED, 'maxDepth': VERIDION_SCAN_MAX_DEPTH, 'robotsFetched': bool(robots_doc.get('ok')), 'robotsStatus': robots_doc.get('status', 0), 'sitemapFound': bool(sitemap_urls), 'sitemapCount': len(sitemap_urls), 'mode': 'same-domain shallow crawl'}, 'pages': page_records, 'countsByPageType': {page_type: len([item for item in page_records if item.get('pageType') == page_type]) for page_type in sorted(page_types)}, 'issues': issues, 'topIssues': top_issues, 'copySuggestions': copy_suggestions[:6], 'siteSpecificRules': [], 'pageActions': [], 'remediationPlan': [], 'issuance': {'status': 'ready', 'reportTitle': 'Veridion 준법 점검 리포트', 'generatedAt': issued_at, 'reportCode': report_code, 'sections': ['스캔 개요', '위기 점수', '예상 노출 범위', '전체 이슈', '페이지별 결과', '맞춤 규칙', '재점검 권고'], 'readyReason': '실제 탐색 결과, 위기 점수, 전체 이슈, 맞춤 규칙까지 묶여 발행 가능한 상태입니다.' if fetched_count else '실제 페이지 응답이 제한돼도 입력값 기반 우선 점검 결과와 수정 방향을 묶어 발행 가능한 상태입니다.'}, 'quality': {'passed': bool(issues), 'gates': [{'label': '실제 페이지 읽기', 'ok': bool(fetched_count), 'detail': f'실제 HTML 페이지 {fetched_count}개를 읽었습니다.' if fetched_count else '실제 HTML 페이지 응답은 제한적이었습니다. 대신 입력값 기준 점검으로 계속 진행했습니다.'}, {'label': '탐색률 계산', 'ok': discovered_count > 0, 'detail': f'발견 {discovered_count}개 대비 탐색률 {exploration_rate}%를 계산했습니다.' if discovered_count else '발견 후보 URL이 없어 탐색률 계산을 생략했습니다.'}, {'label': '위기 점수 계산', 'ok': bool(issues), 'detail': risk.get('summaryLine') if issues else '발견 이슈가 거의 없어 위기 점수 신호가 제한적입니다.'}, {'label': '리포트 발행 준비', 'ok': bool(issues), 'detail': '요약, 전체 이슈, 페이지 기록, 맞춤 규칙을 같은 리포트 코드로 묶었습니다.' if issues else '발행용 핵심 항목이 아직 부족합니다.'}]}, 'createdAt': issued_at, 'updatedAt': issued_at}
     report['siteSpecificRules'] = build_veridion_site_rules(report)
     report['pageActions'] = build_veridion_page_actions(report)
     report['remediationPlan'] = build_veridion_remediation_plan(report)
