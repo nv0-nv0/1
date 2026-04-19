@@ -876,13 +876,20 @@ def submit_order_intake(order_id: str, payload: dict[str, Any]) -> dict[str, Any
 def create_library_publication(payload: dict[str, Any]) -> dict[str, Any]:
     product_key = clean(payload.get("product"))
     validate_product(product_key)
+    auto_generate = bool(payload.get("autoGenerate"))
     title = clip_text(payload.get("title"), 200)
     summary = clip_text(payload.get("summary"), 400)
     body = clip_text(payload.get("body"), 20000)
+    asset_url = clip_text(payload.get("assetUrl"), 500)
+    if auto_generate:
+        publication = create_board_publication(product_key, source='admin-auto')
+        if asset_url:
+            publication["assetUrl"] = asset_url
+            publication = upsert_record("publications", publication)
+        return publication
     if not title:
         raise HTTPException(status_code=400, detail="자료 제목이 필요합니다.")
     default_label, default_href = publication_cta_defaults(product_key)
-    asset_url = clip_text(payload.get("assetUrl"), 500)
     cta_href = clip_text(payload.get("ctaHref"), 500) or asset_url or default_href
     pub = build_publication_payload(
         product_key=product_key,
@@ -5094,12 +5101,16 @@ def create_app() -> FastAPI:
     @app.post("/api/admin/actions/publish-now")
     def admin_publish_now(payload: dict[str, Any] | None = None, _: None = Depends(require_admin)) -> dict[str, Any]:
         requested = clean((payload or {}).get('product'))
+        count = max(1, min(24, int((payload or {}).get('count') or 1)))
         settings = get_board_settings()
         if bool(settings.get('autoPublishAllProducts')):
             targets = [key for key in PRODUCTS.keys()] if not requested else [requested]
         else:
             targets = [requested] if requested and requested in PRODUCTS else [key for key, item in PRODUCTS.items() if (item.get('board_automation') or {}).get('enabled')]
-        published = [create_board_publication(key, source='manual') for key in targets]
+        published = []
+        for _ in range(count):
+            for key in targets:
+                published.append(create_board_publication(key, source='manual'))
         return {"ok": True, "published": published, "state": state_payload()}
 
     @app.post("/api/admin/actions/reseed-board")

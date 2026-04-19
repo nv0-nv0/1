@@ -1864,31 +1864,34 @@ async function bindPaymentResultPages(){
 function toBase64(file){ return new Promise((resolve, reject) => { const reader = new FileReader(); reader.onload = () => resolve(String(reader.result || '').split(',').pop() || ''); reader.onerror = () => reject(reader.error || new Error('파일을 읽지 못했습니다.')); reader.readAsDataURL(file); }); }
 
 function bindAdminActions(){
-  const root = document.getElementById('admin-console'); if (!root) return;
+  const root = document.getElementById('admin-console');
+  if (!root) return;
   const settingsForm = document.getElementById('admin-board-settings-form');
   const publicationForm = document.getElementById('admin-publication-form');
   const assetForm = document.getElementById('admin-asset-form');
   const publishAll = document.getElementById('admin-publish-all');
+  const publishNowProduct = document.getElementById('admin-publish-now-product');
+  const publishNowCount = document.getElementById('admin-publish-now-count');
   const loadSettings = async () => {
     if (!(await checkAdminSession())) return;
     const res = await fetch('/api/admin/board-settings', fetchOptionsFor('/api/admin/board-settings', { headers: headersFor('/api/admin/board-settings', { 'Accept':'application/json' }) }));
     if (!res.ok) return;
     const payload = await res.json();
     const settings = payload.settings || {};
-    if (settingsForm) {
-      if (settingsForm.elements.ctaLabel) settingsForm.elements.ctaLabel.value = settings.ctaLabel || '';
-      if (settingsForm.elements.ctaHref) settingsForm.elements.ctaHref.value = settings.ctaHref || '';
-      if (settingsForm.elements.autoPublishAllProducts) settingsForm.elements.autoPublishAllProducts.checked = Boolean(settings.autoPublishAllProducts);
-      if (settingsForm.elements.autoPublishEnabled) settingsForm.elements.autoPublishEnabled.checked = Boolean(settings.autoPublishEnabled);
-      if (settingsForm.elements.scheduleType) settingsForm.elements.scheduleType.value = settings.scheduleType || 'daily';
-      if (settingsForm.elements.frequencyPerRun) settingsForm.elements.frequencyPerRun.value = settings.frequencyPerRun || 1;
-      if (settingsForm.elements.intervalHours) settingsForm.elements.intervalHours.value = settings.intervalHours || 24;
-      if (settingsForm.elements.timeSlots) settingsForm.elements.timeSlots.value = Array.isArray(settings.timeSlots) ? settings.timeSlots.join(', ') : (settings.timeSlots || '09:00');
-      if (settingsForm.elements.selectedProducts) settingsForm.elements.selectedProducts.value = Array.isArray(settings.selectedProducts) ? settings.selectedProducts.join(', ') : (settings.selectedProducts || '');
-      if (settingsForm.elements.publishMode) settingsForm.elements.publishMode.value = settings.publishMode || 'publish';
-    }
+    if (!settingsForm) return;
+    if (settingsForm.elements.ctaLabel) settingsForm.elements.ctaLabel.value = settings.ctaLabel || '';
+    if (settingsForm.elements.ctaHref) settingsForm.elements.ctaHref.value = settings.ctaHref || '';
+    if (settingsForm.elements.autoPublishAllProducts) settingsForm.elements.autoPublishAllProducts.checked = Boolean(settings.autoPublishAllProducts);
+    if (settingsForm.elements.autoPublishEnabled) settingsForm.elements.autoPublishEnabled.checked = Boolean(settings.autoPublishEnabled);
+    if (settingsForm.elements.scheduleType) settingsForm.elements.scheduleType.value = settings.scheduleType || 'daily';
+    if (settingsForm.elements.frequencyPerRun) settingsForm.elements.frequencyPerRun.value = settings.frequencyPerRun || 1;
+    if (settingsForm.elements.intervalHours) settingsForm.elements.intervalHours.value = settings.intervalHours || 24;
+    if (settingsForm.elements.timeSlots) settingsForm.elements.timeSlots.value = Array.isArray(settings.timeSlots) ? settings.timeSlots.join(', ') : (settings.timeSlots || '09:00');
+    if (settingsForm.elements.selectedProducts) settingsForm.elements.selectedProducts.value = Array.isArray(settings.selectedProducts) ? settings.selectedProducts.join(', ') : (settings.selectedProducts || '');
+    if (settingsForm.elements.publishMode) settingsForm.elements.publishMode.value = settings.publishMode || 'publish';
   };
   loadSettings().catch(()=>{});
+
   settingsForm?.addEventListener('submit', (event) => { event.preventDefault(); withSubmitLock(settingsForm, async () => {
     const values = Object.fromEntries(new FormData(settingsForm).entries());
     values.autoPublishAllProducts = settingsForm.elements.autoPublishAllProducts?.checked ? 1 : 0;
@@ -1897,17 +1900,30 @@ function bindAdminActions(){
     if (res.mode === 'remote' && res.ok) { applyStatePayload(res.json?.state); showResult('admin-action-result', '자료실 CTA 자동 발행 설정을 저장했습니다.'); return; }
     throw new Error(res.json?.detail || res.text || '설정 저장에 실패했습니다.');
   }).catch((error)=>showResult('admin-action-result', esc(createFriendlyError(error,'설정 저장에 실패했습니다.')))); });
-  publishAll?.addEventListener('click', () => { withSubmitLock(settingsForm || publishAll.closest('form') || root, async () => {
-    const res = await postIfConfigured('/api/admin/actions/publish-now', {});
-    if (res.mode === 'remote' && res.ok) { applyStatePayload(res.json?.state); renderAdminSummary(); renderPublicBoard(); renderProductBoard(); showResult('admin-action-result', '전체 제품 자료실 글을 즉시 발행했습니다.'); return; }
+
+  publishAll?.addEventListener('click', () => { withSubmitLock(settingsForm || root, async () => {
+    const payload = { product: clean(publishNowProduct?.value), count: Number(publishNowCount?.value || 1) || 1 };
+    const res = await postIfConfigured('/api/admin/actions/publish-now', payload);
+    if (res.mode === 'remote' && res.ok) { applyStatePayload(res.json?.state); renderAdminSummary(); renderPublicBoard(); renderProductBoard(); showResult('admin-action-result', '자료실 글을 즉시 발행했습니다.'); return; }
     throw new Error(res.json?.detail || res.text || '즉시 발행에 실패했습니다.');
   }).catch((error)=>showResult('admin-action-result', esc(createFriendlyError(error,'즉시 발행에 실패했습니다.')))); });
+
   publicationForm?.addEventListener('submit', (event) => { event.preventDefault(); withSubmitLock(publicationForm, async () => {
     const values = Object.fromEntries(new FormData(publicationForm).entries());
+    values.autoGenerate = publicationForm.elements.autoGenerate?.checked ? 1 : 0;
     const res = await postIfConfigured('/api/admin/library/publications', values);
-    if (res.mode === 'remote' && res.ok) { applyStatePayload(res.json?.state); renderAdminSummary(); renderPublicBoard(); renderProductBoard(); showResult('admin-action-result', '자료실 글을 등록했습니다.'); publicationForm.reset(); return; }
+    if (res.mode === 'remote' && res.ok) {
+      applyStatePayload(res.json?.state);
+      renderAdminSummary();
+      renderPublicBoard();
+      renderProductBoard();
+      showResult('admin-action-result', values.autoGenerate ? '자동 글을 즉시 발행했습니다.' : '자료실 글을 등록했습니다.');
+      publicationForm.reset();
+      return;
+    }
     throw new Error(res.json?.detail || res.text || '자료실 글 등록에 실패했습니다.');
   }).catch((error)=>showResult('admin-action-result', esc(createFriendlyError(error,'자료실 글 등록에 실패했습니다.')))); });
+
   assetForm?.addEventListener('submit', (event) => { event.preventDefault(); withSubmitLock(assetForm, async () => {
     const fd = new FormData(assetForm); const file = fd.get('file');
     if (!(file instanceof File) || !file.size) throw new Error('업로드할 파일을 선택하세요.');
@@ -1923,44 +1939,7 @@ function bindAdminActions(){
     throw new Error(res.json?.detail || res.text || '파일 업로드에 실패했습니다.');
   }).catch((error)=>showResult('admin-action-result', esc(createFriendlyError(error,'파일 업로드에 실패했습니다.')))); });
 }
-  function bindConsentGuard(form){
-    if (!form || form.dataset.consentBound === '1') return;
-    form.dataset.consentBound = '1';
-    const checkbox = form.querySelector('[data-consent-required="1"]');
-    if (!checkbox) return;
-    const buttons = Array.from(form.querySelectorAll('button[type="submit"], input[type="submit"]'));
-    const message = form.querySelector('[data-consent-message]');
-    const sync = () => {
-      const checked = Boolean(checkbox.checked);
-      buttons.forEach((button) => { button.disabled = !checked; button.setAttribute('aria-disabled', checked ? 'false' : 'true'); });
-      if (message) message.textContent = checked ? '동의가 확인되었습니다. 저장·문의·결제를 진행할 수 있습니다.' : '동의 후에만 저장·문의·결제를 진행할 수 있습니다.';
-    };
-    checkbox.addEventListener('change', sync);
-    form.addEventListener('submit', (event) => {
-      if (checkbox.checked) return;
-      event.preventDefault();
-      if (message) message.textContent = '개인정보 수집·이용 동의가 필요합니다.';
-      checkbox.focus();
-    }, true);
-    sync();
-  }
-  function attachConsentGuards(){
-    ['demo-form','checkout-form','contact-form','product-demo-form','product-checkout-form'].forEach((id) => bindConsentGuard(document.getElementById(id)));
-  }
-  function updatePlanSummary(form, summaryId){
-    const summary = document.getElementById(summaryId);
-    if (!form || !summary) return;
-    const productKey = clean(form.elements?.product?.value || product?.key || document.body?.dataset?.product || '');
-    const planName = clean(form.elements?.plan?.value || 'Starter');
-    const note = clean(form.elements?.note?.value || form.elements?.context?.value || '');
-    summary.innerHTML = `<strong>현재 선택 요약</strong><br>${esc(productName(productKey))} · ${esc(planName)} · ${esc(planPrice(productKey, planName))}${note ? `<br><span>${esc(note)}</span>` : ''}${planNote(productKey, planName) ? `<br><small>${esc(planNote(productKey, planName))}</small>` : ''}`;
-  }
-  function bindPlanSummaries(){
-    const checkoutForm = document.getElementById('checkout-form');
-    if (checkoutForm) { const sync = () => { syncPlanOptionsForForm(checkoutForm); updatePlanSummary(checkoutForm, 'checkout-plan-summary'); }; checkoutForm.addEventListener('change', sync); checkoutForm.addEventListener('input', sync); sync(); }
-    const productCheckoutForm = document.getElementById('product-checkout-form');
-    if (productCheckoutForm) { const sync = () => { syncPlanOptionsForForm(productCheckoutForm); updatePlanSummary(productCheckoutForm, 'product-checkout-plan-summary'); }; productCheckoutForm.addEventListener('change', sync); productCheckoutForm.addEventListener('input', sync); sync(); }
-  }
-  document.addEventListener('DOMContentLoaded', async () => { await loadSystemConfig(); if ((pageKey === 'checkout' || pageKey === 'product') && paymentRuntime()?.enabled && !paymentRuntime()?.mock) await loadTossScript(); const stateSynced = await syncRemoteState(); if (!stateSynced) { const boardSynced = await loadBoardFeed(); if (!boardSynced) ensureSeedData(); } else if (!read(STORE.publications).length) { const boardSynced = await loadBoardFeed(); if (!boardSynced) ensureSeedData(); } else { ensureSeedData(); } enhanceDocumentChrome(); renderHeader(); renderSidebar(); ensureAdminAccessModal(); bindNavChrome(); bindAdminEntry(); renderFooter(); buildHomeProducts(); buildModuleMatrix(); fillProductSlots(); buildPlans(); setPrefills(); renderPublicBoard(); renderProductBoard(); renderLiveStats(); renderWorkspaceCards(); renderProductServices(); renderServiceCatalog(); bindProductDemoForm(); await bindProductCheckoutForm(); bindDemoForm(); bindCheckoutForm(); bindContactForm(); bindPortalLookup(); bindAdminTokenControls(); bindQuickDemoButtons(); attachConsentGuards(); bindPlanSummaries(); await bindPaymentResultPages(); await bootstrapAdminGate(); renderAdminSummary(); bindAdminActions(); });
+
+document.addEventListener('DOMContentLoaded', async () => { await loadSystemConfig(); if ((pageKey === 'checkout' || pageKey === 'product') && paymentRuntime()?.enabled && !paymentRuntime()?.mock) await loadTossScript(); const stateSynced = await syncRemoteState(); if (!stateSynced) { const boardSynced = await loadBoardFeed(); if (!boardSynced) ensureSeedData(); } else if (!read(STORE.publications).length) { const boardSynced = await loadBoardFeed(); if (!boardSynced) ensureSeedData(); } else { ensureSeedData(); } enhanceDocumentChrome(); renderHeader(); renderSidebar(); ensureAdminAccessModal(); bindNavChrome(); bindAdminEntry(); renderFooter(); buildHomeProducts(); buildModuleMatrix(); fillProductSlots(); buildPlans(); setPrefills(); renderPublicBoard(); renderProductBoard(); renderLiveStats(); renderWorkspaceCards(); renderProductServices(); renderServiceCatalog(); bindProductDemoForm(); await bindProductCheckoutForm(); bindDemoForm(); bindCheckoutForm(); bindContactForm(); bindPortalLookup(); bindAdminTokenControls(); bindQuickDemoButtons(); attachConsentGuards(); bindPlanSummaries(); await bindPaymentResultPages(); await bootstrapAdminGate(); renderAdminSummary(); bindAdminActions(); });
   window.NV0App = { read, write, lookupOrder, createOrder, createDemo, createContact, createLookup, ensureSeedData, renderAdminSummary, advanceOrder, toggleOrderPayment, republishOrder, validateEmail, validateProduct, validatePlan, setAdminToken, getAdminToken, loadSystemConfig, publicBoardHref, productBoardHref, portalHref };
 })();
