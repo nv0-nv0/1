@@ -16,6 +16,7 @@ import threading
 import time
 import urllib.error
 import urllib.request
+from dotenv import load_dotenv
 import xml.etree.ElementTree as ET
 from collections import defaultdict, deque
 from copy import deepcopy
@@ -648,13 +649,13 @@ def enforce_body_size(request: Request) -> Response | None:
 
 
 def parse_price_to_amount(price: str) -> int:
-    text = clean(price).replace(",", "")
-    if text.endswith("만"):
+    text = clean(price).replace(',', '').replace('/월', '').replace('월', '')
+    if text.endswith('만'):
         number = clean(text[:-1])
         if number.isdigit():
             return int(number) * 10000
-    digits = "".join(ch for ch in text if ch.isdigit())
-    return int(digits or "0")
+    digits = ''.join(ch for ch in text if ch.isdigit())
+    return int(digits or '0') * (10000 if '만' in text and not text.endswith('만') else 1) if digits else 0
 
 
 def ensure_dist_ready() -> None:
@@ -1452,15 +1453,55 @@ VERIDION_ISSUE_RULES: dict[str, dict[str, Any]] = {
     'exploration_low': {'lawGroup': 'crawl', 'lawLabel': '탐색 품질', 'area': '탐색 범위', 'penaltyMinKrw': 0, 'penaltyMaxKrw': 0},
     'robots_missing': {'lawGroup': 'crawl', 'lawLabel': '탐색 품질', 'area': 'robots.txt', 'penaltyMinKrw': 0, 'penaltyMaxKrw': 0},
     'sitemap_missing': {'lawGroup': 'crawl', 'lawLabel': '탐색 품질', 'area': 'sitemap', 'penaltyMinKrw': 0, 'penaltyMaxKrw': 0},
+    'live_fetch_limited': {'lawGroup': 'crawl', 'lawLabel': '실시간 연결', 'area': '실시간 탐색', 'penaltyMinKrw': 0, 'penaltyMaxKrw': 0},
 }
 
 VERIDION_INDUSTRY_BASELINES: dict[str, dict[str, Any]] = {
-    'commerce': {'label': '이커머스', 'baseline': 58, 'spread': 18, 'low': 28, 'high': 82},
-    'beauty': {'label': '뷰티·웰니스', 'baseline': 55, 'spread': 17, 'low': 26, 'high': 80},
-    'healthcare': {'label': '의료·건강', 'baseline': 61, 'spread': 16, 'low': 30, 'high': 84},
-    'education': {'label': '교육·서비스', 'baseline': 51, 'spread': 17, 'low': 24, 'high': 78},
-    'saas': {'label': 'B2B SaaS', 'baseline': 46, 'spread': 15, 'low': 22, 'high': 72},
-    'default': {'label': '일반 온라인 서비스', 'baseline': 52, 'spread': 18, 'low': 24, 'high': 80},
+    'commerce': {'label': '이커머스', 'baseline': 58, 'spread': 18, 'low': 28, 'high': 82, 'averageComplianceRate': 74, 'top10ComplianceRate': 92, 'bottom30ComplianceRate': 61},
+    'beauty': {'label': '뷰티·웰니스', 'baseline': 55, 'spread': 17, 'low': 26, 'high': 80, 'averageComplianceRate': 71, 'top10ComplianceRate': 90, 'bottom30ComplianceRate': 58},
+    'healthcare': {'label': '의료·건강', 'baseline': 61, 'spread': 16, 'low': 30, 'high': 84, 'averageComplianceRate': 77, 'top10ComplianceRate': 94, 'bottom30ComplianceRate': 64},
+    'education': {'label': '교육·서비스', 'baseline': 51, 'spread': 17, 'low': 24, 'high': 78, 'averageComplianceRate': 72, 'top10ComplianceRate': 91, 'bottom30ComplianceRate': 59},
+    'saas': {'label': 'B2B SaaS', 'baseline': 46, 'spread': 15, 'low': 22, 'high': 72, 'averageComplianceRate': 79, 'top10ComplianceRate': 95, 'bottom30ComplianceRate': 67},
+    'default': {'label': '일반 온라인 서비스', 'baseline': 52, 'spread': 18, 'low': 24, 'high': 80, 'averageComplianceRate': 73, 'top10ComplianceRate': 91, 'bottom30ComplianceRate': 60},
+}
+
+VERIDION_COMPLIANCE_RULES: dict[str, list[dict[str, Any]]] = {
+    'default': [
+        {'key': 'home_available', 'label': '첫 화면 접근 가능', 'weight': 1.0},
+        {'key': 'policy_visibility', 'label': '개인정보처리방침 공개', 'weight': 1.3, 'applies_if': 'forms_or_privacy_focus'},
+        {'key': 'consent_language', 'label': '폼 직전 동의 문구', 'weight': 1.1, 'applies_if': 'forms'},
+        {'key': 'terms_visibility', 'label': '이용약관/서비스 조건 공개', 'weight': 1.1, 'applies_if': 'checkout_or_forms'},
+        {'key': 'refund_visibility', 'label': '환불·청약철회 공개', 'weight': 1.4, 'applies_if': 'checkout'},
+        {'key': 'business_info', 'label': '사업자/고객센터 고지', 'weight': 1.2, 'applies_if': 'commerce_kr'},
+        {'key': 'claim_controls', 'label': '과장·단정 표현 통제', 'weight': 1.2},
+        {'key': 'exploration_quality', 'label': '핵심 페이지 탐색률', 'weight': 0.9},
+        {'key': 'sitemap_signal', 'label': 'sitemap 공개', 'weight': 0.6},
+        {'key': 'robots_signal', 'label': 'robots.txt 응답', 'weight': 0.4},
+    ],
+    'commerce': [
+        {'key': 'checkout_surface', 'label': '결제/구매 화면 노출', 'weight': 0.8},
+        {'key': 'refund_visibility', 'label': '환불·청약철회 공개', 'weight': 1.6, 'applies_if': 'checkout_or_commerce'},
+        {'key': 'terms_visibility', 'label': '이용약관/결제 조건 공개', 'weight': 1.3, 'applies_if': 'checkout_or_commerce'},
+        {'key': 'business_info', 'label': '사업자 정보 공개', 'weight': 1.4, 'applies_if': 'commerce_kr'},
+    ],
+    'beauty': [
+        {'key': 'claim_controls', 'label': '효능·전후 표현 통제', 'weight': 1.5},
+        {'key': 'policy_visibility', 'label': '상담/예약 개인정보 고지', 'weight': 1.2, 'applies_if': 'forms_or_privacy_focus'},
+    ],
+    'healthcare': [
+        {'key': 'claim_controls', 'label': '의료·건강 표현 통제', 'weight': 1.7},
+        {'key': 'policy_visibility', 'label': '민감정보 고지', 'weight': 1.3, 'applies_if': 'forms_or_privacy_focus'},
+        {'key': 'consent_language', 'label': '상담 신청 동의 문구', 'weight': 1.2, 'applies_if': 'forms'},
+    ],
+    'education': [
+        {'key': 'terms_visibility', 'label': '수강/이용 조건 공개', 'weight': 1.2, 'applies_if': 'checkout_or_forms'},
+        {'key': 'refund_visibility', 'label': '환불 기준 공개', 'weight': 1.3, 'applies_if': 'checkout_or_commerce'},
+    ],
+    'saas': [
+        {'key': 'terms_visibility', 'label': '구독/서비스 조건 공개', 'weight': 1.3, 'applies_if': 'checkout_or_forms'},
+        {'key': 'policy_visibility', 'label': '무료체험/문의 개인정보 고지', 'weight': 1.2, 'applies_if': 'forms_or_privacy_focus'},
+        {'key': 'consent_language', 'label': '데모/문의 폼 동의 문구', 'weight': 1.1, 'applies_if': 'forms'},
+    ],
 }
 
 
@@ -1481,12 +1522,99 @@ def normalize_veridion_industry(value: Any) -> str:
     return 'default'
 
 
-def build_veridion_peer_comparison(*, risk_score: int, issue_count: int, high_count: int, confidence_score: float, industry: Any) -> dict[str, Any]:
+def build_veridion_compliance_profile(*, industry: Any, country: str, has_forms: bool, has_checkout: bool, has_privacy: bool, has_terms: bool, has_refund: bool, has_business_info: bool, has_consent_language: bool, claim_pages: list[dict[str, Any]], exploration_rate: float, priority_coverage: float, robots_ok: bool, sitemap_found: bool, fetched_count: int, options: set[str]) -> dict[str, Any]:
+    industry_key = normalize_veridion_industry(industry)
+    baseline = VERIDION_INDUSTRY_BASELINES.get(industry_key, VERIDION_INDUSTRY_BASELINES['default'])
+    context = {
+        'forms': has_forms,
+        'checkout': has_checkout,
+        'forms_or_privacy_focus': has_forms or bool({'privacy'} & options),
+        'checkout_or_forms': has_checkout or has_forms,
+        'checkout_or_commerce': has_checkout or industry_key == 'commerce',
+        'commerce_kr': clean(country).upper() == 'KR' and (industry_key == 'commerce' or has_checkout),
+    }
+    pass_state = {
+        'home_available': fetched_count > 0,
+        'policy_visibility': has_privacy,
+        'consent_language': has_consent_language,
+        'terms_visibility': has_terms,
+        'refund_visibility': has_refund,
+        'business_info': has_business_info,
+        'claim_controls': len(claim_pages) == 0,
+        'exploration_quality': exploration_rate >= 55 and priority_coverage >= 70,
+        'sitemap_signal': sitemap_found,
+        'robots_signal': robots_ok,
+        'checkout_surface': has_checkout,
+    }
+    all_rules = list(VERIDION_COMPLIANCE_RULES['default']) + list(VERIDION_COMPLIANCE_RULES.get(industry_key, []))
+    rows: list[dict[str, Any]] = []
+    total_weight = 0.0
+    passed_weight = 0.0
+    for rule in all_rules:
+        applies_if = clean(rule.get('applies_if'))
+        applies = context.get(applies_if, True) if applies_if else True
+        if not applies:
+            continue
+        weight = float(rule.get('weight') or 1.0)
+        passed = bool(pass_state.get(rule['key'], False))
+        total_weight += weight
+        if passed:
+            passed_weight += weight
+        rows.append({
+            'key': rule['key'],
+            'label': rule['label'],
+            'weight': round(weight, 2),
+            'passed': passed,
+            'status': 'passed' if passed else 'missing',
+        })
+    applicable = len(rows)
+    passed_count = len([row for row in rows if row['passed']])
+    missing_count = applicable - passed_count
+    compliance_rate = round((passed_weight / total_weight) * 100, 1) if total_weight else 100.0
+    average_rate = float(baseline.get('averageComplianceRate') or 73)
+    top10_rate = float(baseline.get('top10ComplianceRate') or max(average_rate + 15, 90))
+    bottom30_rate = float(baseline.get('bottom30ComplianceRate') or max(average_rate - 13, 55))
+    delta = round(compliance_rate - average_rate, 1)
+    if compliance_rate >= top10_rate:
+        percentile = '상위 10% 수준'
+    elif compliance_rate >= average_rate:
+        percentile = '평균 이상'
+    elif compliance_rate <= bottom30_rate:
+        percentile = '하위 30% 수준'
+    else:
+        percentile = '평균 이하'
+    return {
+        'industryKey': industry_key,
+        'industryLabel': baseline['label'],
+        'rate': compliance_rate,
+        'applicableRuleCount': applicable,
+        'passedRuleCount': passed_count,
+        'missingRuleCount': missing_count,
+        'averageRate': average_rate,
+        'top10Rate': top10_rate,
+        'bottom30Rate': bottom30_rate,
+        'deltaFromAverage': delta,
+        'percentileBand': percentile,
+        'summaryLine': f"동종 업계 대비 준수율 {compliance_rate}% · 업계 평균 {average_rate:.0f}% · {percentile}",
+        'disclaimer': '동종 업계 공개 페이지 자동 점검 기준의 내부 비교 추정치이며, 실제 행정처분 결과와 동일하지 않습니다.',
+        'checklist': rows,
+    }
+
+
+
+def build_veridion_peer_comparison(*, risk_score: int, issue_count: int, high_count: int, confidence_score: float, industry: Any, compliance: dict[str, Any] | None = None) -> dict[str, Any]:
     industry_key = normalize_veridion_industry(industry)
     baseline = VERIDION_INDUSTRY_BASELINES.get(industry_key, VERIDION_INDUSTRY_BASELINES['default'])
     weighted_score = float(risk_score) + min(14.0, issue_count * 1.6) + high_count * 3.5 - max(0.0, (confidence_score - 60.0) * 0.05)
     distance = weighted_score - float(baseline['baseline'])
     bottom_percent = int(round(50 + (distance / max(1.0, float(baseline['spread']))) * 18))
+    compliance_rate = float((compliance or {}).get('rate') or 0)
+    average_rate = float((compliance or {}).get('averageRate') or baseline.get('averageComplianceRate') or 73)
+    compliance_gap = average_rate - compliance_rate
+    if compliance_gap > 0:
+        bottom_percent += int(round(compliance_gap * 0.35))
+    else:
+        bottom_percent += int(round(compliance_gap * 0.12))
     bottom_percent = max(3, min(97, bottom_percent))
     if bottom_percent >= 80:
         band = '하위권'
@@ -1504,9 +1632,67 @@ def build_veridion_peer_comparison(*, risk_score: int, issue_count: int, high_co
         'betterThanPercent': max(3, min(97, 100 - bottom_percent)),
         'band': band,
         'benchmarkRange': {'low': baseline['low'], 'high': baseline['high']},
+        'complianceRate': compliance_rate,
+        'averageComplianceRate': average_rate,
+        'deltaComplianceRate': round(compliance_rate - average_rate, 1),
         'disclaimer': '유사 업종 공개 페이지 기준의 내부 비교 추정치이며, 실제 제재 가능성이나 법률 판정과 동일하지 않습니다.',
     }
 
+
+
+VERIDION_MONITORING_SOURCES = {
+    'KR': ['개인정보보호위원회', '공정거래위원회', '방송통신위원회', '전자상거래 관련 고시'],
+    'US': ['FTC', 'State privacy updates', 'Subscription disclosure updates'],
+    'JP': ['個人情報保護委員会', '特定商取引法 안내', '景品表示法 관련 공지'],
+    'EU': ['GDPR/EDPB updates', 'Consumer rights guidance', 'Cookie consent guidance'],
+    'GLOBAL': ['개인정보·전자상거래·광고 공지', '결제/구독 고지 변경', '쿠키·추적 안내 변경'],
+}
+
+def build_veridion_monitoring_snapshot(report: dict[str, Any], *, cadence_days: int = 30) -> dict[str, Any]:
+    risk = report.get('risk') or {}
+    country = clean(report.get('country') or 'KR').upper() or 'KR'
+    country_label = report.get('countryLabel') or report.get('market') or country
+    law_groups = [item.get('lawLabel') or item.get('lawGroup') for item in (risk.get('lawGroups') or []) if clean(item.get('lawLabel') or item.get('lawGroup'))]
+    watch_sources = VERIDION_MONITORING_SOURCES.get(country, VERIDION_MONITORING_SOURCES.get('GLOBAL', []))
+    started_at = clean(report.get('updatedAt') or report.get('createdAt')) or now_iso()
+    try:
+        base_dt = datetime.fromisoformat(started_at.replace('Z', '+00:00'))
+    except Exception:
+        base_dt = datetime.now(timezone.utc)
+    next_check_at = (base_dt + timedelta(days=max(1, cadence_days))).isoformat()
+    impact_queue = []
+    for item in (report.get('pageActions') or [])[:5]:
+        impact_queue.append({
+            'url': item.get('url'),
+            'pageType': item.get('pageType'),
+            'priority': item.get('priority'),
+            'reason': f"{item.get('pageType') or 'page'} 구간은 법령 변경 시 재점검 우선순위가 높습니다.",
+        })
+    compliance = (risk.get('compliance') or {})
+    alerts = [
+        {'level': 'high' if (risk.get('highRiskCount') or 0) >= 2 else 'medium', 'title': '법령 변경 시 즉시 재점검 필요', 'detail': f"현재 고위험 {risk.get('highRiskCount', 0)}건 기준으로 변경 감시 알림이 켜집니다."},
+        {'level': 'medium', 'title': '영향 페이지 큐 자동 생성', 'detail': f"{len(impact_queue)}개 핵심 페이지를 다음 재점검 후보로 묶었습니다."},
+        {'level': 'medium' if (compliance.get('deltaFromAverage') or 0) >= 0 else 'high', 'title': '업계 준수율 기준 변화 추적', 'detail': f"현재 준수율 {compliance.get('rate', 0)}%, 업계 평균 {compliance.get('averageRate', 0)}%를 기준값으로 삼아 변동 알림을 보냅니다."},
+    ]
+    return {
+        'enabled': True,
+        'planLabel': '서비스 3 · 월 구독형 상시 모니터링',
+        'cadenceDays': max(1, cadence_days),
+        'cadenceLabel': f'매 {max(1, cadence_days)}일 점검',
+        'country': country,
+        'countryLabel': country_label,
+        'startedAt': started_at,
+        'nextCheckAt': next_check_at,
+        'watchSources': watch_sources,
+        'watchedLawGroups': law_groups[:5],
+        'impactQueue': impact_queue,
+        'alerts': alerts,
+        'changeSignals': ['법령/고시 변경', '정책 문구 차이', '결제·환불 화면 변화', '동종 업계 준수율 기준 변화'],
+        'notificationChannels': ['email', 'dashboard', 'webhook'],
+        'delivery': ['법령 변경 감지 알림', '영향 페이지 재점검 큐', '월간 요약 스냅샷', '알림 이력 보관', '준수율 변화 추적'],
+        'summary': f"{country_label} 기준 법령 변경 감시와 영향 페이지 재점검을 월 구독형으로 이어갈 수 있도록 준비했습니다.",
+        'disclaimer': '법령 변경 알림은 공개 고지·규정 변경 감시를 기반으로 하며, 개별 사건 법률 자문을 대신하지 않습니다.',
+    }
 
 def build_veridion_service_bundle(report: dict[str, Any]) -> list[dict[str, Any]]:
     risk = report.get('risk') or {}
@@ -1514,6 +1700,7 @@ def build_veridion_service_bundle(report: dict[str, Any]) -> list[dict[str, Any]
     page_actions = report.get('pageActions') or []
     site_rules = report.get('siteSpecificRules') or []
     copy_suggestions = report.get('copySuggestions') or []
+    monitoring = report.get('monitoring') or build_veridion_monitoring_snapshot(report)
     return [
         {
             'serviceNo': 1,
@@ -1540,6 +1727,20 @@ def build_veridion_service_bundle(report: dict[str, Any]) -> list[dict[str, Any]
                 '개인정보·환불·약관·사업자 정보 교체안',
                 '화면별 적용 위치 및 우선순위',
                 '재점검 체크리스트',
+            ],
+            'status': 'ready',
+        },
+        {
+            'serviceNo': 3,
+            'key': 'monthly_monitoring_subscription',
+            'title': '서비스 3 · 월 구독형 상시 모니터링',
+            'summary': f"{monitoring.get('countryLabel') or '운영 국가'} 기준 법령 변경 감시, 영향 페이지 큐, 재점검 알림을 월 구독형으로 이어갑니다.",
+            'includes': [
+                monitoring.get('cadenceLabel') or '월간 점검',
+                f"감시 소스 {len(monitoring.get('watchSources') or [])}종",
+                f"영향 페이지 큐 {len(monitoring.get('impactQueue') or [])}건",
+                '법령 변경 알림과 월간 요약 스냅샷',
+                '알림 이력과 운영 체크리스트',
             ],
             'status': 'ready',
         },
@@ -1597,7 +1798,7 @@ def summarize_veridion_law_groups(issues: list[dict[str, Any]]) -> list[dict[str
     return rows
 
 
-def build_veridion_risk_profile(*, issues: list[dict[str, Any]], stats: dict[str, Any], has_forms: bool, has_checkout: bool, industry: Any = '') -> dict[str, Any]:
+def build_veridion_risk_profile(*, issues: list[dict[str, Any]], stats: dict[str, Any], has_forms: bool, has_checkout: bool, industry: Any = '', country: str = 'KR', has_privacy: bool = False, has_terms: bool = False, has_refund: bool = False, has_business_info: bool = False, has_consent_language: bool = False, claim_pages: list[dict[str, Any]] | None = None, robots_ok: bool = False, sitemap_found: bool = False, options: set[str] | None = None) -> dict[str, Any]:
     high_count = len([item for item in issues if clean(item.get('level')) == 'high'])
     medium_count = len([item for item in issues if clean(item.get('level')) == 'medium'])
     low_count = len([item for item in issues if clean(item.get('level')) == 'low'])
@@ -1608,6 +1809,24 @@ def build_veridion_risk_profile(*, issues: list[dict[str, Any]], stats: dict[str
     severity_score = high_count * 18 + medium_count * 10 + low_count * 4
     surface_bonus = (8 if has_forms else 0) + (6 if has_checkout else 0) + min(12, signal_count * 2)
     confidence_raw = min(100.0, priority_coverage * 0.55 + exploration_rate * 0.35 + min(15.0, fetched * 4.0))
+    compliance = build_veridion_compliance_profile(
+        industry=industry,
+        country=country,
+        has_forms=has_forms,
+        has_checkout=has_checkout,
+        has_privacy=has_privacy,
+        has_terms=has_terms,
+        has_refund=has_refund,
+        has_business_info=has_business_info,
+        has_consent_language=has_consent_language,
+        claim_pages=claim_pages or [],
+        exploration_rate=exploration_rate,
+        priority_coverage=priority_coverage,
+        robots_ok=robots_ok,
+        sitemap_found=sitemap_found,
+        fetched_count=fetched,
+        options=options or set(),
+    )
     if confidence_raw >= 88:
         confidence_grade = 'A'
     elif confidence_raw >= 76:
@@ -1647,12 +1866,14 @@ def build_veridion_risk_profile(*, issues: list[dict[str, Any]], stats: dict[str
         'disclaimer': '법률 확정 판단이 아니라 공개 페이지 자동 점검을 기반으로 한 노출 추정치입니다.',
         'nonMonetaryRisks': ['시정 권고 또는 고지 보완 요구', '결제 이탈·소비자 분쟁 가능성', '광고 집행·검수 보류 가능성'],
     }
-    peer = build_veridion_peer_comparison(risk_score=risk_score, issue_count=len(issues), high_count=high_count, confidence_score=confidence_raw, industry=industry)
+    peer = build_veridion_peer_comparison(risk_score=risk_score, issue_count=len(issues), high_count=high_count, confidence_score=confidence_raw, industry=industry, compliance=compliance)
     diagnostics = [
         {'key': 'policy_coverage', 'label': '정책 고지 완성도', 'score': max(18, min(96, round(priority_coverage))), 'status': 'stable' if priority_coverage >= 80 else 'watch' if priority_coverage >= 55 else 'urgent', 'detail': f"핵심 페이지 커버리지 {priority_coverage}% 기준입니다."},
         {'key': 'privacy_notice', 'label': '개인정보 안내 준비도', 'score': max(15, min(96, 90 - high_count * 8 - medium_count * 4 - (0 if has_forms else 12))), 'status': 'stable' if has_forms and high_count == 0 else 'watch' if medium_count < 2 else 'urgent', 'detail': '폼 직전 고지와 개인정보처리방침 연결 상태를 함께 봅니다.'},
         {'key': 'checkout_disclosure', 'label': '결제·환불 고지 준비도', 'score': max(15, min(96, 92 - (12 if has_checkout else 2) * max(1, high_count or 1) + (6 if has_checkout else 0))), 'status': 'stable' if has_checkout and high_count == 0 else 'watch' if has_checkout else 'stable', 'detail': '결제 직전 환불·청약철회·문의 채널 고지를 우선 확인합니다.'},
         {'key': 'consumer_dispute', 'label': '소비자 분쟁 유발 가능성', 'score': max(8, min(97, round(high_count * 19 + medium_count * 11 + min(18, signal_count * 1.5)))), 'status': 'urgent' if high_count >= 2 else 'watch' if medium_count >= 2 else 'stable', 'detail': '환불/표시/고지 누락이 실제 분쟁으로 번질 가능성을 추정합니다.'},
+        {'key': 'industry_compliance_rate', 'label': '동종 업계 대비 준수율', 'score': round(compliance.get('rate') or 0), 'status': 'stable' if (compliance.get('deltaFromAverage') or 0) >= 0 else 'watch' if (compliance.get('deltaFromAverage') or 0) >= -8 else 'urgent', 'detail': compliance.get('summaryLine') or '업계 기준 비교를 준비했습니다.'},
+        {'key': 'issuance_readiness', 'label': '발행 작동 준비도', 'score': max(20, min(98, round((priority_coverage * 0.4) + (exploration_rate * 0.25) + (25 if issues else 12) + (10 if fetched else 0)))), 'status': 'stable' if fetched and priority_coverage >= 70 else 'watch' if issues else 'urgent', 'detail': '스캔·리포트·맞춤 규칙·모니터링 연결 가능성을 함께 봅니다.'},
     ]
     return {
         'issueCount': len(issues),
@@ -1668,8 +1889,9 @@ def build_veridion_risk_profile(*, issues: list[dict[str, Any]], stats: dict[str
         'confidenceScore': round(confidence_raw, 1),
         'estimatedExposure': exposure,
         'lawGroups': law_groups,
-        'summaryLine': f"위기 점수 {risk_score}점 · 고위험 {high_count}건 · 예상 노출 {exposure['display']}",
+        'summaryLine': f"위기 점수 {risk_score}점 · 준수율 {compliance.get('rate', 0)}% · 고위험 {high_count}건 · 예상 노출 {exposure['display']}",
         'peerComparison': peer,
+        'compliance': compliance,
         'diagnostics': diagnostics,
     }
 
@@ -1761,6 +1983,7 @@ def build_veridion_public_report(report: dict[str, Any]) -> dict[str, Any]:
         'stats': report.get('stats') or {},
         'risk': report.get('risk') or {},
         'serviceBundle': report.get('serviceBundle') or [],
+        'monitoring': report.get('monitoring') or {},
         'crawlPolicy': report.get('crawlPolicy') or {},
         'countsByPageType': report.get('countsByPageType') or {},
         'issues': safe_issues,
@@ -1773,7 +1996,7 @@ def build_veridion_public_report(report: dict[str, Any]) -> dict[str, Any]:
             'fullIssueCount': len(report.get('issues') or []),
             'fullRuleCount': len(report.get('siteSpecificRules') or []),
             'serviceCount': len(report.get('serviceBundle') or []),
-            'message': '전체 영역, 페이지별 조치, 맞춤 규칙은 결제 후 발행본에서 제공합니다.',
+            'message': '전체 영역, 페이지별 조치, 맞춤 규칙, 월 구독형 상시 모니터링 설정은 결제 후 발행본에서 제공합니다.',
         },
     }
 
@@ -1973,16 +2196,35 @@ def build_veridion_scan(payload: dict[str, Any]) -> dict[str, Any]:
     if not copy_suggestions:
         copy_suggestions.append({'label': '기본 수정 안내', 'pageUrl': website, 'before': '강한 단정 또는 누락 리스크가 적은 편입니다.', 'after': '현재 구조는 비교적 안정적입니다. 다만 개인정보·결제·고지 링크를 주기적으로 다시 확인해 주세요.'})
 
-    stats = {'discovered': discovered_count, 'fetched': fetched_count, 'blocked': len(blocked_urls), 'failed': len(failed_urls), 'forms': total_forms, 'internalLinks': total_internal_links, 'explorationRate': exploration_rate, 'priorityCoverage': priority_coverage, 'priorityTargets': len(expected_priority), 'priorityFound': found_priority, 'elapsedMs': round((time.monotonic() - started) * 1000, 1)}
-    risk = build_veridion_risk_profile(issues=issues, stats=stats, has_forms=has_forms, has_checkout=has_checkout, industry=payload.get('industry'))
+    detection_rate = round((((fetched_count + len(blocked_urls)) / max(1, discovered_count)) * 100), 1) if discovered_count else 0.0
+    issuance_readiness = round(min(100.0, priority_coverage * 0.45 + exploration_rate * 0.25 + (18 if issues else 8) + (12 if fetched_count else 0) + (8 if bool(sitemap_urls) else 0)), 1)
+    stats = {'discovered': discovered_count, 'fetched': fetched_count, 'blocked': len(blocked_urls), 'failed': len(failed_urls), 'forms': total_forms, 'internalLinks': total_internal_links, 'explorationRate': exploration_rate, 'priorityCoverage': priority_coverage, 'priorityTargets': len(expected_priority), 'priorityFound': found_priority, 'detectionRate': detection_rate, 'issuanceReadiness': issuance_readiness, 'elapsedMs': round((time.monotonic() - started) * 1000, 1)}
+    risk = build_veridion_risk_profile(
+        issues=issues,
+        stats=stats,
+        has_forms=has_forms,
+        has_checkout=has_checkout,
+        industry=payload.get('industry'),
+        country=country_code,
+        has_privacy=has_privacy,
+        has_terms=has_terms,
+        has_refund=has_refund,
+        has_business_info=has_business_info,
+        has_consent_language=has_consent_language,
+        claim_pages=claim_pages,
+        robots_ok=bool(robots_doc.get('ok')),
+        sitemap_found=bool(sitemap_urls),
+        options=options,
+    )
     report_id = uid('vrep')
     report_code = make_public_code('VREP', 'veridion')
     issued_at = now_iso()
     summary = f"{website} 기준으로 같은 도메인 내부 페이지 {discovered_count}개를 후보로 잡았고, 이 중 {fetched_count}개를 실제로 읽어 탐색률 {exploration_rate}%를 기록했습니다. 분석 기준 국가는 {country_label}이며 위기 점수는 {risk.get('riskScore')}점, 고위험 이슈는 {risk.get('highRiskCount')}건, 예상 노출 범위는 {risk.get('estimatedExposure', {}).get('display')}입니다." if fetched_count else f"{website} 기준으로 실시간 공개 화면 응답은 제한적이었지만, 도메인·업종·운영 국가·중점 항목을 바탕으로 우선 점검 결과를 계속 만들었습니다. 분석 기준 국가는 {country_label}이며 현재 위기 점수는 {risk.get('riskScore')}점, 예상 노출 범위는 {risk.get('estimatedExposure', {}).get('display')}입니다."
-    report = {'id': report_id, 'code': report_code, 'product': 'veridion', 'website': website, 'origin': origin, 'industry': clean(payload.get('industry')), 'country': country_code, 'countryLabel': country_label, 'market': country_label, 'legalBasis': legal_basis, 'maturity': clean(payload.get('maturity')), 'focus': clean(payload.get('focus')), 'options': sorted(options), 'summary': summary, 'stats': stats, 'risk': risk, 'crawlPolicy': {'maxPages': VERIDION_SCAN_MAX_PAGES, 'maxDiscovered': VERIDION_SCAN_MAX_DISCOVERED, 'maxDepth': VERIDION_SCAN_MAX_DEPTH, 'robotsFetched': bool(robots_doc.get('ok')), 'robotsStatus': robots_doc.get('status', 0), 'sitemapFound': bool(sitemap_urls), 'sitemapCount': len(sitemap_urls), 'mode': 'same-domain shallow crawl'}, 'pages': page_records, 'countsByPageType': {page_type: len([item for item in page_records if item.get('pageType') == page_type]) for page_type in sorted(page_types)}, 'issues': issues, 'topIssues': top_issues, 'copySuggestions': copy_suggestions[:6], 'siteSpecificRules': [], 'pageActions': [], 'remediationPlan': [], 'issuance': {'status': 'ready', 'reportTitle': 'Veridion 준법 점검 리포트', 'generatedAt': issued_at, 'reportCode': report_code, 'sections': ['스캔 개요', '위기 점수', '예상 노출 범위', '전체 이슈', '페이지별 결과', '맞춤 규칙', '재점검 권고'], 'readyReason': '실제 탐색 결과, 위기 점수, 전체 이슈, 맞춤 규칙까지 묶여 발행 가능한 상태입니다.' if fetched_count else '실제 페이지 응답이 제한돼도 입력값 기반 우선 점검 결과와 수정 방향을 묶어 발행 가능한 상태입니다.'}, 'quality': {'passed': bool(issues), 'gates': [{'label': '실제 페이지 읽기', 'ok': bool(fetched_count), 'detail': f'실제 HTML 페이지 {fetched_count}개를 읽었습니다.' if fetched_count else '실제 HTML 페이지 응답은 제한적이었습니다. 대신 입력값 기준 점검으로 계속 진행했습니다.'}, {'label': '탐색률 계산', 'ok': discovered_count > 0, 'detail': f'발견 {discovered_count}개 대비 탐색률 {exploration_rate}%를 계산했습니다.' if discovered_count else '발견 후보 URL이 없어 탐색률 계산을 생략했습니다.'}, {'label': '위기 점수 계산', 'ok': bool(issues), 'detail': risk.get('summaryLine') if issues else '발견 이슈가 거의 없어 위기 점수 신호가 제한적입니다.'}, {'label': '리포트 발행 준비', 'ok': bool(issues), 'detail': '요약, 전체 이슈, 페이지 기록, 맞춤 규칙을 같은 리포트 코드로 묶었습니다.' if issues else '발행용 핵심 항목이 아직 부족합니다.'}]}, 'createdAt': issued_at, 'updatedAt': issued_at}
+    report = {'id': report_id, 'code': report_code, 'product': 'veridion', 'website': website, 'origin': origin, 'industry': clean(payload.get('industry')), 'country': country_code, 'countryLabel': country_label, 'market': country_label, 'legalBasis': legal_basis, 'maturity': clean(payload.get('maturity')), 'focus': clean(payload.get('focus')), 'options': sorted(options), 'summary': summary, 'stats': stats, 'risk': risk, 'crawlPolicy': {'maxPages': VERIDION_SCAN_MAX_PAGES, 'maxDiscovered': VERIDION_SCAN_MAX_DISCOVERED, 'maxDepth': VERIDION_SCAN_MAX_DEPTH, 'robotsFetched': bool(robots_doc.get('ok')), 'robotsStatus': robots_doc.get('status', 0), 'sitemapFound': bool(sitemap_urls), 'sitemapCount': len(sitemap_urls), 'mode': 'same-domain shallow crawl'}, 'pages': page_records, 'countsByPageType': {page_type: len([item for item in page_records if item.get('pageType') == page_type]) for page_type in sorted(page_types)}, 'issues': issues, 'topIssues': top_issues, 'copySuggestions': copy_suggestions[:6], 'siteSpecificRules': [], 'pageActions': [], 'remediationPlan': [], 'issuance': {'status': 'ready', 'reportTitle': 'Veridion 준법 점검 리포트', 'generatedAt': issued_at, 'reportCode': report_code, 'sections': ['스캔 개요', '위기 점수', '동종 업계 대비 준수율', '예상 노출 범위', '전체 이슈', '페이지별 결과', '맞춤 규칙', '재점검 권고'], 'readyReason': '실제 탐색 결과, 위기 점수, 전체 이슈, 맞춤 규칙까지 묶여 발행 가능한 상태입니다.' if fetched_count else '실제 페이지 응답이 제한돼도 입력값 기반 우선 점검 결과와 수정 방향을 묶어 발행 가능한 상태입니다.'}, 'quality': {'passed': bool(issues), 'gates': [{'label': '실제 페이지 읽기', 'ok': bool(fetched_count), 'detail': f'실제 HTML 페이지 {fetched_count}개를 읽었습니다.' if fetched_count else '실제 HTML 페이지 응답은 제한적이었습니다. 대신 입력값 기준 점검으로 계속 진행했습니다.'}, {'label': '탐색률 계산', 'ok': discovered_count > 0, 'detail': f'발견 {discovered_count}개 대비 탐색률 {exploration_rate}%를 계산했습니다.' if discovered_count else '발견 후보 URL이 없어 탐색률 계산을 생략했습니다.'}, {'label': '위기 점수 계산', 'ok': bool(issues), 'detail': risk.get('summaryLine') if issues else '발견 이슈가 거의 없어 위기 점수 신호가 제한적입니다.'}, {'label': '리포트 발행 준비', 'ok': bool(issues), 'detail': '요약, 전체 이슈, 페이지 기록, 맞춤 규칙을 같은 리포트 코드로 묶었습니다.' if issues else '발행용 핵심 항목이 아직 부족합니다.'}]}, 'createdAt': issued_at, 'updatedAt': issued_at}
     report['siteSpecificRules'] = build_veridion_site_rules(report)
     report['pageActions'] = build_veridion_page_actions(report)
     report['remediationPlan'] = build_veridion_remediation_plan(report)
+    report['monitoring'] = build_veridion_monitoring_snapshot(report)
     report['serviceBundle'] = build_veridion_service_bundle(report)
     return upsert_record('reports', report)
 
@@ -2013,10 +2255,10 @@ def build_veridion_result_pack_from_report(base_pack: dict[str, Any], report: di
     remediation_plan = report.get('remediationPlan') or []
     website = clean(report.get('website'))
     exposure = risk.get('estimatedExposure') or {}
-    pack['summary'] = f"{company or '고객사'} 기준 Veridion 결과를 실제 탐색 리포트와 연결했습니다. 위기 점수 {risk.get('riskScore', 0)}점, 고위험 {risk.get('highRiskCount', 0)}건, 예상 노출 {exposure.get('display', '비정량')}를 먼저 묶었습니다."
+    pack['summary'] = f"{company or '고객사'} 기준 Veridion 결과를 실제 탐색 리포트와 연결했습니다. 위기 점수 {risk.get('riskScore', 0)}점, 준수율 {(risk.get('compliance') or {}).get('rate', 0)}%, 고위험 {risk.get('highRiskCount', 0)}건, 예상 노출 {exposure.get('display', '비정량')}를 먼저 묶었습니다."
     pack['outcomeHeadline'] = '실제 탐색 결과, 전체 이슈, 맞춤 규칙까지 포함한 Veridion 발행본이 준비되었습니다.'
     pack['executiveSummary'] = f"이번 결과는 같은 도메인 내부 페이지를 실제로 읽어 만든 발행본입니다. 발견 후보 {stats.get('discovered', 0)}개 중 {stats.get('fetched', 0)}개를 읽었고, 탐색률 {stats.get('explorationRate', 0)}%, 핵심 페이지 커버리지 {stats.get('priorityCoverage', 0)}%, 위기 점수 {risk.get('riskScore', 0)}점을 기준으로 전체 이슈와 맞춤 규칙을 정리했습니다."
-    pack['clientContext'] = {**(pack.get('clientContext') or {}), 'website': website, 'reportCode': report.get('code'), 'explorationRate': stats.get('explorationRate'), 'priorityCoverage': stats.get('priorityCoverage'), 'riskScore': risk.get('riskScore'), 'confidenceGrade': risk.get('confidenceGrade')}
+    pack['clientContext'] = {**(pack.get('clientContext') or {}), 'website': website, 'reportCode': report.get('code'), 'explorationRate': stats.get('explorationRate'), 'priorityCoverage': stats.get('priorityCoverage'), 'detectionRate': stats.get('detectionRate'), 'issuanceReadiness': stats.get('issuanceReadiness'), 'riskScore': risk.get('riskScore'), 'confidenceGrade': risk.get('confidenceGrade'), 'complianceRate': (risk.get('compliance') or {}).get('rate')}
     pack['penaltyExposure'] = exposure
     pack['lawGroupSummary'] = risk.get('lawGroups') or []
     pack['siteSpecificRules'] = site_rules
@@ -2039,6 +2281,7 @@ def build_veridion_result_pack_from_report(base_pack: dict[str, Any], report: di
     ]
     pack['successMetrics'] = [
         f"위기 점수 {risk.get('riskScore', 0)}점에서 얼마나 낮아졌는지",
+        f"동종 업계 대비 준수율 {(risk.get('compliance') or {}).get('rate', 0)}%가 얼마나 올라갔는지",
         f"핵심 페이지 커버리지 {stats.get('priorityCoverage', 0)}%가 얼마나 올라갔는지",
         f"예상 노출 {exposure.get('display', '비정량')} 구간이 어떻게 줄었는지",
     ]
@@ -2046,7 +2289,8 @@ def build_veridion_result_pack_from_report(base_pack: dict[str, Any], report: di
     pack['expertNotes'] = [
         '무료 데모에는 요약과 상위 이슈만 노출하고, 발행본에는 전체 이슈와 맞춤 규칙을 엽니다.',
         '예상 금액은 법률 확정 판단이 아니라 공개 페이지 자동 점검 기반 노출 추정치로 관리합니다.',
-        '탐색률이 낮더라도 신뢰도 등급을 따로 붙여 숫자 왜곡을 줄입니다.',
+        '동종 업계 대비 준수율은 업계 평균·상위 10%·하위 30% 기준으로 함께 설명합니다.',
+        '탐색률과 탐지율이 낮더라도 신뢰도 등급을 따로 붙여 숫자 왜곡을 줄입니다.',
         '재점검은 같은 리포트 코드 아래에서 수정 전/후를 비교하는 방식으로 관리합니다.',
     ]
     service_bundle = report.get('serviceBundle') or build_veridion_service_bundle(report)
@@ -2058,7 +2302,7 @@ def build_veridion_result_pack_from_report(base_pack: dict[str, Any], report: di
     pack['issuanceBundle'] = bundle + [{'title': item.get('title'), 'description': item.get('summary'), 'customerValue': '결제 후 실제로 열리는 납품형 서비스입니다.', 'usageMoment': '결제 완료 후 발행', 'expertNote': ', '.join(item.get('includes')[:2]), 'status': item.get('status', 'ready')} for item in service_bundle]
     pack['deliveryAssets'] = deepcopy(pack['issuanceBundle'])
     pack['postPaymentServices'] = service_bundle
-    pack['valueNarrative'] = '이번 Veridion 결과는 무료 데모의 위기 점수·예상 노출 범위를 실제 발행본의 전체 이슈, 페이지별 조치, 맞춤 규칙으로 이어 붙인 구조입니다. 결제 후에는 서비스 1 전체 세부 점검 리포트와 서비스 2 사이트 맞춤형 수정안 리포트를 같은 코드로 발행해 바로 실행 문서로 쓰도록 설계했습니다.'
+    pack['valueNarrative'] = '이번 Veridion 결과는 무료 데모의 위기 점수·예상 노출 범위를 실제 발행본의 전체 이슈, 페이지별 조치, 맞춤 규칙으로 이어 붙인 구조입니다. 결제 후에는 서비스 1 전체 세부 점검 리포트, 서비스 2 사이트 맞춤형 수정안 리포트, 서비스 3 월 구독형 상시 모니터링까지 같은 코드로 연결해 바로 실행 문서와 운영 기준으로 쓰도록 설계했습니다.'
     pack['buyerDecisionReason'] = '무료 데모에서 본 숫자와 실제 발행본의 전체 이슈가 같은 코드로 이어져, 결제 직후 체감 가치와 실행성이 높습니다.'
     pack['linkedReport'] = {'id': report.get('id'), 'code': report.get('code'), 'website': website, 'explorationRate': stats.get('explorationRate'), 'priorityCoverage': stats.get('priorityCoverage'), 'riskScore': risk.get('riskScore')}
     return pack
@@ -2100,14 +2344,14 @@ def build_veridion_demo_preview(report: dict[str, Any], company: str) -> dict[st
             {'title': '발행본 연결', 'note': f"리포트 코드 {report.get('code')}", 'preview': '결제 후에는 전체 영역, 페이지별 조치, 맞춤 규칙, 재점검 단계까지 같은 코드로 연결됩니다.', 'whatIncluded': '전체 이슈, 법령군 요약, 페이지별 조치, 사이트 맞춤 규칙, 재점검 큐를 발행본에서 제공합니다.', 'actionNow': '샘플 결과를 본 뒤 같은 코드로 결제와 포털 전달 흐름을 이어갑니다.', 'buyerValue': '무료 데모와 유료 발행본이 끊기지 않고 같은 코드로 이어집니다.', 'expertLens': '같은 코드 체계가 있어야 데모-결제-포털-재점검의 운영 비용이 낮아집니다.', 'whyItMatters': '보고용이 아니라 납품·운영용 흐름이 연결됩니다.', 'deliveryState': 'ready_to_issue'}
         ],
         'quickWins': ['홈·푸터 정책 링크 보강', '입력/결제 직전 고지 보강', '강한 단정 표현 완화'],
-        'valueDrivers': ['위기 점수와 예상 노출 범위를 먼저 보여줍니다.', '유사 업종 대비 상대 위치와 영역별 집계를 함께 보여줍니다.', '결제 후 서비스 1 전체 세부 점검과 서비스 2 맞춤 수정안 발행으로 이어집니다.'],
+        'valueDrivers': ['위기 점수와 예상 노출 범위를 먼저 보여줍니다.', '유사 업종 대비 상대 위치와 영역별 집계를 함께 보여줍니다.', '결제 후 서비스 1 전체 세부 점검, 서비스 2 맞춤 수정안, 서비스 3 월 구독형 상시 모니터링으로 이어집니다.'],
         'successMetrics': [f"위기 점수 {risk.get('riskScore', 0)}점", f"탐색률 {stats.get('explorationRate', 0)}%", f"예상 노출 {exposure.get('display', '비정량')}"],
-        'prioritySequence': ['1. 무료 데모에서 숫자와 상위 이슈 확인', '2. 결제 후 전체 발행본 열기', '3. 맞춤 규칙 반영 후 재점검'],
-        'expertNotes': ['무료 데모는 상위 이슈만, 발행본은 전체 이슈를 제공합니다.', '예상 금액은 자동 추정치이며 법률 확정 판단이 아닙니다.', '같은 리포트 코드로 발행과 재점검을 연결합니다.'],
+        'prioritySequence': ['1. 무료 데모에서 숫자와 상위 이슈 확인', '2. 결제 후 전체 발행본과 맞춤 수정안 열기', '3. 월 구독형 모니터링으로 재점검 알림 이어가기'],
+        'expertNotes': ['무료 데모는 상위 이슈만, 발행본은 전체 이슈를 제공합니다.', '예상 금액은 자동 추정치이며 법률 확정 판단이 아닙니다.', '같은 리포트 코드로 발행, 재점검, 월 구독형 모니터링을 연결합니다.'],
         'objectionHandling': ['무료 데모만으로도 위험도를 직관적으로 확인할 수 있습니다.', '결제 후에는 전체 영역과 맞춤 규칙이 바로 열립니다.'],
         'scorecard': {'stage': 'demo', 'stageLabel': '실제 탐색 데모', 'earned': 100 if stats.get('fetched', 0) else 68, 'total': 100, 'grade': 'A+' if stats.get('fetched', 0) else 'B', 'headline': 'Veridion 실제 탐색 품질 기준표', 'summary': '실제 페이지 읽기, 위기 점수 계산, 상위 이슈 추출, 발행 연결 준비까지 같은 흐름으로 확인합니다.', 'items': [{'label': '실제 페이지 읽기', 'score': 20 if stats.get('fetched', 0) else 8, 'max': 20, 'reason': f"실제 HTML 페이지 {stats.get('fetched', 0)}개를 읽었습니다." if stats.get('fetched', 0) else '실제 페이지를 읽지 못했습니다.'}, {'label': '탐색률 계산', 'score': 15 if stats.get('discovered', 0) else 6, 'max': 15, 'reason': f"발견 {stats.get('discovered', 0)}개 대비 탐색률 {stats.get('explorationRate', 0)}%를 계산했습니다."}, {'label': '핵심 페이지 커버리지', 'score': 15, 'max': 15, 'reason': f"핵심 페이지 커버리지 {stats.get('priorityCoverage', 0)}%를 별도로 확인했습니다."}, {'label': '위기 점수 계산', 'score': 15 if risk.get('issueCount', 0) else 8, 'max': 15, 'reason': risk.get('summaryLine') or '위기 점수 계산을 준비했습니다.'}, {'label': '상위 이슈 정리', 'score': 15, 'max': 15, 'reason': f"상위 이슈 {len(issues)}건을 먼저 정렬했습니다."}, {'label': '발행 연결 준비', 'score': 10 if report.get('issuance', {}).get('status') == 'ready' else 4, 'max': 10, 'reason': report.get('issuance', {}).get('readyReason') or '리포트 발행 준비 상태를 점검했습니다.'}, {'label': '재사용성', 'score': 10, 'max': 10, 'reason': '같은 리포트 코드로 포털·관리자·재점검 흐름을 연결할 수 있습니다.'}]},
         'ctaHint': f"리포트 코드 {report.get('code')} 기준으로 결제 후 발행 자료와 포털 결과를 같은 흐름으로 이어갑니다.",
-        'closingArgument': '이번 데모는 무료 단계에서 위기감이 분명히 느껴지도록 숫자와 상위 이슈만 보여주고, 결제 후에는 서비스 1 전체 세부 점검과 서비스 2 맞춤 수정안 리포트를 발행하는 구조로 구성했습니다.',
+        'closingArgument': '이번 데모는 무료 단계에서 위기감이 분명히 느껴지도록 숫자와 상위 이슈만 보여주고, 결제 후에는 서비스 1 전체 세부 점검, 서비스 2 맞춤 수정안, 서비스 3 월 구독형 상시 모니터링까지 이어지는 구조로 구성했습니다.',
         'linkedReport': {'id': report.get('id'), 'code': report.get('code')},
     }
 
@@ -3194,6 +3438,27 @@ def build_result_pack(product_key: str, plan_name: str, company: str, note: str 
             }
             pack.setdefault("issuanceBundle", []).append({"title": "정밀 지침·문구 작성 리포트", "description": f"{website} 기준 맞춤 문구와 운영 지침을 추가 발행합니다.", "customerValue": "복붙 가능한 문구와 배치 기준까지 확보할 수 있습니다.", "usageMoment": "추가 결제 직후", "expertNote": "법률 자문 대체가 아니라 실무 적용 초안을 빠르게 여는 구조입니다.", "status": "ready"})
             pack.setdefault("deliveryAssets", []).append({"title": "정밀 문구 팩", "description": "페이지별 안내문, 배너, 동의 문구 초안", "format": "html+json", "status": "ready"})
+        monitoring_requested = clean(payload.get('billing')) == 'monthly' or clean(payload.get('plan')) == 'Monitor'
+        if monitoring_requested:
+            linked_report = resolve_veridion_report(note, payload) or find_veridion_report(report_id=clean(payload.get('reportId')), report_code=clean(payload.get('reportCode')))
+            monitoring = (linked_report or {}).get('monitoring') if linked_report else None
+            if not monitoring:
+                monitoring = build_veridion_monitoring_snapshot(linked_report or {'country': clean(payload.get('country') or 'KR'), 'countryLabel': clean(payload.get('country') or '대한민국'), 'risk': {}, 'pageActions': [], 'createdAt': now_iso(), 'updatedAt': now_iso()})
+            pack['monitoringSubscription'] = {
+                'enabled': True,
+                'summary': monitoring.get('summary'),
+                'cadenceLabel': monitoring.get('cadenceLabel'),
+                'nextCheckAt': monitoring.get('nextCheckAt'),
+                'watchSources': monitoring.get('watchSources') or [],
+                'impactQueue': monitoring.get('impactQueue') or [],
+                'alerts': monitoring.get('alerts') or [],
+                'changeSignals': monitoring.get('changeSignals') or [],
+                'notificationChannels': monitoring.get('notificationChannels') or [],
+                'disclaimer': monitoring.get('disclaimer'),
+            }
+            pack.setdefault('issuanceBundle', []).append({'title': '월 구독형 상시 모니터링', 'description': monitoring.get('summary') or '법령 변경 감시와 재점검 알림을 월 구독형으로 운영합니다.', 'customerValue': '법령이 바뀔 때마다 손으로 다시 찾지 않아도 됩니다.', 'usageMoment': '월 구독 시작 직후', 'expertNote': '영향 페이지 큐와 알림 이력을 함께 남겨 반복 운영 비용을 낮춥니다.', 'status': 'ready'})
+            pack.setdefault('deliveryAssets', []).append({'title': '법령 변경 알림 세트', 'description': '알림 기준표, 영향 페이지 큐, 월간 스냅샷', 'format': 'json+html', 'status': 'ready'})
+            pack.setdefault('nextActions', []).append('월 구독형 모니터링 알림 수신과 재점검 주기 확인')
         return pack
     if product_key == 'clearport':
         report = resolve_product_report('clearport', note, payload)
@@ -3616,8 +3881,11 @@ def base_order_entry(payload: dict[str, Any], *, payment_method: str | None = No
     billing = clean(payload.get("billing") or "one-time")
     validate_product(product)
     validate_plan(product, plan)
-    if billing != "one-time":
-        raise HTTPException(status_code=400, detail="현재 온라인 결제는 1회 결제형만 지원합니다.")
+    allowed_billing = {'one-time'}
+    if product == 'veridion' and plan == 'Monitor':
+        allowed_billing.add('monthly')
+    if billing not in allowed_billing:
+        raise HTTPException(status_code=400, detail='현재 선택한 플랜에서 지원하지 않는 결제 방식입니다.')
     plan_meta = plan_info(product, plan)
     status = payment_status or ("paid" if method == "toss" and not NV0_TOSS_CLIENT_KEY and not NV0_TOSS_SECRET_KEY else "pending")
     order_id = clean(payload.get("id")) or uid("ord")
@@ -3641,6 +3909,7 @@ def base_order_entry(payload: dict[str, Any], *, payment_method: str | None = No
         "portalPassword": clean(payload.get("portalPassword")),
         "portalPasswordConfigured": bool(clean(payload.get("portalPassword"))),
         "billing": billing,
+        "subscriptionActive": bool(product == 'veridion' and billing == 'monthly'),
         "paymentMethod": method,
         "paymentStatus": status,
         "status": "delivered" if status == "paid" and ready_for_delivery else ("intake_required" if status == "paid" else next_status_for_payment(status)),
@@ -3904,6 +4173,18 @@ def admin_cookie_secure() -> bool:
     return CANONICAL_SCHEME == "https" or NV0_BASE_URL.startswith("https://")
 
 
+def request_prefers_secure_cookie(request: Request | None) -> bool:
+    if request is None:
+        return admin_cookie_secure()
+    forwarded_proto = clean(request.headers.get("x-forwarded-proto")).lower()
+    if forwarded_proto:
+        return forwarded_proto.split(",", 1)[0].strip() == "https"
+    try:
+        return request.url.scheme == "https"
+    except Exception:
+        return admin_cookie_secure()
+
+
 def admin_cookie_samesite() -> str:
     return "lax"
 
@@ -3983,7 +4264,23 @@ def request_has_admin_session(request: Request | None) -> bool:
     return parse_admin_session_cookie(request.cookies.get(NV0_ADMIN_COOKIE_NAME, ""))
 
 
-def set_admin_session_cookie(response: Response) -> int:
+def request_has_admin_header(request: Request | None) -> bool:
+    if request is None:
+        return False
+    token = clean(request.headers.get("x-admin-token"))
+    authorization = clean(request.headers.get("authorization"))
+    if not token and authorization.lower().startswith("bearer "):
+        token = clean(authorization.split(" ", 1)[1])
+    if not token or not NV0_ADMIN_TOKEN:
+        return False
+    return secrets.compare_digest(token, NV0_ADMIN_TOKEN)
+
+
+def request_is_admin_authenticated(request: Request | None) -> bool:
+    return request_has_admin_session(request) or request_has_admin_header(request)
+
+
+def set_admin_session_cookie(response: Response, request: Request | None = None) -> int:
     expires_at = int(time.time()) + ADMIN_SESSION_TTL_SECONDS
     response.set_cookie(
         key=NV0_ADMIN_COOKIE_NAME,
@@ -3991,18 +4288,18 @@ def set_admin_session_cookie(response: Response) -> int:
         max_age=ADMIN_SESSION_TTL_SECONDS,
         expires=expires_at,
         path="/",
-        secure=admin_cookie_secure(),
+        secure=request_prefers_secure_cookie(request),
         httponly=True,
         samesite=admin_cookie_samesite(),
     )
     return expires_at
 
 
-def clear_admin_session_cookie(response: Response) -> None:
+def clear_admin_session_cookie(response: Response, request: Request | None = None) -> None:
     response.delete_cookie(
         key=NV0_ADMIN_COOKIE_NAME,
         path="/",
-        secure=admin_cookie_secure(),
+        secure=request_prefers_secure_cookie(request),
         httponly=True,
         samesite=admin_cookie_samesite(),
     )
@@ -4012,7 +4309,7 @@ def require_admin(
     x_admin_token: str | None = Header(default=None),
     authorization: str | None = Header(default=None),
 ) -> None:
-    if request_has_admin_session(request):
+    if request_is_admin_authenticated(request):
         return
     if not NV0_ADMIN_TOKEN and not REQUIRE_ADMIN_TOKEN:
         return
@@ -4605,26 +4902,29 @@ def create_app() -> FastAPI:
         next_path = clip_text(form.get("next"), 200) or "/admin/index.html"
         if token and secrets.compare_digest(token, NV0_ADMIN_TOKEN):
             response = Response(status_code=303, headers={"Location": next_path})
-            set_admin_session_cookie(response)
+            set_admin_session_cookie(response, request)
             return response
         return HTMLResponse(content=build_admin_login_page("관리자 키가 맞지 않습니다."), status_code=401, headers={"Cache-Control": "no-store", "X-Robots-Tag": "noindex, nofollow"})
 
     @app.post("/api/admin/login")
-    def api_admin_login(payload: dict[str, Any], response: Response) -> dict[str, Any]:
+    def api_admin_login(payload: dict[str, Any], request: Request, response: Response) -> dict[str, Any]:
         token = clean(payload.get("token"))
         if not token or not secrets.compare_digest(token, NV0_ADMIN_TOKEN):
             raise HTTPException(status_code=401, detail="관리자 키가 맞지 않습니다.")
-        expires_at = set_admin_session_cookie(response)
+        expires_at = set_admin_session_cookie(response, request)
         return {"ok": True, "authenticated": True, "expiresAt": datetime.fromtimestamp(expires_at, tz=timezone.utc).isoformat()}
 
     @app.post("/api/admin/logout")
-    def api_admin_logout(response: Response) -> dict[str, Any]:
-        clear_admin_session_cookie(response)
+    def api_admin_logout(request: Request, response: Response) -> dict[str, Any]:
+        clear_admin_session_cookie(response, request)
         return {"ok": True, "authenticated": False}
 
     @app.get("/api/admin/session")
-    def api_admin_session(request: Request) -> dict[str, Any]:
-        return {"ok": True, "authenticated": request_has_admin_session(request)}
+    def api_admin_session(request: Request, response: Response) -> dict[str, Any]:
+        authenticated = request_is_admin_authenticated(request)
+        if authenticated and not request_has_admin_session(request):
+            set_admin_session_cookie(response, request)
+        return {"ok": True, "authenticated": authenticated, "via": "cookie" if request_has_admin_session(request) else ("header" if authenticated else "none")}
 
     @app.get("/api/admin/health")
     def admin_health(_: None = Depends(require_admin)) -> dict[str, Any]:

@@ -30,9 +30,16 @@
     submissions: 'nv0-public-submissions',
   };
   const AUTH_KEY = 'nv0-admin-auth';
+  const AUTH_PERSIST_KEY = 'nv0-admin-auth-persist';
   const REPORT_SESSION_KEYS = { veridion:'nv0-veridion-last-report', clearport:'nv0-clearport-last-report', grantops:'nv0-grantops-last-report', draftforge:'nv0-draftforge-last-report' };
   const runtime = { systemConfig: null };
-  function getAdminToken(){ try { return sessionStorage.getItem(AUTH_KEY) || ''; } catch { return ''; } }
+  function getAdminToken(){
+    try {
+      return sessionStorage.getItem(AUTH_KEY) || localStorage.getItem(AUTH_PERSIST_KEY) || '';
+    } catch {
+      try { return localStorage.getItem(AUTH_PERSIST_KEY) || ''; } catch { return ''; }
+    }
+  }
   function getLastProductReport(key){ try { return JSON.parse(sessionStorage.getItem(REPORT_SESSION_KEYS[key] || '') || 'null'); } catch { return null; } }
   function setLastProductReport(key, value){ try { const storageKey = REPORT_SESSION_KEYS[key]; if (!storageKey) return; if (value) sessionStorage.setItem(storageKey, JSON.stringify(value)); else sessionStorage.removeItem(storageKey); } catch {} }
   function getLastVeridionReport(){ return getLastProductReport('veridion'); }
@@ -49,16 +56,107 @@
   function structuredProductReportNote(key, values, report){ return key === 'veridion' ? structuredVeridionNote(values, report) : key === 'clearport' ? structuredClearportNote(values, report) : key === 'grantops' ? structuredGrantopsNote(values, report) : structuredDraftforgeNote(values, report); }
   function applyProductReportToCheckout(key, values, report){ const form = document.getElementById('product-checkout-form'); if (!form) return; ensureHiddenField(form, 'reportId', report?.id || ''); ensureHiddenField(form, 'reportCode', report?.code || ''); const noteInput = form.querySelector('input[name="note"]'); if (noteInput) noteInput.value = structuredProductReportNote(key, values || {}, report || {}); const linkInput = form.querySelector('input[name="link"]'); if (linkInput && values?.website) linkInput.value = values.website; }
   function applyVeridionReportToCheckout(values, report){ applyProductReportToCheckout('veridion', values, report); }
-  function renderVeridionRemoteReport(report, values){ const stats = report?.stats || {}; const risk = report?.risk || {}; const peer = risk?.peerComparison || {}; const diagnostics = Array.isArray(risk?.diagnostics) ? risk.diagnostics : []; const issues = Array.isArray(report?.topIssues) ? report.topIssues : (Array.isArray(report?.issues) ? report.issues : []); const lawGroups = Array.isArray(risk?.lawGroups) ? risk.lawGroups : []; const quality = Array.isArray(report?.quality?.gates) ? report.quality.gates : []; const exposure = risk?.estimatedExposure || {}; const locked = report?.publicLocked || {}; const services = Array.isArray(report?.serviceBundle) ? report.serviceBundle : []; const countryLabel = report?.countryLabel || values?.countryLabel || report?.market || '대한민국'; const legalBasis = Array.isArray(report?.legalBasis) ? report.legalBasis : []; const peerLabel = peer?.bottomPercent !== undefined ? `유사 업종 대비 하위 ${peer.bottomPercent}%` : '유사 업종 비교 준비 중'; const diagnosticRows = diagnostics.length ? diagnostics : [{ label:'정책 고지 완성도', score: stats.priorityCoverage || 0, status:'watch', detail:'핵심 페이지 커버리지 기준으로 산출합니다.' }]; const lawRows = (lawGroups.length ? lawGroups : [{ lawLabel:'요약', issueCount:risk.issueCount || issues.length || 0, signalCount:risk.signalCount || 0, penaltyDisplay: exposure.display || '비정량', highRiskCount:risk.highRiskCount || 0 }]).map((item)=>[item.lawLabel || '영역', `${item.issueCount || 0}건 · 고위험 ${item.highRiskCount || 0}건 · 최대 ${item.penaltyDisplay || '비정량'}`]); const serviceRows = (services.length ? services : [{ title:'서비스 1 · 전체 세부 점검 리포트', summary:'결제 후 전체 이슈와 페이지별 결과를 전부 엽니다.' }, { title:'서비스 2 · 사이트 맞춤형 수정안 리포트', summary:'결제 후 해당 사이트에 맞춘 교체 문구와 수정안을 발행합니다.' }]).map((item)=>`<div class="demo-table-row"><strong>${esc(item.title)}</strong><span>${esc(item.summary || '')}</span></div>`).join(''); return `<div class="demo-result-shell">${demoSummaryHeader('Veridion 위기 데모 결과', report?.summary || `${values?.website || '입력 URL'} 기준 위기 신호를 요약한 결과입니다.`, Math.max(0, Math.min(100, Math.round(Number(risk.crisisScore || risk.riskScore || stats.priorityCoverage || 0)))))}${renderKpis([{ value:`${risk.crisisScore ?? risk.riskScore ?? 0}점`, label:'위기 점수', note:`신뢰도 ${esc(risk.confidenceGrade || '-')} · ${esc(peerLabel)}` },{ value:`하위 ${peer.bottomPercent ?? '-'}%`, label:'유사 업종 상대 위치', note:`${esc(peer.industryLabel || '유사 업종')} · ${esc(peer.band || '비교')}` },{ value:esc(exposure.maxDisplay || exposure.display || '비정량'), label:'예상 최대 과태료', note:`리포트 코드 ${esc(report?.code || '-')}` }])}<div class="demo-section-stack"><h4>분석 기준 국가</h4><div class="demo-table"><div class="demo-table-row"><strong>${esc(countryLabel)}</strong><span>${esc(legalBasis.length ? legalBasis.join(' / ') : '국가별 준법 기준을 반영해 계산했습니다.')}</span></div></div><h4>무료 데모에서 먼저 보여주는 상위 이슈</h4>${renderDemoAlerts(issues.slice(0,5).map((item)=>({ level:item.level, title:`${item.title}${item.occurrenceCount ? ` · ${item.occurrenceCount}개 신호` : ''}`, detail:`${item.detail}${item.penaltyDisplay ? ` / ${item.penaltyDisplay}` : ''}` })))}<h4>영역별 건수·위기도·예상 최대 과태료</h4>${renderDemoTable(lawRows)}<h4>추가로 보면 좋은 운영 지표</h4><div class="demo-table">${diagnosticRows.map((item)=>`<div class="demo-table-row"><strong>${esc(item.label || item.title || '진단 지표')}</strong><span>${esc(String(item.score ?? '-'))}점 · ${esc(item.status || '확인')} · ${esc(item.detail || '')}</span></div>`).join('')}</div><h4>결제 후 바로 발행되는 서비스</h4><div class="demo-table">${serviceRows}</div><h4>발행 전 품질 상태</h4><div class="demo-table">${quality.map((item)=>`<div class="demo-table-row"><strong>${esc(item.label)}</strong><span>${esc(item.ok ? '통과 · ' + item.detail : '보완 필요 · ' + item.detail)}</span></div>`).join('')}</div></div><div class="demo-save-box"><strong>유료 발행본에서 열리는 항목</strong><br>${esc(locked.message || '서비스 1 전체 세부 점검 리포트와 서비스 2 사이트 맞춤형 수정안 리포트를 결제 후 발행합니다.')}<br>현재 데모는 상위 이슈 ${esc(String(issues.length || 0))}건만 공개합니다. 전체 이슈 ${esc(String(locked.fullIssueCount || risk.issueCount || issues.length || 0))}건, 페이지별 세부 결과, 맞춤 수정안은 결제 후 발행본에서 제공합니다.<br><small>${esc(peer.disclaimer || exposure.disclaimer || '자동 점검 기반 추정치입니다.')}</small><br>리포트 코드 <span class="inline-code">${esc(report?.code || '-')}</span></div></div>`; }
+  function renderVeridionRemoteReport(report, values){
+    const stats = report?.stats || {};
+    const risk = report?.risk || {};
+    const peer = risk?.peerComparison || {};
+    const compliance = risk?.compliance || {};
+    const diagnostics = Array.isArray(risk?.diagnostics) ? risk.diagnostics : [];
+    const issues = Array.isArray(report?.topIssues) ? report.topIssues : (Array.isArray(report?.issues) ? report.issues : []);
+    const lawGroups = Array.isArray(risk?.lawGroups) ? risk.lawGroups : [];
+    const quality = Array.isArray(report?.quality?.gates) ? report.quality.gates : [];
+    const exposure = risk?.estimatedExposure || {};
+    const locked = report?.publicLocked || {};
+    const services = Array.isArray(report?.serviceBundle) ? report.serviceBundle : [];
+    const monitoring = report?.monitoring || {};
+    const countryLabel = report?.countryLabel || values?.countryLabel || report?.market || '대한민국';
+    const legalBasis = Array.isArray(report?.legalBasis) ? report.legalBasis : [];
+    const peerLabel = peer?.bottomPercent !== undefined ? `유사 업종 대비 하위 ${peer.bottomPercent}%` : '유사 업종 비교 준비 중';
+    const complianceLabel = compliance?.rate !== undefined ? `준수율 ${compliance.rate}%` : '준수율 계산 준비 중';
+    const diagnosticRows = diagnostics.length ? diagnostics : [{ label:'정책 고지 완성도', score: stats.priorityCoverage || 0, status:'watch', detail:'핵심 페이지 커버리지 기준으로 산출합니다.' }];
+    const lawRows = (lawGroups.length ? lawGroups : [{ lawLabel:'요약', issueCount:risk.issueCount || issues.length || 0, signalCount:risk.signalCount || 0, penaltyDisplay: exposure.display || '비정량', highRiskCount:risk.highRiskCount || 0 }]).map((item)=>[item.lawLabel || '영역', `${item.issueCount || 0}건 · 고위험 ${item.highRiskCount || 0}건 · 최대 ${item.penaltyDisplay || '비정량'}`]);
+    const complianceRows = [
+      ['현재 준수율', `${compliance.rate ?? '-'}% · 통과 ${compliance.passedRuleCount ?? '-'} / 기준 ${compliance.applicableRuleCount ?? '-'}`],
+      ['업계 평균', `${compliance.averageRate ?? '-'}% · 차이 ${compliance.deltaFromAverage ?? '-'}%p`],
+      ['업계 위치', `${compliance.percentileBand || peer.band || '비교 준비 중'} · ${peerLabel}`],
+    ];
+    const opsRows = [
+      ['탐색률', `${stats.explorationRate ?? '-'}% · 후보 ${stats.discovered ?? '-'}개 / 실제 읽기 ${stats.fetched ?? '-'}개`],
+      ['탐지율', `${stats.detectionRate ?? '-'}% · 차단 ${stats.blocked ?? 0}개 / 실패 ${stats.failed ?? 0}개`],
+      ['발행 준비도', `${stats.issuanceReadiness ?? '-'}점 · 핵심 페이지 ${stats.priorityCoverage ?? '-'}%`],
+      ['월 구독형 모니터링', `${(monitoring.watchSources || []).length}개 감시 소스 · 다음 점검 ${monitoring.cadenceLabel || '-'}`],
+    ];
+    const serviceRows = (services.length ? services : [{ title:'서비스 1 · 전체 세부 점검 리포트', summary:'결제 후 전체 이슈와 페이지별 결과를 전부 엽니다.' }, { title:'서비스 2 · 사이트 맞춤형 수정안 리포트', summary:'결제 후 해당 사이트에 맞춘 교체 문구와 수정안을 발행합니다.' }, { title:'서비스 3 · 월 구독형 상시 모니터링', summary:'법령 변경 알림, 영향 페이지 큐, 월간 재점검 스냅샷을 구독형으로 이어갑니다.' }]).map((item)=>`<div class="demo-table-row"><strong>${esc(item.title)}</strong><span>${esc(item.summary || '')}</span></div>`).join('');
+    return `<div class="demo-result-shell">${demoSummaryHeader('Veridion 위기 데모 결과', report?.summary || `${values?.website || '입력 URL'} 기준 위기 신호를 요약한 결과입니다.`, Math.max(0, Math.min(100, Math.round(Number(risk.crisisScore || risk.riskScore || stats.priorityCoverage || 0)))))}${renderKpis([{ value:`${risk.crisisScore ?? risk.riskScore ?? 0}점`, label:'위기 점수', note:`신뢰도 ${esc(risk.confidenceGrade || '-')} · ${esc(peerLabel)}` },{ value:`${compliance.rate ?? '-'}%`, label:'동종 업계 대비 준수율', note:`업계 평균 ${esc(String(compliance.averageRate ?? '-'))}% · ${esc(compliance.percentileBand || '-')}` },{ value:esc(exposure.maxDisplay || exposure.display || '비정량'), label:'예상 최대 과태료', note:`리포트 코드 ${esc(report?.code || '-')}` }])}<div class="demo-section-stack"><h4>분석 기준 국가</h4><div class="demo-table"><div class="demo-table-row"><strong>${esc(countryLabel)}</strong><span>${esc(legalBasis.length ? legalBasis.join(' / ') : '국가별 준법 기준을 반영해 계산했습니다.')}</span></div></div><h4>무료 데모에서 먼저 보여주는 상위 이슈</h4>${renderDemoAlerts(issues.slice(0,5).map((item)=>({ level:item.level, title:`${item.title}${item.occurrenceCount ? ` · ${item.occurrenceCount}개 신호` : ''}`, detail:`${item.detail}${item.penaltyDisplay ? ` / ${item.penaltyDisplay}` : ''}` })))}<h4>영역별 건수·위기도·예상 최대 과태료</h4>${renderDemoTable(lawRows)}<h4>동종 업계 대비 준수율</h4>${renderDemoTable(complianceRows)}<h4>탐색률·탐지율·발행 작동 지표</h4>${renderDemoTable(opsRows)}<h4>추가로 보면 좋은 운영 지표</h4><div class="demo-table">${diagnosticRows.map((item)=>`<div class="demo-table-row"><strong>${esc(item.label || item.title || '진단 지표')}</strong><span>${esc(String(item.score ?? '-'))}점 · ${esc(item.status || '확인')} · ${esc(item.detail || '')}</span></div>`).join('')}</div><h4>결제 후 바로 발행되는 서비스</h4><div class="demo-table">${serviceRows}</div><h4>발행 전 품질 상태</h4><div class="demo-table">${quality.map((item)=>`<div class="demo-table-row"><strong>${esc(item.label)}</strong><span>${esc(item.ok ? '통과 · ' + item.detail : '보완 필요 · ' + item.detail)}</span></div>`).join('')}</div></div><div class="demo-save-box"><strong>유료 발행본에서 열리는 항목</strong><br>${esc(locked.message || '서비스 1 전체 세부 점검 리포트와 서비스 2 사이트 맞춤형 수정안 리포트를 결제 후 발행합니다.')}<br>현재 데모는 상위 이슈 ${esc(String(issues.length || 0))}건만 공개합니다. 전체 이슈 ${esc(String(locked.fullIssueCount || risk.issueCount || issues.length || 0))}건, 페이지별 세부 결과, 맞춤 수정안은 결제 후 발행본에서 제공합니다.<br><small>${esc(compliance.summaryLine || complianceLabel)} · ${esc(peer.disclaimer || exposure.disclaimer || '자동 점검 기반 추정치입니다.')}</small><br>리포트 코드 <span class="inline-code">${esc(report?.code || '-')}</span></div></div>`;
+  }
   function renderClearportRemoteReport(report, values){ const stats = report?.stats || {}; const issues = Array.isArray(report?.issues) ? report.issues : []; const readiness = report?.readinessSummary || {}; const highlights = Array.isArray(report?.checklistHighlights) ? report.checklistHighlights : []; const quality = Array.isArray(report?.quality?.gates) ? report.quality.gates : []; const locked = report?.publicLocked || {}; return `<div class="demo-result-shell">${demoSummaryHeader('ClearPort 제출 데모 결과', report?.summary || `${values?.targetOrg || '제출처'} 기준 제출 준비도를 계산한 결과입니다.`, Math.round(Number(stats.readinessRate || 0)))}${renderKpis([{ value:`${stats.readinessRate ?? 0}%`, label:'준비도', note:`확보 ${readiness.securedDocs ?? stats.securedDocs ?? 0}종 / 기준 ${readiness.requiredDocs ?? stats.requiredDocs ?? 0}종` },{ value:`${readiness.criticalMissing ?? stats.criticalMissing ?? 0}건`, label:'핵심 누락', note:`전체 누락 ${readiness.missingDocs ?? stats.missingDocs ?? 0}건` },{ value:stats.daysLeft === null || stats.daysLeft === undefined ? '미입력' : `D-${stats.daysLeft}`, label:'마감 상태', note:`리포트 코드 ${esc(report?.code || '-')}` }])}<div class="demo-section-stack"><h4>무료 데모에서 먼저 보여주는 상위 이슈</h4>${renderDemoAlerts(issues.map((item)=>({ level:item.level, title:item.title, detail:item.detail })))}<h4>핵심 체크리스트 요약</h4>${renderDemoTable((highlights.length ? highlights : [{label:'핵심 누락', status:`${readiness.criticalMissing ?? stats.criticalMissing ?? 0}건`, priority:'요약'}]).map((item)=>[item.label || '항목', `${item.status || '-'} · ${item.priority || '요약'}`]))}<h4>발행 전 품질 상태</h4><div class="demo-table">${quality.map((item)=>`<div class="demo-table-row"><strong>${esc(item.label)}</strong><span>${esc(item.ok ? '통과 · ' + item.detail : '보완 필요 · ' + item.detail)}</span></div>`).join('')}</div></div><div class="demo-save-box"><strong>유료 운영본에서 열리는 항목</strong><br>${esc(locked.message || '전체 체크리스트와 회신 템플릿은 결제 후 제공합니다.')}<br>현재 데모는 상위 이슈 ${esc(String(issues.length || 0))}건과 핵심 체크리스트만 공개합니다. 전체 체크리스트 ${esc(String(locked.fullChecklistCount || 0))}행과 회신 템플릿 ${esc(String(locked.fullTemplateCount || 0))}종은 결제 후 운영본에서 제공합니다.<br>리포트 코드 <span class="inline-code">${esc(report?.code || '-')}</span></div></div>`; }
   function renderGrantopsRemoteReport(report, values){ const stats = report?.stats || {}; const issues = Array.isArray(report?.issues) ? report.issues : []; const schedule = Array.isArray(report?.scheduleHighlights) ? report.scheduleHighlights : []; const roles = Array.isArray(report?.roleHighlights) ? report.roleHighlights : []; const quality = Array.isArray(report?.quality?.gates) ? report.quality.gates : []; const locked = report?.publicLocked || {}; return `<div class="demo-result-shell">${demoSummaryHeader('GrantOps 제출 데모 결과', report?.summary || `${values?.projectName || '입력 사업'} 기준 역산 일정 결과입니다.`, Math.round(Number(stats.readinessScore || 0)))}${renderKpis([{ value:`${stats.readinessScore ?? 0}점`, label:'준비도', note:`마감과 진행률을 함께 반영했습니다.` },{ value:stats.daysLeft === null || stats.daysLeft === undefined ? '미입력' : `D-${stats.daysLeft}`, label:'마감 상태', note:`핵심 경로 ${stats.criticalPathSteps ?? 0}단계` },{ value:`${stats.riskLevel || '확인'}`, label:'제출 리스크', note:`리포트 코드 ${esc(report?.code || '-')}` }])}<div class="demo-section-stack"><h4>무료 데모에서 먼저 보여주는 상위 이슈</h4>${renderDemoAlerts(issues.map((item)=>({ level:item.level, title:item.title, detail:item.detail })))}<h4>핵심 경로 요약</h4>${renderDemoTable((schedule.length ? schedule : [{label:'핵심 경로', date:`${stats.criticalPathSteps ?? 0}단계`}]).map((item)=>[item.label || '단계', `${item.date || '-'}${item.owner ? ` · ${item.owner}` : ''}`]))}<h4>역할 분리 요약</h4>${renderDemoTable((roles.length ? roles : [{label:'역할 수', owner:`${stats.contributors ?? 1}명`}]).map((item)=>[item.label || '역할', `${item.owner || '-'}${item.date ? ` · ${item.date}` : ''}`]))}<h4>발행 전 품질 상태</h4><div class="demo-table">${quality.map((item)=>`<div class="demo-table-row"><strong>${esc(item.label)}</strong><span>${esc(item.ok ? '통과 · ' + item.detail : '보완 필요 · ' + item.detail)}</span></div>`).join('')}</div></div><div class="demo-save-box"><strong>유료 운영본에서 열리는 항목</strong><br>${esc(locked.message || '전체 역산 일정과 요청 문장 세트는 결제 후 제공합니다.')}<br>현재 데모는 상위 이슈 ${esc(String(issues.length || 0))}건과 핵심 경로만 공개합니다. 전체 일정 ${esc(String(locked.fullScheduleCount || 0))}행과 요청 문장 ${esc(String(locked.fullTemplateCount || 0))}종은 결제 후 운영본에서 제공합니다.<br>리포트 코드 <span class="inline-code">${esc(report?.code || '-')}</span></div></div>`; }
   function renderDraftforgeRemoteReport(report, values){ const stats = report?.stats || {}; const issues = Array.isArray(report?.issues) ? report.issues : []; const matrix = Array.isArray(report?.versionHighlights) ? report.versionHighlights : []; const quality = Array.isArray(report?.quality?.gates) ? report.quality.gates : []; const locked = report?.publicLocked || {}; return `<div class="demo-result-shell">${demoSummaryHeader('DraftForge 문서 통제 데모 결과', report?.summary || `${values?.docType || '입력 문서'} 기준 버전 운영 결과입니다.`, Math.round(Number(stats.controlScore || 0)))}${renderKpis([{ value:`${stats.controlScore ?? 0}점`, label:'문서 통제 점수', note:`최신본 기준과 승인 구조를 반영했습니다.` },{ value:`${stats.approvalSteps ?? 1}단계`, label:'승인 단계', note:`검토/배포 분기 구조입니다.` },{ value:`${stats.handoffRisk || '확인'}`, label:'인계 위험', note:`리포트 코드 ${esc(report?.code || '-')}` }])}<div class="demo-section-stack"><h4>무료 데모에서 먼저 보여주는 상위 이슈</h4>${renderDemoAlerts(issues.map((item)=>({ level:item.level, title:item.title, detail:item.detail })))}<h4>버전 규칙 요약</h4>${renderDemoTable((matrix.length ? matrix : [{label:'버전 규칙 수', rule:`${locked.fullVersionRuleCount || 0}개`}]).map((item)=>[item.label || '단계', `${item.rule || '-'}`]))}<h4>발행 전 품질 상태</h4><div class="demo-table">${quality.map((item)=>`<div class="demo-table-row"><strong>${esc(item.label)}</strong><span>${esc(item.ok ? '통과 · ' + item.detail : '보완 필요 · ' + item.detail)}</span></div>`).join('')}</div></div><div class="demo-save-box"><strong>유료 운영본에서 열리는 항목</strong><br>${esc(locked.message || '전체 버전 규칙표와 검토·발송 문장 세트는 결제 후 제공합니다.')}<br>현재 데모는 상위 이슈 ${esc(String(issues.length || 0))}건과 버전 규칙 요약만 공개합니다. 전체 버전 규칙 ${esc(String(locked.fullVersionRuleCount || 0))}개와 문장 템플릿 ${esc(String(locked.fullTemplateCount || 0))}종은 결제 후 운영본에서 제공합니다.<br>리포트 코드 <span class="inline-code">${esc(report?.code || '-')}</span></div></div>`; }
-  function setAdminToken(value){ try { if (clean(value)) sessionStorage.setItem(AUTH_KEY, '1'); else sessionStorage.removeItem(AUTH_KEY); } catch {} }
-  function headersFor(url, extra){ const headers = Object.assign({}, extra || {}); const target = String(url || ''); const token = clean(getAdminToken()); if (token && token.length > 20 && target.includes('/api/admin/')) headers['X-Admin-Token'] = token; return headers; }
+  function setAdminToken(value){
+    const token = clean(value);
+    try {
+      if (token) {
+        sessionStorage.setItem(AUTH_KEY, token);
+        localStorage.setItem(AUTH_PERSIST_KEY, token);
+      } else {
+        sessionStorage.removeItem(AUTH_KEY);
+        localStorage.removeItem(AUTH_PERSIST_KEY);
+      }
+    } catch {
+      try { if (token) localStorage.setItem(AUTH_PERSIST_KEY, token); else localStorage.removeItem(AUTH_PERSIST_KEY); } catch {}
+    }
+  }
+  function headersFor(url, extra){ const headers = Object.assign({}, extra || {}); const target = String(url || ''); const token = clean(getAdminToken()); if (token && target.includes('/api/admin/')) headers['X-Admin-Token'] = token; return headers; }
   function fetchOptionsFor(url, extra){ const target = String(url || ''); const options = Object.assign({}, extra || {}); if (target.includes('/api/admin/')) options.credentials = 'include'; return options; }
-  async function checkAdminSession(){ const url = config.integration?.admin_session_endpoint || '/api/admin/session'; try { const res = await fetch(url, fetchOptionsFor(url, { headers: headersFor(url, { 'Accept':'application/json' }) })); if (!res.ok) return false; const payload = await res.json(); const ok = Boolean(payload?.authenticated); if (ok) setAdminToken('1'); else setAdminToken(''); return ok; } catch { return false; } }
-  async function performAdminLogin(secret){ const token = clean(secret); if (!token) return false; const url = config.integration?.admin_login_endpoint || '/api/admin/login'; const res = await fetch(url, fetchOptionsFor(url, { method:'POST', headers: { 'Content-Type':'application/json', 'Accept':'application/json' }, body: JSON.stringify({ token }) })); if (!res.ok) { setAdminToken(''); return false; } setAdminToken('1'); return true; }
-  async function performAdminLogout(){ const url = config.integration?.admin_logout_endpoint || '/api/admin/logout'; try { await fetch(url, fetchOptionsFor(url, { method:'POST', headers: { 'Accept':'application/json' } })); } catch {} setAdminToken(''); }
+  async function checkAdminSession(){
+    const url = config.integration?.admin_session_endpoint || '/api/admin/session';
+    try {
+      const res = await fetch(url, fetchOptionsFor(url, { headers: headersFor(url, { 'Accept':'application/json' }) }));
+      if (res.ok) {
+        const payload = await res.json();
+        const ok = Boolean(payload?.authenticated);
+        if (ok) {
+          const stored = clean(getAdminToken());
+          if (stored) setAdminToken(stored);
+          return true;
+        }
+      }
+    } catch {}
+    const token = clean(getAdminToken());
+    if (!token) {
+      setAdminToken('');
+      return false;
+    }
+    const validateUrl = config.integration?.admin_validate_endpoint || config.integration?.admin_state_endpoint || '/api/admin/validate';
+    try {
+      const validateRes = await fetch(validateUrl, fetchOptionsFor(validateUrl, { headers: headersFor(validateUrl, { 'Accept':'application/json' }) }));
+      const ok = validateRes.ok;
+      if (ok) {
+        setAdminToken(token);
+        return true;
+      }
+    } catch {}
+    setAdminToken('');
+    return false;
+  }
+  async function performAdminLogin(secret){
+    const token = clean(secret);
+    if (!token) return false;
+    const url = config.integration?.admin_login_endpoint || '/api/admin/login';
+    const res = await fetch(url, fetchOptionsFor(url, { method:'POST', headers: { 'Content-Type':'application/json', 'Accept':'application/json' }, body: JSON.stringify({ token }) }));
+    if (!res.ok) { setAdminToken(''); return false; }
+    setAdminToken(token);
+    const verified = await checkAdminSession();
+    if (!verified) {
+      const validateUrl = config.integration?.admin_validate_endpoint || '/api/admin/validate';
+      try {
+        const validateRes = await fetch(validateUrl, fetchOptionsFor(validateUrl, { headers: headersFor(validateUrl, { 'Accept':'application/json' }) }));
+        if (!validateRes.ok) { setAdminToken(''); return false; }
+      } catch { setAdminToken(''); return false; }
+    }
+    return true;
+  }
+  async function performAdminLogout(){ const url = config.integration?.admin_logout_endpoint || '/api/admin/logout'; try { await fetch(url, fetchOptionsFor(url, { method:'POST', headers: headersFor(url, { 'Accept':'application/json' }) })); } catch {} setAdminToken(''); }
   async function loadSystemConfig(){ const url = config.integration?.system_config_endpoint; if (!url) return null; try { const res = await fetch(url, { headers: { 'Accept': 'application/json' } }); if (!res.ok) return null; const payload = await res.json(); runtime.systemConfig = payload.config || null; return runtime.systemConfig; } catch { return null; } }
   function paymentRuntime(){ return runtime.systemConfig?.payment?.toss || null; }
   async function loadTossScript(){ if (window.TossPayments) return true; return new Promise((resolve) => { const existing = document.querySelector('script[data-toss-script]'); if (existing) { existing.addEventListener('load', () => resolve(Boolean(window.TossPayments)), { once: true }); existing.addEventListener('error', () => resolve(false), { once: true }); return; } const script = document.createElement('script'); script.src = 'https://js.tosspayments.com/v1/payment'; script.async = true; script.dataset.tossScript = '1'; script.onload = () => resolve(Boolean(window.TossPayments)); script.onerror = () => resolve(false); document.head.appendChild(script); }); }
@@ -74,7 +172,7 @@
   function productName(key){ return products[key]?.name || key; }
   function productPrefix(key){ return ({veridion:'VER', clearport:'CLR', grantops:'GRT', draftforge:'DRF'})[key] || String(key || 'GEN').slice(0,3).toUpperCase(); }
   function planPrice(key, planName){ const target = products[key]; const plan = target?.plans?.find((item) => item.name === planName) || target?.plans?.[0]; return plan?.price || '-'; }
-  function priceToAmount(value){ const text = clean(value).replace(/,/g, ''); if (/만$/.test(text)) { const number = clean(text.replace(/만$/, '')); return /^\d+$/.test(number) ? Number(number) * 10000 : 0; } const digits = text.replace(/[^0-9]/g, ''); return digits ? Number(digits) : 0; }
+  function priceToAmount(value){ const text = clean(value).replace(/,/g, '').replace(/\/월$/, '').replace(/월$/, ''); if (/만$/.test(text)) { const number = clean(text.replace(/만$/, '')); return /^\d+$/.test(number) ? Number(number) * 10000 : 0; } const digits = text.replace(/[^0-9]/g, ''); return digits ? Number(digits) * (text.includes('만') ? 10000 : 1) : 0; }
   function planNote(key, planName){ const target = products[key]; const plan = target?.plans?.find((item) => item.name === planName) || target?.plans?.[0]; return plan?.note || ''; }
   function clean(value){ return String(value ?? '').trim(); }
   function normalizeEmail(value){ return clean(value).toLowerCase(); }
@@ -206,19 +304,27 @@
     return { modal, input, result };
   }
   async function requestAdminAccess(redirect = true){
+    const alreadyAuthed = await checkAdminSession();
+    if (alreadyAuthed) {
+      if (redirect) {
+        window.location.href = `${base}admin/index.html`;
+        return true;
+      }
+      await bootstrapAdminGate();
+      return true;
+    }
     const modalUi = ensureAdminAccessModal();
     if (modalUi?.modal) {
       modalUi.modal.hidden = false;
       document.body.classList.add('modal-open');
-      if (modalUi.input) modalUi.input.value = getAdminToken();
+      if (modalUi.input) modalUi.input.value = '';
       const modalRoot = document.getElementById('admin-access-modal-root');
       if (modalRoot) modalRoot.dataset.redirect = redirect === false ? 'false' : 'true';
       if (modalUi.result) modalUi.result.textContent = '관리 비밀키를 입력하면 관리자 기능이 열립니다.';
       setTimeout(() => modalUi.input?.focus(), 10);
       return false;
     }
-    const current = getAdminToken();
-    const input = window.prompt('관리 비밀키를 입력하세요.', current || '');
+    const input = window.prompt('관리 비밀키를 입력하세요.', '');
     if (input === null) return false;
     const token = clean(input);
     if (!token) { window.alert('비밀키를 입력해야 관리자 화면으로 들어갈 수 있습니다.'); return false; }
@@ -330,7 +436,7 @@
     const input = document.getElementById('admin-token-input');
     const save = document.getElementById('admin-token-save');
     const clear = document.getElementById('admin-token-clear');
-    if (input) input.value = getAdminToken();
+    if (input) input.value = clean(getAdminToken());
     if (save) save.addEventListener('click', async () => {
       const ok = await performAdminLogin(input?.value || '');
       if (!ok) { showResult('admin-action-result', '관리자 키를 다시 확인해 주세요.'); await bootstrapAdminGate(); return; }
@@ -372,12 +478,11 @@
       return false;
     }
     const synced = await syncRemoteState();
-    if (!synced) {
-      shell.style.display = 'none';
-      if (gate) gate.innerHTML = '관리자 비밀키가 없거나 맞지 않습니다. 다시 입력해 주세요.';
-      return false;
-    }
     shell.style.display = '';
+    if (!synced) {
+      if (gate) gate.innerHTML = '운영 메뉴는 열었지만 서버 상태 동기화가 지연되었습니다. 메뉴는 바로 사용할 수 있고, 새로고침하면 다시 불러옵니다.';
+      return true;
+    }
     if (gate) gate.innerHTML = '운영 메뉴를 열었습니다. 서버 상태를 불러왔습니다.';
     return true;
   }
@@ -474,7 +579,7 @@
     const quickWins = (target?.workflow || []).slice(0, 3);
     const successMetrics = (target?.architecture?.performance_targets || []).slice(0, 3);
     const valueDrivers = (target?.value_points || []).slice(0, 3);
-    return {
+    const pack = {
       title: `${target?.name || ''} ${payload.plan || 'Starter'} 실행 결과`,
       summary: `${target?.name || ''} 결제 이후 확인해야 할 자료와 전달 흐름이 자동으로 준비되었습니다. 결제 직후 바로 확인하고 활용할 수 있습니다.`,
       outcomeHeadline: `${payload.company || '고객사'}가 지금 바로 판단하고 실행할 수 있는 핵심 결과를 먼저 정리했습니다.`,
@@ -502,6 +607,17 @@
       valueNarrative: `${target?.name || ''}은 결과 제목만 전달하지 않고, 바로 판단할 제품 소개·세부 실행 자료·발행 결과까지 함께 묶어 남는 운영 자산으로 만드는 데 초점을 둡니다. 이번 결과는 지금 당장 움직일 일과 다음 변경 때 다시 꺼내 쓸 기준을 동시에 남깁니다.`,
       buyerDecisionReason: `단순 샘플이나 템플릿이 아니라 ${payload.company || '고객사'}의 목표와 운영 방식에 맞춘 판단 자료, 실행 자료, 발행 자산이 한 번에 준비되기 때문에 결제 직후 체감 가치가 높습니다.`,
     };
+    if (target?.key === 'veridion' && (clean(payload.billing) === 'monthly' || clean(payload.plan) === 'Monitor')) {
+      pack.monitoringSubscription = {
+        enabled: true,
+        summary: '법령 변경 알림, 영향 페이지 재점검 큐, 월간 스냅샷을 월 구독형으로 이어갑니다.',
+        cadenceLabel: '매 30일 점검',
+        watchSources: ['개인정보', '전자상거래', '광고·표현', '구독 결제 고지'],
+      };
+      pack.issuanceBundle.push({ title:'월 구독형 상시 모니터링', description:'법령 변경 알림, 영향 페이지 큐, 월간 재점검 스냅샷을 구독형으로 제공합니다.', customerValue:'법령이 바뀔 때마다 손으로 다시 찾지 않아도 됩니다.', usageMoment:'월 구독 시작 직후', expertNote:'재점검 주기와 알림 이력을 같이 남깁니다.', status:'ready' });
+      pack.deliveryAssets.push({ title:'법령 변경 알림 세트', description:'알림 기준표, 영향 페이지 큐, 월간 스냅샷', customerValue:'운영 기준을 반복 사용 가능합니다.', usageMoment:'월간 운영', expertNote:'영향 페이지를 먼저 좁혀 점검 시간을 줄입니다.', status:'ready' });
+    }
+    return pack;
   }
   function buildDemoPreviewData(target, payload){
     const goal = payload.goal || target?.summary || '';
@@ -566,7 +682,7 @@
       product: data.product,
       productName: target.name,
       plan: data.plan,
-      billing: data.billing || 'one-time',
+      billing: data.billing || (products[data.product]?.plans?.find((item) => item.name === data.plan)?.billing || 'one-time'),
       paymentMethod: data.paymentMethod || 'toss',
       company: data.company || '',
       name: data.name || '',
@@ -1040,7 +1156,7 @@
     const root = document.getElementById('product-demo-shell');
     if (!root || !product) return;
     if (product.key === 'veridion') {
-      root.innerHTML = `<form id="product-demo-form" class="stack-form"><div class="form-grid"><div class="span-2"><label>사이트 주소</label><input name="website" data-demo-field="website" placeholder="https://example.com" inputmode="url" autocomplete="url" required></div><div><label>업종</label><select name="industry" data-demo-field="industry"><option value="commerce">이커머스</option><option value="beauty">뷰티·웰니스</option><option value="healthcare">의료·건강</option><option value="education">교육·서비스</option><option value="saas">B2B SaaS</option></select></div><div><label>운영 국가</label><select name="country" data-demo-field="country"><option value="KR" selected>대한민국</option><option value="US">미국</option><option value="JP">일본</option><option value="CN">중국</option><option value="EU">유럽연합</option><option value="SEA">동남아</option><option value="GLOBAL">글로벌</option></select></div><div><label>중점 확인 사항</label><select name="focus" data-demo-field="focus"><option value="전체 리스크 빠르게 보기">전체 리스크 빠르게 보기</option><option value="개인정보·회원가입 동선">개인정보·회원가입 동선</option><option value="결제·환불·청약철회 고지">결제·환불·청약철회 고지</option><option value="광고·표시 문구">광고·표시 문구</option><option value="약관·정책 문서 일치">약관·정책 문서 일치</option><option value="민감 업종·표현 위험">민감 업종·표현 위험</option></select></div></div><div class="notice notice-light"><strong>데모에서 바로 보여주는 항목</strong><br>영역별 위반 가능 항목 수, 위기 점수, 유사 업종 대비 하위 퍼센트, 예상 최대 과태료, 결제 후 열리는 서비스 1·2까지 먼저 확인합니다.</div><div class="actions"><button class="button" type="submit">즉시 분석하기</button><a class="button ghost" href="#order">바로 결제</a></div></form>`;
+      root.innerHTML = `<form id="product-demo-form" class="stack-form"><div class="form-grid"><div class="span-2"><label>사이트 주소</label><input name="website" data-demo-field="website" placeholder="https://example.com" inputmode="url" autocomplete="url" required></div><div><label>업종</label><select name="industry" data-demo-field="industry"><option value="commerce">이커머스</option><option value="beauty">뷰티·웰니스</option><option value="healthcare">의료·건강</option><option value="education">교육·서비스</option><option value="saas">B2B SaaS</option></select></div><div><label>운영 국가</label><select name="country" data-demo-field="country"><option value="KR" selected>대한민국</option><option value="US">미국</option><option value="JP">일본</option><option value="CN">중국</option><option value="EU">유럽연합</option><option value="SEA">동남아</option><option value="GLOBAL">글로벌</option></select></div><div><label>중점 확인 사항</label><select name="focus" data-demo-field="focus"><option value="전체 리스크 빠르게 보기">전체 리스크 빠르게 보기</option><option value="개인정보·회원가입 동선">개인정보·회원가입 동선</option><option value="결제·환불·청약철회 고지">결제·환불·청약철회 고지</option><option value="광고·표시 문구">광고·표시 문구</option><option value="약관·정책 문서 일치">약관·정책 문서 일치</option><option value="민감 업종·표현 위험">민감 업종·표현 위험</option></select></div></div><div class="notice notice-light"><strong>데모에서 바로 보여주는 항목</strong><br>영역별 위반 가능 항목 수, 위기 점수, 유사 업종 대비 하위 퍼센트, 예상 최대 과태료, 결제 후 열리는 서비스 1·2·3까지 먼저 확인합니다.</div><div class="actions"><button class="button" type="submit">즉시 분석하기</button><a class="button ghost" href="#order">바로 결제</a></div></form>`;
       setupVeridionSmartFocus(document.getElementById('product-demo-form'));
       return;
     }
@@ -1548,12 +1664,24 @@ function syncPlanOptionsForForm(form){
   select.value = plans.some((item) => item.name === previous) ? previous : fallback;
 }
 
+function syncBillingForForm(form){
+  if (!form) return 'one-time';
+  const productKey = clean(form.elements?.product?.value || product?.key || document.body?.dataset?.product || '');
+  const planName = clean(form.elements?.plan?.value || 'Starter');
+  const plan = products[productKey]?.plans?.find((item) => item.name === planName);
+  const billing = clean(plan?.billing || form.elements?.billing?.value || 'one-time');
+  if (form.elements?.billing) form.elements.billing.value = billing;
+  return billing;
+}
+
 function updatePlanSummary(form, summaryId){
   const summary = document.getElementById(summaryId);
   if (!form || !summary) return;
   const productKey = clean(form.elements?.product?.value || product?.key || document.body?.dataset?.product || '');
   const planName = clean(form.elements?.plan?.value || 'Starter');
-  summary.innerHTML = `<strong>현재 선택 요약</strong><br>${esc(productName(productKey))} · ${esc(planName)} · ${esc(planPrice(productKey, planName))}${planNote(productKey, planName) ? `<br><small>${esc(planNote(productKey, planName))}</small>` : ''}`;
+  const billing = syncBillingForForm(form);
+  const billingLabel = billing === 'monthly' ? '월 구독' : '1회 결제';
+  summary.innerHTML = `<strong>현재 선택 요약</strong><br>${esc(productName(productKey))} · ${esc(planName)} · ${esc(planPrice(productKey, planName))} · ${esc(billingLabel)}${planNote(productKey, planName) ? `<br><small>${esc(planNote(productKey, planName))}</small>` : ''}`;
 }
 
 function buildDemoSaveBox(entry, remoteSaved){
@@ -1565,7 +1693,7 @@ function renderProductDemoWorkspace(){
   const root = document.getElementById('product-demo-shell');
   if (!root || !product) return;
   if (product.key === 'veridion') {
-    root.innerHTML = `<form id="product-demo-form" class="stack-form"><div class="form-grid"><div class="span-2"><label>사이트 주소</label><input name="website" placeholder="https://example.com" inputmode="url" autocomplete="url" required></div><div><label>업종</label><select name="industry"><option value="commerce">이커머스</option><option value="beauty">뷰티·웰니스</option><option value="healthcare">의료·건강</option><option value="education">교육·서비스</option><option value="saas">B2B SaaS</option></select></div><div><label>주요 운영 국가</label><select name="country"><option value="KR" selected>대한민국</option><option value="US">미국</option><option value="JP">일본</option><option value="CN">중국</option><option value="EU">유럽연합</option><option value="SEA">동남아</option><option value="GLOBAL">글로벌</option></select></div><div><label>중점 확인 사항</label><select name="focus" data-demo-field="focus"><option value="전체 리스크 빠르게 보기">전체 리스크 빠르게 보기</option><option value="개인정보·회원가입 동선">개인정보·회원가입 동선</option><option value="결제·환불·청약철회 고지">결제·환불·청약철회 고지</option><option value="광고·표시 문구">광고·표시 문구</option><option value="약관·정책 문서 일치">약관·정책 문서 일치</option><option value="민감 업종·표현 위험">민감 업종·표현 위험</option></select></div></div><div class="notice notice-light"><strong>데모에서 바로 보여주는 항목</strong><br>영역별 위반 가능 항목 수, 위기 점수, 유사 업종 대비 하위 퍼센트, 예상 최대 과태료, 결제 후 열리는 서비스 1·2까지 먼저 확인합니다.</div><div class="actions"><button class="button" type="submit">즉시 분석하기</button><a class="button ghost" href="#order">바로 결제</a></div></form>`;
+    root.innerHTML = `<form id="product-demo-form" class="stack-form"><div class="form-grid"><div class="span-2"><label>사이트 주소</label><input name="website" placeholder="https://example.com" inputmode="url" autocomplete="url" required></div><div><label>업종</label><select name="industry"><option value="commerce">이커머스</option><option value="beauty">뷰티·웰니스</option><option value="healthcare">의료·건강</option><option value="education">교육·서비스</option><option value="saas">B2B SaaS</option></select></div><div><label>주요 운영 국가</label><select name="country"><option value="KR" selected>대한민국</option><option value="US">미국</option><option value="JP">일본</option><option value="CN">중국</option><option value="EU">유럽연합</option><option value="SEA">동남아</option><option value="GLOBAL">글로벌</option></select></div><div><label>중점 확인 사항</label><select name="focus" data-demo-field="focus"><option value="전체 리스크 빠르게 보기">전체 리스크 빠르게 보기</option><option value="개인정보·회원가입 동선">개인정보·회원가입 동선</option><option value="결제·환불·청약철회 고지">결제·환불·청약철회 고지</option><option value="광고·표시 문구">광고·표시 문구</option><option value="약관·정책 문서 일치">약관·정책 문서 일치</option><option value="민감 업종·표현 위험">민감 업종·표현 위험</option></select></div></div><div class="notice notice-light"><strong>데모에서 바로 보여주는 항목</strong><br>영역별 위반 가능 항목 수, 위기 점수, 유사 업종 대비 하위 퍼센트, 예상 최대 과태료, 결제 후 열리는 서비스 1·2·3까지 먼저 확인합니다.</div><div class="actions"><button class="button" type="submit">즉시 분석하기</button><a class="button ghost" href="#order">바로 결제</a></div></form>`;
     return;
   }
   if (product.key === 'clearport') {

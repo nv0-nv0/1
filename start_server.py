@@ -3,11 +3,22 @@ from __future__ import annotations
 import os
 import secrets
 import sys
+from pathlib import Path
 from urllib.parse import urlparse
 
 import uvicorn
+from dotenv import load_dotenv
 
 LOCAL_HOSTS = {"127.0.0.1", "localhost", "0.0.0.0", "::1"}
+
+
+def load_env_files() -> None:
+    root = Path(__file__).resolve().parent
+    for name in (".env", ".env.local", ".env.production"):
+        candidate = root / name
+        if candidate.exists():
+            load_dotenv(candidate, override=False)
+
 
 
 def clean(value: str | None) -> str:
@@ -50,6 +61,7 @@ def int_env(name: str, default: int | None = None) -> int | None:
 
 
 def main() -> None:
+    load_env_files()
     port = clean(os.getenv("PORT")) or "8000"
     maybe_set_default("NV0_BASE_URL", f"http://127.0.0.1:{port}")
     parsed = urlparse(os.getenv("NV0_BASE_URL", ""))

@@ -42,6 +42,9 @@ def main() -> None:
     risk = report.get('risk') or {}
     require(isinstance(risk.get('riskScore'), int), 'public risk score missing')
     require((risk.get('estimatedExposure') or {}).get('display'), 'public exposure display missing')
+    compliance = risk.get('compliance') or {}
+    require(isinstance(compliance.get('rate'), (int, float)), 'public compliance rate missing')
+    require(isinstance(compliance.get('averageRate'), (int, float)), 'public industry average missing')
     require(report.get('publicLocked', {}).get('message'), 'public locked message missing')
     require('siteSpecificRules' not in report, 'public report should not expose siteSpecificRules')
     require('pageActions' not in report, 'public report should not expose pageActions')
@@ -95,6 +98,7 @@ def main() -> None:
     require(len(pack.get('lawGroupSummary') or []) >= 1, 'delivery pack law group summary missing')
     require(isinstance((pack.get('linkedReport') or {}).get('riskScore'), int), 'delivery pack linked report risk score missing')
     require((pack.get('linkedReport') or {}).get('code') == report.get('code'), 'delivery pack should be linked to scanned report code')
+    require((pack.get('clientContext') or {}).get('complianceRate') is not None, 'delivery pack compliance rate missing')
 
     status, body = fetch('POST', f'{base}/api/public/portal/lookup', {
         'email': confirmed.get('email'),
@@ -109,6 +113,7 @@ def main() -> None:
         'reportCode': report.get('code'),
         'riskScore': risk.get('riskScore'),
         'publicIssueCount': len(report.get('topIssues') or []),
+        'complianceRate': compliance.get('rate'),
         'deliveryRuleCount': len(pack.get('siteSpecificRules') or []),
         'deliveryPageActionCount': len(pack.get('pageActions') or []),
         'deliveryRemediationCount': len(pack.get('remediationPlan') or []),
