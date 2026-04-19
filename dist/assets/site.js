@@ -32,7 +32,142 @@
   const AUTH_KEY = 'nv0-admin-auth';
   const AUTH_PERSIST_KEY = 'nv0-admin-auth-persist';
   const REPORT_SESSION_KEYS = { veridion:'nv0-veridion-last-report', clearport:'nv0-clearport-last-report', grantops:'nv0-grantops-last-report', draftforge:'nv0-draftforge-last-report' };
+  const PIPELINE_CONTEXT_KEY = 'nv0-pipeline-context';
   const runtime = { systemConfig: null };
+  function getPipelineContext(){
+    try { return JSON.parse(sessionStorage.getItem(PIPELINE_CONTEXT_KEY) || localStorage.getItem(PIPELINE_CONTEXT_KEY) || '{}') || {}; }
+    catch { return {}; }
+  }
+  function setPipelineContext(value){
+    try {
+      const serialized = JSON.stringify(value || {});
+      sessionStorage.setItem(PIPELINE_CONTEXT_KEY, serialized);
+      localStorage.setItem(PIPELINE_CONTEXT_KEY, serialized);
+    } catch {}
+    return value || {};
+  }
+  function patchPipelineContext(patch){
+    const current = getPipelineContext();
+    const next = { ...current, ...(patch || {}) };
+    return setPipelineContext(next);
+  }
+  function clearPipelineContext(){
+    try { sessionStorage.removeItem(PIPELINE_CONTEXT_KEY); } catch {}
+    try { localStorage.removeItem(PIPELINE_CONTEXT_KEY); } catch {}
+  }
+  function rememberDemoFlow(productKey, values, report){
+    const current = getPipelineContext();
+    const next = {
+      ...current,
+      product: productKey || current.product || '',
+      website: clean(values?.website || current.website || ''),
+      company: clean(values?.company || current.company || ''),
+      name: clean(values?.name || current.name || ''),
+      email: normalizeEmail(values?.email || current.email || ''),
+      note: clean(structuredProductReportNote(productKey || current.product || 'veridion', values || {}, report || {}) || current.note || ''),
+      focus: clean(values?.focus || current.focus || ''),
+      country: clean(values?.country || current.country || ''),
+      countryLabel: clean(values?.countryLabel || current.countryLabel || ''),
+      report: report ? {
+        id: clean(report?.id),
+        code: clean(report?.code),
+        product: productKey || current.product || '',
+        website: clean(report?.scannedWebsite || report?.website || values?.website || current.website || ''),
+      } : (current.report || null),
+      updatedAt: new Date().toISOString(),
+    };
+    return setPipelineContext(next);
+  }
+  function rememberPendingOrder(order, extra={}){
+    if (!order) return getPipelineContext();
+    const current = getPipelineContext();
+    return setPipelineContext({
+      ...current,
+      ...extra,
+      product: clean(order.product || extra.product || current.product || ''),
+      plan: clean(order.plan || extra.plan || current.plan || ''),
+      website: clean(extra.website || current.website || order.link || ''),
+      company: clean(extra.company || current.company || order.company || ''),
+      name: clean(extra.name || current.name || order.name || ''),
+      email: normalizeEmail(extra.email || current.email || order.email || ''),
+      note: clean(extra.note || current.note || order.note || ''),
+      order: {
+        id: clean(order.id),
+        code: clean(order.code),
+        product: clean(order.product),
+        plan: clean(order.plan),
+        amount: Number(order.amount || 0),
+        status: clean(order.status),
+        paymentStatus: clean(order.paymentStatus),
+        email: normalizeEmail(extra.email || current.email || order.email || ''),
+      },
+      updatedAt: new Date().toISOString(),
+    });
+  }
+  function rememberCompletedOrder(order){
+    if (!order) return getPipelineContext();
+    const current = getPipelineContext();
+    return setPipelineContext({
+      ...current,
+      product: clean(order.product || current.product || ''),
+      plan: clean(order.plan || current.plan || ''),
+      website: clean(order.link || current.website || ''),
+      company: clean(order.company || current.company || ''),
+      name: clean(order.name || current.name || ''),
+      email: normalizeEmail(order.email || current.email || ''),
+      order: {
+        id: clean(order.id),
+        code: clean(order.code),
+        product: clean(order.product),
+        plan: clean(order.plan),
+        amount: Number(order.amount || 0),
+        status: clean(order.status),
+        paymentStatus: clean(order.paymentStatus),
+        email: normalizeEmail(order.email || current.email || ''),
+      },
+      updatedAt: new Date().toISOString(),
+    });
+  }
+  function assignIfEmpty(form, name, value){
+    const input = form?.elements?.namedItem?.(name) || form?.querySelector?.(`[name="${name}"]`);
+    if (!input || value === undefined || value === null) return;
+    const next = String(value).trim();
+    if (!next) return;
+    if ('value' in input && !String(input.value || '').trim()) input.value = next;
+  }
+  function preloadCheckoutContext(form, fallbackProduct=''){
+    if (!form) return;
+    const context = getPipelineContext();
+    const report = context.report || {};
+    assignIfEmpty(form, 'product', context.product || fallbackProduct || '');
+    assignIfEmpty(form, 'plan', context.plan || 'Starter');
+    assignIfEmpty(form, 'company', context.company || '');
+    assignIfEmpty(form, 'name', context.name || '');
+    assignIfEmpty(form, 'email', context.email || '');
+    assignIfEmpty(form, 'link', context.website || report.website || '');
+    assignIfEmpty(form, 'website', context.website || report.website || '');
+    assignIfEmpty(form, 'note', context.note || '');
+    if (report?.id) ensureHiddenField(form, 'reportId', report.id);
+    if (report?.code) ensureHiddenField(form, 'reportCode', report.code);
+  }
+  function preloadContactContext(form){
+    if (!form) return;
+    const context = getPipelineContext();
+    assignIfEmpty(form, 'product', context.product || '');
+    assignIfEmpty(form, 'company', context.company || '');
+    assignIfEmpty(form, 'name', context.name || '');
+    assignIfEmpty(form, 'email', context.email || '');
+    assignIfEmpty(form, 'link', context.website || '');
+    assignIfEmpty(form, 'issue', context.note || '');
+  }
+  function preloadPortalContext(form){
+    if (!form) return;
+    const params = new URLSearchParams(location.search);
+    const context = getPipelineContext();
+    const order = context.order || {};
+    assignIfEmpty(form, 'email', params.get('email') || order.email || context.email || '');
+    assignIfEmpty(form, 'code', params.get('code') || order.code || '');
+  }
   function getAdminToken(){
     try {
       return sessionStorage.getItem(AUTH_KEY) || localStorage.getItem(AUTH_PERSIST_KEY) || '';
@@ -397,14 +532,18 @@
   }
   async function postIfConfigured(url, payload){
     if (!url) return { mode:'local' };
+    const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
+    const timeout = controller ? setTimeout(() => controller.abort(), 20000) : null;
     try {
-      const res = await fetch(url, fetchOptionsFor(url, { method:'POST', headers: headersFor(url, { 'Content-Type':'application/json', 'Accept':'application/json' }), body: JSON.stringify(payload || {}) }));
+      const res = await fetch(url, fetchOptionsFor(url, { method:'POST', headers: headersFor(url, { 'Content-Type':'application/json', 'Accept':'application/json' }), body: JSON.stringify(payload || {}), ...(controller ? { signal: controller.signal } : {}) }));
       const text = await res.text();
       let json = null;
       try { json = text ? JSON.parse(text) : null; } catch {}
       return { mode: 'remote', ok: res.ok, status: res.status, json, text };
     } catch (error) {
       return { mode:'remote-failed', ok:false, error:createFriendlyError(error, '원격 endpoint 호출 실패') };
+    } finally {
+      if (timeout) clearTimeout(timeout);
     }
   }
   async function syncRemoteState(){
@@ -1557,60 +1696,84 @@ function buildDemoUpsellBox(productKey){
 
   async function bindProductDemoForm(){
     const form = document.getElementById('product-demo-form');
-    if (!form || !product) return;
-    if (product.key === 'veridion') setupVeridionSmartFocus(form);
+    const currentProduct = product || products[clean(document.body?.dataset?.product || '')] || null;
+    if (!form || !currentProduct || form.dataset.bound === '1') return;
+    form.dataset.bound = '1';
+    const paintResult = (html) => {
+      showResult('product-demo-result', html);
+      const resultBox = document.getElementById('product-demo-result');
+      resultBox?.scrollIntoView?.({ behavior:'smooth', block:'start' });
+    };
+    if (currentProduct.key === 'veridion') setupVeridionSmartFocus(form);
     form.addEventListener('submit', (event) => { event.preventDefault(); withSubmitLock(form, async () => {
+      paintResult('<div class="notice"><strong>분석 중입니다.</strong><br>입력한 조건을 기준으로 실시간 데모 결과를 만들고 있습니다.</div>');
       const data = new FormData(form);
       const values = Object.fromEntries(data.entries());
       values.options = checkedValues(form, 'option');
-      if (product.key === 'veridion') {
+      let fallbackReason = '';
+      if (currentProduct.key === 'veridion') {
         values.country = clean(values.country) || 'KR';
         const countryField = form.querySelector('[name="country"]');
         values.countryLabel = countryField?.selectedOptions?.[0]?.textContent?.trim() || '대한민국';
         values.market = values.countryLabel;
-        assert(clean(values.website), '점검할 URL을 입력하세요.');
-      }
-      let remoteReport = null;
-      if (product.key === 'veridion') {
         values.website = normalizeWebsiteInput(values.website);
         const websiteField = form.querySelector('[name="website"]');
         if (websiteField) websiteField.value = values.website;
+        assert(clean(values.website), '점검할 URL을 입력하세요.');
+      }
+      let remoteReport = null;
+      if (currentProduct.key === 'veridion') {
         values.options = veridionOptionsFromValues(values);
         const scanPayload = { website: values.website, industry: values.industry, country: values.country, market: values.market, maturity: values.maturity, pages: values.pages, focus: values.focus, options: values.options, company: values.company };
         const scan = await postIfConfigured(veridionScanEndpoint(), scanPayload);
-        if (scan.mode === 'remote' && scan.ok && scan.json?.report) { applyStatePayload(scan.json?.state); remoteReport = scan.json.report; setLastProductReport('veridion', remoteReport); }
-      } else if (product.key === 'clearport') {
+        if (scan.mode === 'remote' && scan.ok && scan.json?.report) {
+          applyStatePayload(scan.json?.state);
+          remoteReport = scan.json.report;
+          setLastProductReport('veridion', remoteReport);
+        } else if (scan.mode === 'remote-failed') {
+          fallbackReason = scan.error || '실시간 분석 endpoint에 연결하지 못했습니다. 입력값 기준 프리뷰를 먼저 보여드립니다.';
+        } else if (scan.mode === 'remote' && !scan.ok) {
+          throw new Error(scan.json?.detail || scan.text || '즉시 분석에 실패했습니다.');
+        } else {
+          fallbackReason = '실시간 응답이 비어 있어 입력값 기준 프리뷰로 전환했습니다.';
+        }
+      } else if (currentProduct.key === 'clearport') {
         const res = await postIfConfigured(clearportAnalyzeEndpoint(), { submissionType: values.submissionType, deadline: values.deadline, targetOrg: values.targetOrg, teamSize: values.teamSize, blocker: values.blocker, options: values.options, company: values.company });
         if (res.mode === 'remote' && res.ok && res.json?.report) { applyStatePayload(res.json?.state); remoteReport = res.json.report; setLastProductReport('clearport', remoteReport); }
+        else if (res.mode === 'remote-failed') fallbackReason = res.error || '분석 엔진 연결이 지연되어 입력값 기준 결과를 먼저 보여드립니다.';
         else if (res.mode === 'remote') throw new Error(res.json?.detail || res.text || '제출 준비 리포트를 만들지 못했습니다.');
-      } else if (product.key === 'grantops') {
+      } else if (currentProduct.key === 'grantops') {
         const res = await postIfConfigured(grantopsAnalyzeEndpoint(), { projectName: values.projectName, deadline: values.deadline, progress: values.progress, contributors: values.contributors, delayPoint: values.delayPoint, options: values.options, company: values.company });
         if (res.mode === 'remote' && res.ok && res.json?.report) { applyStatePayload(res.json?.state); remoteReport = res.json.report; setLastProductReport('grantops', remoteReport); }
+        else if (res.mode === 'remote-failed') fallbackReason = res.error || '분석 엔진 연결이 지연되어 입력값 기준 결과를 먼저 보여드립니다.';
         else if (res.mode === 'remote') throw new Error(res.json?.detail || res.text || '제출 운영 리포트를 만들지 못했습니다.');
       } else {
         const res = await postIfConfigured(draftforgeAnalyzeEndpoint(), { docType: values.docType, versionState: values.versionState, approvalSteps: values.approvalSteps, channel: values.channel, draftPain: values.draftPain, options: values.options, company: values.company });
         if (res.mode === 'remote' && res.ok && res.json?.report) { applyStatePayload(res.json?.state); remoteReport = res.json.report; setLastProductReport('draftforge', remoteReport); }
+        else if (res.mode === 'remote-failed') fallbackReason = res.error || '분석 엔진 연결이 지연되어 입력값 기준 결과를 먼저 보여드립니다.';
         else if (res.mode === 'remote') throw new Error(res.json?.detail || res.text || '문서 운영 리포트를 만들지 못했습니다.');
       }
-      const fallbackNote = product.key === 'clearport' ? [values.submissionType, values.targetOrg, values.blocker].filter(Boolean).join(' / ') : product.key === 'grantops' ? [values.projectName, values.progress, values.delayPoint].filter(Boolean).join(' / ') : product.key === 'draftforge' ? [values.docType, values.versionState, values.draftPain].filter(Boolean).join(' / ') : [values.website, values.focus].filter(Boolean).join(' / ');
-      const note = remoteReport ? structuredProductReportNote(product.key, values, remoteReport) : fallbackNote;
+      const fallbackNote = currentProduct.key === 'clearport' ? [values.submissionType, values.targetOrg, values.blocker].filter(Boolean).join(' / ') : currentProduct.key === 'grantops' ? [values.projectName, values.progress, values.delayPoint].filter(Boolean).join(' / ') : currentProduct.key === 'draftforge' ? [values.docType, values.versionState, values.draftPain].filter(Boolean).join(' / ') : [values.website, values.focus].filter(Boolean).join(' / ');
+      const note = remoteReport ? structuredProductReportNote(currentProduct.key, values, remoteReport) : fallbackNote;
+      rememberDemoFlow(currentProduct.key, values, remoteReport || { id:'', code:'', summary:note });
       let entry = null; let remoteSaved = false;
       const canSave = clean(values.company) && clean(values.name) && validateEmail(values.email || '');
       if (canSave) {
-        const demoPayload = { product: product.key, company: values.company, name: values.name, email: values.email, team: values.teamSize || values.contributors || values.approvalSteps || values.countryLabel || values.market || '', need: note, keywords: (values.options || []).join(', '), reportId: remoteReport?.id || '', reportCode: remoteReport?.code || '' };
+        const demoPayload = { product: currentProduct.key, company: values.company, name: values.name, email: values.email, team: values.teamSize || values.contributors || values.approvalSteps || values.countryLabel || values.market || '', need: note, keywords: (values.options || []).join(', '), reportId: remoteReport?.id || '', reportCode: remoteReport?.code || '' };
         const remote = await postIfConfigured(config.integration?.demo_endpoint, demoPayload);
         if (remote.mode === 'remote' && remote.ok && remote.json?.demo) { applyStatePayload(remote.json?.state); await syncRemoteState(); entry = remote.json.demo; remoteSaved = true; }
         else if (remote.mode === 'remote' && !remote.ok) throw new Error(remote.json?.detail || remote.text || '데모 저장에 실패했습니다.');
         else entry = createDemo(demoPayload);
       }
-      const remoteHtml = product.key === 'veridion' ? renderVeridionRemoteReport(remoteReport, values) : product.key === 'clearport' ? renderClearportRemoteReport(remoteReport, values) : product.key === 'grantops' ? renderGrantopsRemoteReport(remoteReport, values) : renderDraftforgeRemoteReport(remoteReport, values);
-      const fallbackHtml = product.key === 'veridion' ? buildVeridionFallbackHtml(values, '실시간 탐색 응답이 불안정해도 입력값 기준 프리뷰를 먼저 보여드립니다.') : buildProductSpecificDemoResult(values);
-      const html = ((remoteReport ? remoteHtml : fallbackHtml) || fallbackHtml) + buildDemoSaveBox(entry, remoteSaved);
-      showResult('product-demo-result', html);
+      const remoteHtml = currentProduct.key === 'veridion' ? renderVeridionRemoteReport(remoteReport, values) : currentProduct.key === 'clearport' ? renderClearportRemoteReport(remoteReport, values) : currentProduct.key === 'grantops' ? renderGrantopsRemoteReport(remoteReport, values) : renderDraftforgeRemoteReport(remoteReport, values);
+      const fallbackHtml = currentProduct.key === 'veridion' ? buildVeridionFallbackHtml(values, fallbackReason || '실시간 탐색 응답이 불안정해도 입력값 기준 프리뷰를 먼저 보여드립니다.') : buildProductSpecificDemoResult(values);
+      const statusNotice = !remoteReport && fallbackReason ? `<div class="notice notice-light"><strong>실시간 엔진 대신 프리뷰 결과를 먼저 보여드립니다.</strong><br>${esc(fallbackReason)}</div>` : '';
+      const html = statusNotice + (((remoteReport ? remoteHtml : fallbackHtml) || fallbackHtml) + buildDemoSaveBox(entry, remoteSaved));
+      paintResult(html);
       fillCheckoutFromDemo({ company: values.company, name: values.name, email: values.email, note });
-      if (remoteReport) applyProductReportToCheckout(product.key, values, remoteReport);
+      if (remoteReport) applyProductReportToCheckout(currentProduct.key, values, remoteReport);
       renderAdminSummary(); renderLiveStats(); renderWorkspaceCards();
-    }); });
+    }).catch((error)=>paintResult(`<div class="empty-box">${esc(createFriendlyError(error, currentProduct?.key === 'veridion' ? '즉시 분석에 실패했습니다.' : '샘플 결과 생성에 실패했습니다.'))}</div>`)); });
   }
 
 
@@ -1708,6 +1871,7 @@ function renderProductDemoWorkspace(){
 }
 
 async function requestMockOrLivePayment(order, payment){
+  rememberPendingOrder(order);
   const confirmUrl = config.integration?.toss_confirm_endpoint || '/api/public/payments/toss/confirm';
   const successPath = payment?.successUrl || `${location.origin}${base.replace('./','/') }payments/toss/success/index.html`;
   const failPath = payment?.failUrl || `${location.origin}${base.replace('./','/') }payments/toss/fail/index.html`;
@@ -1738,11 +1902,13 @@ async function requestMockOrLivePayment(order, payment){
 async function bindProductCheckoutForm(){
   const form = document.getElementById('product-checkout-form');
   if (!form) return;
+  preloadCheckoutContext(form, product?.key || '');
   if (form.dataset.bound === '1') return;
   form.dataset.bound = '1';
   form.addEventListener('submit', (event) => { event.preventDefault(); withSubmitLock(form, async () => {
     const values = Object.fromEntries(new FormData(form).entries());
-    const payload = { product: values.product || product?.key, plan: values.plan || 'Starter', billing: values.billing || 'one-time', paymentMethod: values.paymentMethod || 'toss' };
+    const payload = { product: values.product || product?.key, plan: values.plan || 'Starter', billing: values.billing || 'one-time', paymentMethod: values.paymentMethod || 'toss', reportId: values.reportId || '', reportCode: values.reportCode || '', link: values.link || '', company: values.company || '', name: values.name || '', email: values.email || '', note: values.note || '' };
+    patchPipelineContext({ product: payload.product, plan: payload.plan, website: values.link || values.website || '', company: values.company || '', name: values.name || '', email: values.email || '', note: values.note || '' });
     const reserve = await postIfConfigured(config.integration?.reserve_order_endpoint || '/api/public/orders/reserve', payload);
     if (reserve.mode === 'remote' && reserve.ok && reserve.json?.order) {
       applyStatePayload(reserve.json?.state);
@@ -1763,9 +1929,15 @@ async function bindDemoForm(){
     const values = Object.fromEntries(new FormData(form).entries());
     assert(clean(values.website), '사이트 주소를 입력하세요.');
     const scan = await postIfConfigured(veridionScanEndpoint(), values);
+    values.website = normalizeWebsiteInput(values.website);
+    const websiteField = form.querySelector('[name="website"]');
+    if (websiteField) websiteField.value = values.website;
+    values.country = clean(values.country) || 'KR';
+    values.countryLabel = form.querySelector('[name="country"]')?.selectedOptions?.[0]?.textContent?.trim() || '';
     if (scan.mode === 'remote' && scan.ok && scan.json?.report) {
       applyStatePayload(scan.json?.state);
       setLastVeridionReport(scan.json.report);
+      rememberDemoFlow('veridion', values, scan.json.report);
       showResult('demo-result', renderVeridionRemoteReport(scan.json.report, values));
       return;
     }
@@ -1775,11 +1947,14 @@ async function bindDemoForm(){
 
 async function bindCheckoutForm(){
   const form = document.getElementById('checkout-form');
-  if (!form || form.dataset.bound === '1') return;
+  if (!form) return;
+  preloadCheckoutContext(form);
+  if (form.dataset.bound === '1') return;
   form.dataset.bound = '1';
   form.addEventListener('submit', (event) => { event.preventDefault(); withSubmitLock(form, async () => {
     const values = Object.fromEntries(new FormData(form).entries());
-    const payload = { product: values.product, plan: values.plan || 'Starter', billing: values.billing || 'one-time', paymentMethod: values.paymentMethod || 'toss' };
+    const payload = { product: values.product, plan: values.plan || 'Starter', billing: values.billing || 'one-time', paymentMethod: values.paymentMethod || 'toss', reportId: values.reportId || '', reportCode: values.reportCode || '', link: values.link || '', company: values.company || '', name: values.name || '', email: values.email || '', note: values.note || '' };
+    patchPipelineContext({ product: payload.product, plan: payload.plan, website: values.link || values.website || '', company: values.company || '', name: values.name || '', email: values.email || '', note: values.note || '' });
     const reserve = await postIfConfigured(config.integration?.reserve_order_endpoint || '/api/public/orders/reserve', payload);
     if (reserve.mode === 'remote' && reserve.ok && reserve.json?.order) {
       applyStatePayload(reserve.json?.state);
@@ -1792,10 +1967,13 @@ async function bindCheckoutForm(){
 
 async function bindContactForm(){
   const form = document.getElementById('contact-form');
-  if (!form || form.dataset.bound === '1') return;
+  if (!form) return;
+  preloadContactContext(form);
+  if (form.dataset.bound === '1') return;
   form.dataset.bound = '1';
   form.addEventListener('submit', (event) => { event.preventDefault(); withSubmitLock(form, async () => {
     const values = Object.fromEntries(new FormData(form).entries());
+    patchPipelineContext({ product: values.product || '', company: values.company || '', name: values.name || '', email: values.email || '', website: values.link || '', note: values.issue || '' });
     const remote = await postIfConfigured(config.integration?.contact_endpoint || '/api/public/contact-requests', values);
     if (remote.mode === 'remote' && remote.ok) { applyStatePayload(remote.json?.state); showResult('contact-result', '<div class="notice"><strong>확인 요청을 접수했습니다.</strong><br>운영 조건을 검토한 뒤 안내드리겠습니다.</div>'); return; }
     const entry = createContact(values); showResult('contact-result', `<div class="notice"><strong>확인 요청을 저장했습니다.</strong><br>코드 <span class="inline-code">${esc(entry.code)}</span></div>`);
@@ -1804,7 +1982,9 @@ async function bindContactForm(){
 
 async function bindPortalLookup(){
   const form = document.getElementById('portal-lookup-form');
-  if (!form || form.dataset.bound === '1') return;
+  if (!form) return;
+  preloadPortalContext(form);
+  if (form.dataset.bound === '1') return;
   form.dataset.bound = '1';
   form.addEventListener('submit', (event) => { event.preventDefault(); withSubmitLock(form, async () => {
     const values = Object.fromEntries(new FormData(form).entries());
@@ -1812,22 +1992,32 @@ async function bindPortalLookup(){
     const payload = remote.mode === 'remote' && remote.ok ? remote.json : { order: lookupOrder(values.email, values.code), publications: [] };
     const order = payload?.order;
     if (!order) { showResult('portal-result', '<div class="empty-box">일치하는 조회 내역을 찾지 못했습니다.</div>'); return; }
+    rememberCompletedOrder(order);
     showResult('portal-result', `<div class="notice"><strong>${esc(order.productName || productName(order.product))}</strong><br>상태: ${esc(orderStatusLabel(order.status))}<br>조회 코드 <span class="inline-code">${esc(order.code)}</span><br><a href="${portalHref(order)}">포털 링크 열기</a></div>`);
     const mock = document.getElementById('portal-mock');
     if (mock) mock.innerHTML = `<div class="mock-step"><strong>${esc(orderStatusLabel(order.status))}</strong><span>${esc(order.plan || '-')} · ${esc(order.email || '')}</span></div>`;
   }).catch((error)=>showResult('portal-result', `<div class="empty-box">${esc(createFriendlyError(error,'조회에 실패했습니다.'))}</div>`)); });
+  const seededEmail = clean(form.querySelector('[name="email"]')?.value);
+  const seededCode = clean(form.querySelector('[name="code"]')?.value);
+  if (seededEmail && seededCode) queueMicrotask(() => form.requestSubmit ? form.requestSubmit() : form.dispatchEvent(new Event('submit', { cancelable:true, bubbles:true })));
 }
 
 function renderPaymentSuccessState(order){
   const resultId = 'payment-success-result';
   if (!order) { showResult(resultId, '<div class="empty-box">결제 정보를 찾지 못했습니다.</div>'); return; }
+  rememberCompletedOrder(order);
   if (clean(order.status) === 'intake_required') {
     const websiteField = clean(order.product) === 'veridion' ? '<div class="span-2"><label>사이트 주소</label><input name="website" placeholder="https://example.com" inputmode="url" autocomplete="url" required></div>' : '';
     const introNotice = clean(order.product) === 'veridion' ? '서비스 1 전체 세부 점검 리포트와 서비스 2 사이트 맞춤형 수정안 리포트를 발행하기 위한 최소 정보만 입력해 주세요.' : '서비스 진행에 필요한 정보만 입력해 주세요.';
     showResult(resultId, `<div class="notice"><strong>결제가 완료되었습니다.</strong><br>${esc(introNotice)}</div><form id="payment-intake-form" class="stack-form"><div class="form-grid"><div><label>회사명</label><input name="company" placeholder="회사명" value="${esc(order.company || '')}" required></div><div><label>담당자명</label><input name="name" placeholder="담당자명" value="${esc(order.name || '')}" required></div><div><label>이메일</label><input name="email" type="email" placeholder="email@company.com" value="${esc(order.email || '')}" required></div>${websiteField}<div class="span-2"><label>추가 요청(선택)</label><input name="note" placeholder="꼭 포함할 기준, 참고할 점"></div></div><div class="actions"><button class="button" type="submit">진행 정보 저장</button></div></form>`);
     const form = document.getElementById('payment-intake-form');
+    preloadCheckoutContext(form, clean(order.product));
+    const websiteFieldInput = form?.querySelector?.('[name="website"]');
+    if (websiteFieldInput && !String(websiteFieldInput.value || '').trim()) websiteFieldInput.value = getPipelineContext().website || order.link || '';
     form?.addEventListener('submit', (event) => { event.preventDefault(); withSubmitLock(form, async () => {
       const values = Object.fromEntries(new FormData(form).entries());
+      if (values.website !== undefined) values.website = normalizeWebsiteInput(values.website);
+      patchPipelineContext({ company: values.company || '', name: values.name || '', email: values.email || '', website: values.website || '', note: values.note || '' });
       const remote = await postIfConfigured(`/api/public/orders/${encodeURIComponent(order.id)}/intake`, values);
       if (remote.mode === 'remote' && remote.ok && remote.json?.order) {
         applyStatePayload(remote.json?.state);
@@ -1851,8 +2041,8 @@ async function bindPaymentResultPages(){
     const amount = Number(params.get('amount') || 0);
     if (!orderId) { showResult('payment-success-result', '<div class="empty-box">결제 승인 정보가 없습니다.</div>'); return; }
     const confirm = await postIfConfigured(config.integration?.toss_confirm_endpoint || '/api/public/payments/toss/confirm', { orderId, paymentKey: paymentKey || `mock_${orderId}`, amount });
-    if (confirm.mode === 'remote' && confirm.ok && confirm.json?.order) { applyStatePayload(confirm.json?.state); renderPaymentSuccessState(confirm.json.order); return; }
-    const localOrder = read(STORE.orders).find((item)=>item.id===orderId); renderPaymentSuccessState(localOrder);
+    if (confirm.mode === 'remote' && confirm.ok && confirm.json?.order) { applyStatePayload(confirm.json?.state); rememberCompletedOrder(confirm.json.order); renderPaymentSuccessState(confirm.json.order); return; }
+    const localOrder = read(STORE.orders).find((item)=>item.id===orderId); rememberCompletedOrder(localOrder); renderPaymentSuccessState(localOrder);
   }
   const fail = document.getElementById('payment-fail-result');
   if (fail) {
