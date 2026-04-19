@@ -757,6 +757,13 @@ def state_payload() -> dict[str, Any]:
     return deepcopy(state)
 
 
+def public_state_payload(*record_types: str) -> dict[str, Any]:
+    allowed = [clean(name) for name in record_types if clean(name) in {"publications", "reports"}]
+    if not allowed:
+        return {}
+    return {name: load_records(name) for name in allowed}
+
+
 def export_state_payload() -> dict[str, Any]:
     return {
         "exportedAt": now_iso(),
@@ -3929,7 +3936,7 @@ def build_admin_login_page(message: str = "") -> str:
     .meta {{ margin-top:16px; font-size:13px; color:#64748b; }}
   </style>
 </head>
-<body>
+<body class=\"admin\" data-page=\"admin\">
   <main class=\"shell\">
     <span class=\"eyebrow\">Admin protected</span>
     <h1>NV0 관리자 로그인</h1>
@@ -4481,6 +4488,16 @@ def create_app() -> FastAPI:
         openapi_url="/api/openapi.json" if ENABLE_DOCS else None,
     )
     app.add_middleware(GZipMiddleware, minimum_size=1024)
+
+    @app.middleware("http")
+    async def strip_response_fingerprint_headers(request: Request, call_next):
+        response = await call_next(request)
+        for header_name in ("server", "date"):
+            for candidate in (header_name, header_name.title()):
+                if candidate in response.headers:
+                    del response.headers[candidate]
+        return response
+
     @app.middleware("http")
     async def add_security_headers(request: Request, call_next):
         host_response = invalid_host_response(request)
@@ -4645,22 +4662,22 @@ def create_app() -> FastAPI:
         @app.post("/api/public/orders")
         def public_orders(payload: dict[str, Any]) -> dict[str, Any]:
             order = create_order_entry(payload)
-            return {"ok": True, "order": order, "state": state_payload()}
+            return {"ok": True, "order": order}
 
         @app.post("/api/public/orders/reserve")
         def public_reserve_order(payload: dict[str, Any]) -> dict[str, Any]:
             order = reserve_toss_order(payload)
-            return {"ok": True, "order": order, "payment": public_config()["payment"]["toss"], "state": state_payload()}
+            return {"ok": True, "order": order, "payment": public_config()["payment"]["toss"]}
 
         @app.post("/api/public/payments/toss/confirm")
         def public_toss_confirm(payload: dict[str, Any]) -> dict[str, Any]:
             order = confirm_toss_payment(payload)
-            return {"ok": True, "order": order, "state": state_payload()}
+            return {"ok": True, "order": order}
 
         @app.post("/api/public/orders/{order_id}/intake")
         def public_order_intake(order_id: str, payload: dict[str, Any]) -> dict[str, Any]:
             order = submit_order_intake(order_id, payload)
-            return {"ok": True, "order": order, "state": state_payload()}
+            return {"ok": True, "order": order}
 
 
         @app.post("/api/public/payments/toss/webhook")
@@ -4678,55 +4695,55 @@ def create_app() -> FastAPI:
             cache_key = scan_cache_key(payload)
             cached = read_cached_scan(cache_key)
             if cached:
-                return {"ok": True, "report": build_veridion_public_report(cached), "cached": True, "preview": build_veridion_demo_preview(cached, clip_text(payload.get('company'), 160) or '샘플 회사'), "state": state_payload()}
+                return {"ok": True, "report": build_veridion_public_report(cached), "cached": True, "preview": build_veridion_demo_preview(cached, clip_text(payload.get('company'), 160) or '샘플 회사')}
             report = build_veridion_scan(payload)
             write_cached_scan(cache_key, report)
-            return {"ok": True, "report": build_veridion_public_report(report), "cached": False, "preview": build_veridion_demo_preview(report, clip_text(payload.get('company'), 160) or '샘플 회사'), "state": state_payload()}
+            return {"ok": True, "report": build_veridion_public_report(report), "cached": False, "preview": build_veridion_demo_preview(report, clip_text(payload.get('company'), 160) or '샘플 회사')}
 
         @app.post("/api/public/clearport/analyze")
         def public_clearport_analyze(payload: dict[str, Any]) -> dict[str, Any]:
             cached = read_cached_analysis('clearport', payload)
             if cached:
-                return {"ok": True, "report": build_clearport_public_report(cached), "preview": build_clearport_demo_preview(cached, clip_text(payload.get('company'), 160) or '샘플 회사'), "cached": True, "state": state_payload()}
+                return {"ok": True, "report": build_clearport_public_report(cached), "preview": build_clearport_demo_preview(cached, clip_text(payload.get('company'), 160) or '샘플 회사'), "cached": True}
             report = build_clearport_report(payload)
             write_cached_analysis('clearport', payload, report)
-            return {"ok": True, "report": build_clearport_public_report(report), "preview": build_clearport_demo_preview(report, clip_text(payload.get('company'), 160) or '샘플 회사'), "cached": False, "state": state_payload()}
+            return {"ok": True, "report": build_clearport_public_report(report), "preview": build_clearport_demo_preview(report, clip_text(payload.get('company'), 160) or '샘플 회사'), "cached": False}
 
         @app.post("/api/public/grantops/analyze")
         def public_grantops_analyze(payload: dict[str, Any]) -> dict[str, Any]:
             cached = read_cached_analysis('grantops', payload)
             if cached:
-                return {"ok": True, "report": build_grantops_public_report(cached), "preview": build_grantops_demo_preview(cached, clip_text(payload.get('company'), 160) or '샘플 회사'), "cached": True, "state": state_payload()}
+                return {"ok": True, "report": build_grantops_public_report(cached), "preview": build_grantops_demo_preview(cached, clip_text(payload.get('company'), 160) or '샘플 회사'), "cached": True}
             report = build_grantops_report(payload)
             write_cached_analysis('grantops', payload, report)
-            return {"ok": True, "report": build_grantops_public_report(report), "preview": build_grantops_demo_preview(report, clip_text(payload.get('company'), 160) or '샘플 회사'), "cached": False, "state": state_payload()}
+            return {"ok": True, "report": build_grantops_public_report(report), "preview": build_grantops_demo_preview(report, clip_text(payload.get('company'), 160) or '샘플 회사'), "cached": False}
 
         @app.post("/api/public/draftforge/analyze")
         def public_draftforge_analyze(payload: dict[str, Any]) -> dict[str, Any]:
             cached = read_cached_analysis('draftforge', payload)
             if cached:
-                return {"ok": True, "report": build_draftforge_public_report(cached), "preview": build_draftforge_demo_preview(cached, clip_text(payload.get('company'), 160) or '샘플 회사'), "cached": True, "state": state_payload()}
+                return {"ok": True, "report": build_draftforge_public_report(cached), "preview": build_draftforge_demo_preview(cached, clip_text(payload.get('company'), 160) or '샘플 회사'), "cached": True}
             report = build_draftforge_report(payload)
             write_cached_analysis('draftforge', payload, report)
-            return {"ok": True, "report": build_draftforge_public_report(report), "preview": build_draftforge_demo_preview(report, clip_text(payload.get('company'), 160) or '샘플 회사'), "cached": False, "state": state_payload()}
+            return {"ok": True, "report": build_draftforge_public_report(report), "preview": build_draftforge_demo_preview(report, clip_text(payload.get('company'), 160) or '샘플 회사'), "cached": False}
 
         @app.post("/api/public/demo-requests")
         def public_demos(payload: dict[str, Any]) -> dict[str, Any]:
             entry = create_demo_entry(payload)
             preview = build_demo_preview(entry["product"], {**payload, "plan": payload.get("plan") or entry.get("plan") or "Starter"})
-            return {"ok": True, "demo": entry, "preview": preview, "state": state_payload()}
+            return {"ok": True, "demo": entry, "preview": preview}
 
         @app.post("/api/public/contact-requests")
         def public_contacts(payload: dict[str, Any]) -> dict[str, Any]:
             entry = create_contact_entry(payload)
-            return {"ok": True, "contact": entry, "state": state_payload()}
+            return {"ok": True, "contact": entry}
 
         @app.post("/api/public/portal/lookup")
         def public_portal_lookup(payload: dict[str, Any]) -> dict[str, Any]:
             lookup = create_lookup_entry(payload)
             order = find_order(clean(payload.get("email")), clean(payload.get("code")))
             publications = [item for item in load_records("publications") if order and item.get("id") in (order.get("publicationIds") or [])]
-            return {"ok": True, "lookup": lookup, "order": order, "publications": publications, "state": state_payload()}
+            return {"ok": True, "lookup": lookup, "order": order, "publications": publications}
 
         @app.post("/api/public/auth/register")
         def public_auth_register(payload: dict[str, Any]) -> dict[str, Any]:
@@ -4795,7 +4812,7 @@ def create_app() -> FastAPI:
             order = upsert_record("orders", base_order_entry({"product": "veridion", "plan": "Growth", "billing": "one-time", "paymentMethod": "toss", "company": "Demo Company", "name": "테스터", "email": "demo@nv0.kr", "note": "시드 결제"}, payment_status="pending"))
             create_demo_entry({"product": "clearport", "company": "Demo Company", "name": "테스터", "email": "demo@nv0.kr", "team": "3명 팀", "need": "정상작동 확인"})
             create_contact_entry({"product": "grantops", "company": "Demo Company", "email": "demo@nv0.kr", "issue": "제출 일정 문의"})
-            return {"ok": True, "order": order, "state": state_payload()}
+            return {"ok": True, "order": order}
 
     @app.post("/api/admin/actions/reset")
     def admin_reset(_: None = Depends(require_admin)) -> dict[str, Any]:
