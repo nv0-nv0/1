@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import subprocess
 import secrets
 import sys
 from pathlib import Path
@@ -60,6 +61,28 @@ def int_env(name: str, default: int | None = None) -> int | None:
     return value
 
 
+
+
+def dist_matches_mode(root: Path, board_only: bool) -> bool:
+    dist = root / "dist"
+    if not dist.exists():
+        return False
+    full_probe = dist / "products" / "veridion" / "demo" / "index.html"
+    board_probe = dist / "board" / "index.html"
+    if board_only:
+        return board_probe.exists() and not full_probe.exists()
+    return full_probe.exists()
+
+
+def ensure_dist_built(board_only: bool) -> None:
+    root = Path(__file__).resolve().parent
+    if dist_matches_mode(root, board_only):
+        return
+    log(f"dist output is stale for mode={'board_only' if board_only else 'full'}. Rebuilding.")
+    env = os.environ.copy()
+    env['NV0_BOARD_ONLY_MODE'] = '1' if board_only else '0'
+    subprocess.run([sys.executable, 'build.py'], cwd=root, env=env, check=True)
+
 def main() -> None:
     load_env_files()
     port = clean(os.getenv("PORT")) or "8000"
@@ -72,6 +95,7 @@ def main() -> None:
     maybe_set_default("NV0_ALLOWED_ORIGINS", f"{scheme}://{netloc}")
 
     board_only = is_true(os.getenv("NV0_BOARD_ONLY_MODE"))
+    ensure_dist_built(board_only)
     toss_mock = is_true(os.getenv("NV0_TOSS_MOCK"))
     local_base = is_local_base()
     strict_startup = is_true(os.getenv("NV0_STRICT_STARTUP"))

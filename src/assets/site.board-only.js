@@ -155,7 +155,7 @@
 
   function renderFooter(){
     const footer = document.getElementById('site-footer'); if (!footer) return;
-    footer.innerHTML = `<div class="container footer-grid"><div><div class="brand"><span class="brand-mark">N0</span><span class="brand-copy"><strong>${config.brand?.name || 'NV0'}</strong><span>공개 콘텐츠 허브</span></span></div><small style="margin-top:14px">공개 허브는 읽기 전용으로 운영하며 실제 발행과 관리 기능은 별도 관리자 화면에서 처리합니다.</small></div><div><strong>바로 보기</strong><small><a href="${base}board/index.html">게시판</a><br><a href="${base}admin/index.html">관리자</a><br><a href="${base}legal/privacy/index.html">개인정보처리방침</a></small></div><div><strong>문의</strong><small><a href="${base}products/${item.key}/index.html#intro">${config.brand?.contact_email || 'ct@nv0.kr'}</a><br>운영 범위: 공개 콘텐츠 허브 전용</small></div></div>`;
+    footer.innerHTML = `<div class="container footer-grid"><div><div class="brand"><span class="brand-mark">N0</span><span class="brand-copy"><strong>${config.brand?.name || 'NV0'}</strong><span>공개 콘텐츠 허브</span></span></div><small style="margin-top:14px">공개 허브는 읽기 전용으로 운영하며 실제 발행과 관리 기능은 별도 관리자 화면에서 처리합니다.</small></div><div><strong>바로 보기</strong><small><a href="${base}board/index.html">게시판</a><br><a href="${base}admin/index.html">관리자</a><br><a href="${base}legal/privacy/index.html">개인정보처리방침</a></small></div><div><strong>문의</strong><small><a href="mailto:${config.brand?.contact_email || 'ct@nv0.kr'}">${config.brand?.contact_email || 'ct@nv0.kr'}</a><br>운영 범위: 공개 콘텐츠 허브 전용</small></div></div>`;
   }
 
   function renderProductGrid(){

@@ -815,4 +815,17 @@ def favicon_ico_bytes() -> bytes:
 
 
 def apply_page_overrides(dist: Path, data: dict):
-    return None
+    pages = {
+        dist / 'legal' / 'terms' / 'index.html': build_terms_page(data),
+        dist / '404.html': build_404_page(data),
+        dist / 'robots.txt': robots_txt(),
+        dist / 'sitemap.xml': sitemap_xml(data),
+        dist / '.well-known' / 'security.txt': security_txt(data),
+        dist / 'assets' / 'favicon.svg': favicon_svg(data),
+    }
+    for path, content in pages.items():
+        if isinstance(content, bytes):
+            write_bytes(path, content)
+        else:
+            write(path, content)
+    write_bytes(dist / 'favicon.ico', favicon_ico_bytes())
